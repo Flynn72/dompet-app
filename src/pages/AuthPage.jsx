@@ -94,7 +94,7 @@ export default function AuthPage({ onAuthSuccess }) {
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="contoh: suryatri"
+            placeholder="username"
             style={styles.input}
             autoCapitalize="none"
             autoCorrect="off"
