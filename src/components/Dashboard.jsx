@@ -225,6 +225,17 @@ export default function Dashboard({ user, onLogout }) {
     [expenseSpend, expenseCategories]
   );
 
+  const savingPieData = useMemo(
+    () => savingCategories.filter((c) => savingSpend[c.id] > 0).map((c) => ({ name: c.label, value: savingSpend[c.id] || 0, color: c.color })),
+    [savingSpend, savingCategories]
+  );
+
+  // Income tidak berkategori — tampilkan sebagai satu nilai tunggal
+  const incomePieData = useMemo(() => {
+    if (totalIncome <= 0) return [];
+    return [{ name: 'Income', value: totalIncome, color: '#7FE8A4' }];
+  }, [totalIncome]);
+
   const trendData = useMemo(() => {
     const now = new Date(activeMonth + '-01T00:00:00');
     const result = [];
@@ -294,7 +305,7 @@ export default function Dashboard({ user, onLogout }) {
         .dompet-columns { display: block; }
         .dompet-col-left { width: 100%; }
         .dompet-col-right { width: 100%; }
-        .dompet-fab { position: fixed; bottom: 24px; right: 24px; width: 54px; height: 54px; border-radius: 16px; background: #7FE8A4; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 16px rgba(127,232,164,0.35); z-index: 40; }
+        .dompet-fab { position: fixed; bottom: 24px; right: calc(50% - 240px + 24px); width: 54px; height: 54px; border-radius: 16px; background: #7FE8A4; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 16px rgba(127,232,164,0.35); z-index: 40; }
 
         @media (min-width: 900px) {
           .dompet-page { max-width: 100%; padding-bottom: 40px; }
@@ -338,7 +349,7 @@ export default function Dashboard({ user, onLogout }) {
 
       <div className="dompet-tabbar">
         {[
-          { id: 'overview', label: 'Ringkasan' },
+          { id: 'overview', label: 'Dashboard' },
           { id: 'transactions', label: 'Transaksi' },
           { id: 'reports', label: 'Laporan' },
         ].map((t) => (
@@ -451,56 +462,103 @@ export default function Dashboard({ user, onLogout }) {
         )}
 
         {tab === 'reports' && (
-          <div className="dompet-columns">
-            <div className="dompet-col-left">
-              <div style={styles.sectionHeader}><span style={styles.sectionTitle}>Expense per kategori</span></div>
-              {pieData.length > 0 ? (
-                <div style={{ width: '100%', height: 260 }}>
-                  <ResponsiveContainer>
-                    <PieChart>
-                      <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={65} outerRadius={100} paddingAngle={2}>
-                        {pieData.map((entry, i) => (<Cell key={i} fill={entry.color} stroke="#0F1410" strokeWidth={2} />))}
-                      </Pie>
-                      <Tooltip formatter={(v) => formatRupiah(v)} contentStyle={{ background: '#1A211C', border: '1px solid #2A332C', borderRadius: 8, color: '#EAF0EA' }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div style={styles.emptyHint}>Belum ada pengeluaran untuk ditampilkan.</div>
-              )}
-              <div style={styles.legendWrap}>
-                {pieData.map((p) => (
-                  <div key={p.name} style={styles.legendItem}>
-                    <span style={{ width: 9, height: 9, borderRadius: 2, background: p.color, display: 'inline-block' }} />
-                    <span style={{ fontSize: 12, color: '#9CA89F' }}>{p.name}</span>
-                    <span style={{ fontSize: 12, color: '#EAF0EA', marginLeft: 'auto' }}>{formatRupiah(p.value)}</span>
-                  </div>
-                ))}
+          <>
+            {/* Kartu ringkasan saldo */}
+            <div style={{ ...styles.summaryGrid, marginBottom: 28 }}>
+              <div style={{ ...styles.summaryCard, gridColumn: '1 / -1' }}>
+                <span style={styles.summaryLabel}>Sisa saldo bulan ini</span>
+                <span style={{ ...styles.balanceNumber, color: balance >= 0 ? '#7FE8A4' : '#FF9466' }}>{formatRupiah(balance)}</span>
+                <span style={{ fontSize: 11, color: '#6B7568' }}>Income dikurangi expense dan saving/investasi</span>
+              </div>
+              <div style={styles.summaryCard}>
+                <div style={styles.summaryIconRow}><TrendingUp size={14} color="#7FE8A4" /><span style={styles.summaryLabel}>Income</span></div>
+                <span style={{ ...styles.summaryNumber, color: '#7FE8A4' }}>{formatRupiah(totalIncome)}</span>
+              </div>
+              <div style={styles.summaryCard}>
+                <span style={styles.summaryLabel}>Total terpakai</span>
+                <span style={{ ...styles.summaryNumber, color: '#EAF0EA' }}>{formatRupiah(totalUsed)}</span>
+                <span style={{ fontSize: 10, color: '#6B7568' }}>Expense + saving</span>
+              </div>
+              <div style={styles.summaryCard}>
+                <div style={styles.summaryIconRow}><TrendingDown size={14} color="#FF9466" /><span style={styles.summaryLabel}>Expense</span></div>
+                <span style={{ ...styles.summaryNumber, color: '#FF9466' }}>{formatRupiah(totalExpense)}</span>
+              </div>
+              <div style={styles.summaryCard}>
+                <div style={styles.summaryIconRow}><PiggyBank size={14} color="#6FB7E8" /><span style={styles.summaryLabel}>Saving</span></div>
+                <span style={{ ...styles.summaryNumber, color: '#6FB7E8' }}>{formatRupiah(totalSaving)}</span>
               </div>
             </div>
 
-            <div className="dompet-col-right">
+            {/* 3 Pie chart: Income, Expense, Saving */}
+            <div className="dompet-columns" style={{ marginBottom: 32 }}>
+              {[
+                { label: 'Income', color: '#7FE8A4', total: totalIncome, data: [{ name: 'Income', value: totalIncome, color: '#7FE8A4' }] },
+                { label: 'Expense', color: '#FF9466', total: totalExpense, data: pieData },
+                { label: 'Saving', color: '#6FB7E8', total: totalSaving, data: savingCategories.filter((c) => savingSpend[c.id] > 0).map((c) => ({ name: c.label, value: savingSpend[c.id], color: c.color })) },
+              ].map((section) => (
+                <div key={section.label} style={{ background: '#1A211C', borderRadius: 14, padding: '16px' }}>
+                  <div style={styles.sectionHeader}>
+                    <span style={styles.sectionTitle}>{section.label}</span>
+                    <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 14, color: section.color }}>{formatRupiah(section.total)}</span>
+                  </div>
+                  {section.total > 0 ? (
+                    <>
+                      <div style={{ width: '100%', height: 180 }}>
+                        <ResponsiveContainer>
+                          <PieChart>
+                            <Pie data={section.data} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={2}>
+                              {section.data.map((entry, i) => (<Cell key={i} fill={entry.color} stroke="#1A211C" strokeWidth={2} />))}
+                            </Pie>
+                            <Tooltip formatter={(v) => formatRupiah(v)} contentStyle={{ background: '#0F1410', border: '1px solid #2A332C', borderRadius: 8, color: '#EAF0EA', fontSize: 12 }} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                        {section.data.map((p) => (
+                          <div key={p.name} style={styles.legendItem}>
+                            <span style={{ width: 8, height: 8, borderRadius: 2, background: p.color, display: 'inline-block', flexShrink: 0 }} />
+                            <span style={{ fontSize: 11, color: '#9CA89F', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                            <span style={{ fontSize: 11, color: '#EAF0EA', flexShrink: 0 }}>{formatRupiah(p.value)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ ...styles.emptyHint, padding: '32px 0' }}>Belum ada data {section.label.toLowerCase()} bulan ini.</div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Tren 6 bulan */}
+            <div style={{ background: '#1A211C', borderRadius: 14, padding: 16, marginBottom: 32 }}>
               <div style={styles.sectionHeader}><span style={styles.sectionTitle}>Tren 6 bulan</span></div>
               <div style={{ width: '100%', height: 260 }}>
                 <ResponsiveContainer>
                   <BarChart data={trendData} barGap={2}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#22291F" vertical={false} />
                     <XAxis dataKey="label" stroke="#9CA89F" fontSize={11} tickLine={false} axisLine={{ stroke: '#22291F' }} />
-                    <YAxis stroke="#9CA89F" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => (v >= 1000000 ? (v / 1000000).toFixed(0) + 'jt' : v >= 1000 ? (v / 1000).toFixed(0) + 'rb' : v)} />
-                    <Tooltip formatter={(v) => formatRupiah(v)} contentStyle={{ background: '#1A211C', border: '1px solid #2A332C', borderRadius: 8, color: '#EAF0EA' }} />
+                    <YAxis
+                      stroke="#9CA89F"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(v) => (v >= 1000000 ? (v / 1000000).toFixed(1) + 'jt' : v >= 1000 ? (v / 1000).toFixed(0) + 'rb' : v)}
+                    />
+                    <Tooltip formatter={(v) => formatRupiah(v)} contentStyle={{ background: '#0F1410', border: '1px solid #2A332C', borderRadius: 8, color: '#EAF0EA' }} />
                     <Bar dataKey="inc" fill="#7FE8A4" radius={[3, 3, 0, 0]} name="Income" />
                     <Bar dataKey="exp" fill="#FF9466" radius={[3, 3, 0, 0]} name="Expense" />
                     <Bar dataKey="sav" fill="#6FB7E8" radius={[3, 3, 0, 0]} name="Saving" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-              <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 8, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginTop: 8, flexWrap: 'wrap' }}>
                 <span style={styles.legendItem2}><span style={{ width: 9, height: 9, borderRadius: 2, background: '#7FE8A4', display: 'inline-block' }} />Income</span>
                 <span style={styles.legendItem2}><span style={{ width: 9, height: 9, borderRadius: 2, background: '#FF9466', display: 'inline-block' }} />Expense</span>
                 <span style={styles.legendItem2}><span style={{ width: 9, height: 9, borderRadius: 2, background: '#6FB7E8', display: 'inline-block' }} />Saving</span>
               </div>
             </div>
-          </div>
+          </>
         )}
       </div>
 
