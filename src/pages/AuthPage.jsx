@@ -94,7 +94,7 @@ export default function AuthPage({ onAuthSuccess }) {
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="username"
+            placeholder="Masukan Username"
             style={styles.input}
             autoCapitalize="none"
             autoCorrect="off"
@@ -106,7 +106,7 @@ export default function AuthPage({ onAuthSuccess }) {
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Minimal 6 karakter"
+              placeholder="Masukan Password"
               style={{ ...styles.input, paddingRight: 40 }}
             />
             <button type="button" onClick={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
