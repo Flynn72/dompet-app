@@ -294,7 +294,7 @@ export default function Dashboard({ user, onLogout }) {
         .dompet-columns { display: block; }
         .dompet-col-left { width: 100%; }
         .dompet-col-right { width: 100%; }
-        .dompet-fab { position: fixed; bottom: 24px; right: calc(50% - 240px + 24px); width: 54px; height: 54px; border-radius: 16px; background: #7FE8A4; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 16px rgba(127,232,164,0.35); z-index: 40; }
+        .dompet-fab { position: fixed; bottom: 24px; right: 24px; width: 54px; height: 54px; border-radius: 16px; background: #7FE8A4; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 16px rgba(127,232,164,0.35); z-index: 40; }
 
         @media (min-width: 900px) {
           .dompet-page { max-width: 100%; padding-bottom: 40px; }
