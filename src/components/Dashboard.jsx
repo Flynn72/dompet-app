@@ -277,15 +277,37 @@ export default function Dashboard({ user, onLogout }) {
   const activeCatList = catEditType === 'saving' ? savingCategories : expenseCategories;
 
   return (
-    <div style={styles.page}>
+    <div className="dompet-page">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap');
         * { box-sizing: border-box; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-thumb { background: #2A332C; border-radius: 3px; }
-        body { font-family: 'Inter', sans-serif; }
+        body { font-family: 'Inter', sans-serif; background: #0F1410; margin: 0; }
         input, select { font-family: 'Inter', sans-serif; }
         @keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+        .dompet-page { min-height: 100vh; background: #0F1410; color: #EAF0EA; padding-bottom: 90px; max-width: 480px; margin: 0 auto; position: relative; }
+        .dompet-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 12px; }
+        .dompet-tabbar { display: flex; align-items: center; gap: 4px; padding: 0 20px 16px; border-bottom: 1px solid #1E261F; }
+        .dompet-content { padding: 16px 20px 0; }
+        .dompet-columns { display: block; }
+        .dompet-col-left { width: 100%; }
+        .dompet-col-right { width: 100%; }
+        .dompet-fab { position: fixed; bottom: 24px; right: calc(50% - 240px + 24px); width: 54px; height: 54px; border-radius: 16px; background: #7FE8A4; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 16px rgba(127,232,164,0.35); z-index: 40; }
+
+        @media (min-width: 900px) {
+          .dompet-page { max-width: 100%; padding-bottom: 40px; }
+          .dompet-header { max-width: 1280px; margin: 0 auto; padding: 24px 48px 16px; }
+          .dompet-tabbar { max-width: 1280px; margin: 0 auto; padding: 0 48px 16px; }
+          .dompet-content { max-width: 1280px; margin: 0 auto; padding: 24px 48px 48px; }
+          .dompet-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; align-items: start; }
+          .dompet-fab { right: 48px; bottom: 48px; width: 58px; height: 58px; }
+        }
+
+        @media (min-width: 1280px) {
+          .dompet-columns { grid-template-columns: 1.15fr 0.85fr; }
+        }
       `}</style>
 
       {saveError && (
@@ -295,7 +317,7 @@ export default function Dashboard({ user, onLogout }) {
         </div>
       )}
 
-      <div style={styles.header}>
+      <div className="dompet-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={styles.logoMark}><Wallet size={18} color="#0F1410" /></div>
           <span style={styles.logoText}>Dompet</span>
@@ -314,7 +336,7 @@ export default function Dashboard({ user, onLogout }) {
         </div>
       </div>
 
-      <div style={styles.tabBar}>
+      <div className="dompet-tabbar">
         {[
           { id: 'overview', label: 'Ringkasan' },
           { id: 'transactions', label: 'Transaksi' },
@@ -325,94 +347,100 @@ export default function Dashboard({ user, onLogout }) {
         <button onClick={() => setShowCategoryModal(true)} style={styles.settingsBtn} aria-label="Kelola kategori"><Settings size={16} color="#9CA89F" /></button>
       </div>
 
-      <div style={styles.content}>
+      <div className="dompet-content">
         {tab === 'overview' && (
-          <>
-            <div style={styles.summaryGrid}>
-              <div style={{ ...styles.summaryCard, gridColumn: '1 / -1' }}>
-                <span style={styles.summaryLabel}>Sisa saldo bulan ini</span>
-                <span style={{ ...styles.balanceNumber, color: balance >= 0 ? '#7FE8A4' : '#FF9466' }}>{formatRupiah(balance)}</span>
-                <span style={{ fontSize: 11, color: '#6B7568' }}>Income dikurangi expense dan saving/investasi</span>
+          <div className="dompet-columns">
+            {/* Kolom kiri: ringkasan saldo + budget */}
+            <div className="dompet-col-left">
+              <div style={styles.summaryGrid}>
+                <div style={{ ...styles.summaryCard, gridColumn: '1 / -1' }}>
+                  <span style={styles.summaryLabel}>Sisa saldo bulan ini</span>
+                  <span style={{ ...styles.balanceNumber, color: balance >= 0 ? '#7FE8A4' : '#FF9466' }}>{formatRupiah(balance)}</span>
+                  <span style={{ fontSize: 11, color: '#6B7568' }}>Income dikurangi expense dan saving/investasi</span>
+                </div>
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryIconRow}><TrendingUp size={14} color="#7FE8A4" /><span style={styles.summaryLabel}>Income</span></div>
+                  <span style={{ ...styles.summaryNumber, color: '#7FE8A4' }}>{formatRupiah(totalIncome)}</span>
+                </div>
+                <div style={styles.summaryCard}>
+                  <span style={styles.summaryLabel}>Total terpakai</span>
+                  <span style={{ ...styles.summaryNumber, color: '#EAF0EA' }}>{formatRupiah(totalUsed)}</span>
+                  <span style={{ fontSize: 10, color: '#6B7568' }}>Expense + saving</span>
+                </div>
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryIconRow}><TrendingDown size={14} color="#FF9466" /><span style={styles.summaryLabel}>Expense</span></div>
+                  <span style={{ ...styles.summaryNumber, color: '#FF9466' }}>{formatRupiah(totalExpense)}</span>
+                </div>
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryIconRow}><PiggyBank size={14} color="#6FB7E8" /><span style={styles.summaryLabel}>Saving</span></div>
+                  <span style={{ ...styles.summaryNumber, color: '#6FB7E8' }}>{formatRupiah(totalSaving)}</span>
+                </div>
               </div>
-              <div style={styles.summaryCard}>
-                <div style={styles.summaryIconRow}><TrendingUp size={14} color="#7FE8A4" /><span style={styles.summaryLabel}>Income</span></div>
-                <span style={{ ...styles.summaryNumber, color: '#7FE8A4' }}>{formatRupiah(totalIncome)}</span>
-              </div>
-              <div style={styles.summaryCard}>
-                <span style={styles.summaryLabel}>Total terpakai</span>
-                <span style={{ ...styles.summaryNumber, color: '#EAF0EA' }}>{formatRupiah(totalUsed)}</span>
-                <span style={{ fontSize: 10, color: '#6B7568' }}>Expense + saving</span>
-              </div>
-              <div style={styles.summaryCard}>
-                <div style={styles.summaryIconRow}><TrendingDown size={14} color="#FF9466" /><span style={styles.summaryLabel}>Expense</span></div>
-                <span style={{ ...styles.summaryNumber, color: '#FF9466' }}>{formatRupiah(totalExpense)}</span>
-              </div>
-              <div style={styles.summaryCard}>
-                <div style={styles.summaryIconRow}><PiggyBank size={14} color="#6FB7E8" /><span style={styles.summaryLabel}>Saving</span></div>
-                <span style={{ ...styles.summaryNumber, color: '#6FB7E8' }}>{formatRupiah(totalSaving)}</span>
-              </div>
-            </div>
 
-            <div style={styles.sectionHeader}>
-              <span style={styles.sectionTitle}>Budget expense</span>
-              <button onClick={() => setShowBudgetModal(true)} style={styles.linkBtn}>Atur budget</button>
-            </div>
-            <div style={styles.budgetList}>
-              {expenseCategories.filter((c) => getBudgetAmount(c.id, activeMonth) > 0 || expenseSpend[c.id] > 0).length === 0 && (
-                <div style={styles.emptyHint}>Belum ada budget expense. Atur budget untuk mulai memantau.</div>
-              )}
-              {expenseCategories.filter((c) => getBudgetAmount(c.id, activeMonth) > 0 || expenseSpend[c.id] > 0).map((c) => {
-                const spent = expenseSpend[c.id] || 0;
-                const budget = getBudgetAmount(c.id, activeMonth);
-                const pct = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
-                const over = budget > 0 && spent > budget;
-                let barColor = '#7FE8A4';
-                if (pct > 70) barColor = '#F5C95D';
-                if (pct >= 100) barColor = '#FF9466';
-                return (
-                  <div key={c.id} style={styles.budgetRow}>
-                    <div style={styles.budgetRowTop}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#EAF0EA' }}>
-                        <span style={{ width: 8, height: 8, borderRadius: 2, background: c.color, display: 'inline-block' }} />{c.label}
-                      </span>
-                      <span style={{ fontSize: 12, color: over ? '#FF9466' : '#9CA89F' }}>{formatRupiah(spent)} {budget > 0 ? `/ ${formatRupiah(budget)}` : ''}</span>
+              <div style={styles.sectionHeader}>
+                <span style={styles.sectionTitle}>Budget expense</span>
+                <button onClick={() => setShowBudgetModal(true)} style={styles.linkBtn}>Atur budget</button>
+              </div>
+              <div style={styles.budgetList}>
+                {expenseCategories.filter((c) => getBudgetAmount(c.id, activeMonth) > 0 || expenseSpend[c.id] > 0).length === 0 && (
+                  <div style={styles.emptyHint}>Belum ada budget expense. Atur budget untuk mulai memantau.</div>
+                )}
+                {expenseCategories.filter((c) => getBudgetAmount(c.id, activeMonth) > 0 || expenseSpend[c.id] > 0).map((c) => {
+                  const spent = expenseSpend[c.id] || 0;
+                  const budget = getBudgetAmount(c.id, activeMonth);
+                  const pct = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
+                  const over = budget > 0 && spent > budget;
+                  let barColor = '#7FE8A4';
+                  if (pct > 70) barColor = '#F5C95D';
+                  if (pct >= 100) barColor = '#FF9466';
+                  return (
+                    <div key={c.id} style={styles.budgetRow}>
+                      <div style={styles.budgetRowTop}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#EAF0EA' }}>
+                          <span style={{ width: 8, height: 8, borderRadius: 2, background: c.color, display: 'inline-block' }} />{c.label}
+                        </span>
+                        <span style={{ fontSize: 12, color: over ? '#FF9466' : '#9CA89F' }}>{formatRupiah(spent)} {budget > 0 ? `/ ${formatRupiah(budget)}` : ''}</span>
+                      </div>
+                      <div style={styles.barTrack}><div style={{ ...styles.barFill, width: pct + '%', background: barColor }} /></div>
+                      {over && <span style={styles.overText}>Lewat {formatRupiah(spent - budget)} dari budget</span>}
                     </div>
-                    <div style={styles.barTrack}><div style={{ ...styles.barFill, width: pct + '%', background: barColor }} /></div>
-                    {over && <span style={styles.overText}>Lewat {formatRupiah(spent - budget)} dari budget</span>}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
 
-            <div style={styles.sectionHeader}><span style={styles.sectionTitle}>Target saving & investasi</span></div>
-            <div style={styles.budgetList}>
-              {savingCategories.filter((c) => getBudgetAmount(c.id, activeMonth) > 0 || savingSpend[c.id] > 0).length === 0 && (
-                <div style={styles.emptyHint}>Belum ada target saving/investasi bulan ini.</div>
-              )}
-              {savingCategories.filter((c) => getBudgetAmount(c.id, activeMonth) > 0 || savingSpend[c.id] > 0).map((c) => {
-                const spent = savingSpend[c.id] || 0;
-                const target = getBudgetAmount(c.id, activeMonth);
-                const pct = target > 0 ? Math.min(100, (spent / target) * 100) : 0;
-                return (
-                  <div key={c.id} style={styles.budgetRow}>
-                    <div style={styles.budgetRowTop}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#EAF0EA' }}>
-                        <span style={{ width: 8, height: 8, borderRadius: 2, background: c.color, display: 'inline-block' }} />{c.label}
-                      </span>
-                      <span style={{ fontSize: 12, color: '#9CA89F' }}>{formatRupiah(spent)} {target > 0 ? `/ ${formatRupiah(target)}` : ''}</span>
+              <div style={styles.sectionHeader}><span style={styles.sectionTitle}>Target saving & investasi</span></div>
+              <div style={styles.budgetList}>
+                {savingCategories.filter((c) => getBudgetAmount(c.id, activeMonth) > 0 || savingSpend[c.id] > 0).length === 0 && (
+                  <div style={styles.emptyHint}>Belum ada target saving/investasi bulan ini.</div>
+                )}
+                {savingCategories.filter((c) => getBudgetAmount(c.id, activeMonth) > 0 || savingSpend[c.id] > 0).map((c) => {
+                  const spent = savingSpend[c.id] || 0;
+                  const target = getBudgetAmount(c.id, activeMonth);
+                  const pct = target > 0 ? Math.min(100, (spent / target) * 100) : 0;
+                  return (
+                    <div key={c.id} style={styles.budgetRow}>
+                      <div style={styles.budgetRowTop}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#EAF0EA' }}>
+                          <span style={{ width: 8, height: 8, borderRadius: 2, background: c.color, display: 'inline-block' }} />{c.label}
+                        </span>
+                        <span style={{ fontSize: 12, color: '#9CA89F' }}>{formatRupiah(spent)} {target > 0 ? `/ ${formatRupiah(target)}` : ''}</span>
+                      </div>
+                      <div style={styles.barTrack}><div style={{ ...styles.barFill, width: pct + '%', background: '#6FB7E8' }} /></div>
                     </div>
-                    <div style={styles.barTrack}><div style={{ ...styles.barFill, width: pct + '%', background: '#6FB7E8' }} /></div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
 
-            <div style={styles.sectionHeader}><span style={styles.sectionTitle}>Transaksi terbaru</span></div>
-            <div style={styles.txList}>
-              {monthTx.slice(0, 5).map((t) => (<TxRow key={t.id} t={t} onDelete={deleteTransaction} catLookup={catLookup} />))}
-              {monthTx.length === 0 && <div style={styles.emptyHint}>Belum ada transaksi bulan ini.</div>}
+            {/* Kolom kanan: transaksi terbaru */}
+            <div className="dompet-col-right">
+              <div style={styles.sectionHeader}><span style={styles.sectionTitle}>Transaksi terbaru</span></div>
+              <div style={styles.txList}>
+                {monthTx.slice(0, 8).map((t) => (<TxRow key={t.id} t={t} onDelete={deleteTransaction} catLookup={catLookup} />))}
+                {monthTx.length === 0 && <div style={styles.emptyHint}>Belum ada transaksi bulan ini.</div>}
+              </div>
             </div>
-          </>
+          </div>
         )}
 
         {tab === 'transactions' && (
@@ -423,56 +451,60 @@ export default function Dashboard({ user, onLogout }) {
         )}
 
         {tab === 'reports' && (
-          <>
-            <div style={styles.sectionHeader}><span style={styles.sectionTitle}>Expense per kategori</span></div>
-            {pieData.length > 0 ? (
-              <div style={{ width: '100%', height: 220 }}>
-                <ResponsiveContainer>
-                  <PieChart>
-                    <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={2}>
-                      {pieData.map((entry, i) => (<Cell key={i} fill={entry.color} stroke="#0F1410" strokeWidth={2} />))}
-                    </Pie>
-                    <Tooltip formatter={(v) => formatRupiah(v)} contentStyle={{ background: '#1A211C', border: '1px solid #2A332C', borderRadius: 8, color: '#EAF0EA' }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div style={styles.emptyHint}>Belum ada pengeluaran untuk ditampilkan.</div>
-            )}
-            <div style={styles.legendWrap}>
-              {pieData.map((p) => (
-                <div key={p.name} style={styles.legendItem}>
-                  <span style={{ width: 9, height: 9, borderRadius: 2, background: p.color, display: 'inline-block' }} />
-                  <span style={{ fontSize: 12, color: '#9CA89F' }}>{p.name}</span>
-                  <span style={{ fontSize: 12, color: '#EAF0EA', marginLeft: 'auto' }}>{formatRupiah(p.value)}</span>
+          <div className="dompet-columns">
+            <div className="dompet-col-left">
+              <div style={styles.sectionHeader}><span style={styles.sectionTitle}>Expense per kategori</span></div>
+              {pieData.length > 0 ? (
+                <div style={{ width: '100%', height: 260 }}>
+                  <ResponsiveContainer>
+                    <PieChart>
+                      <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={65} outerRadius={100} paddingAngle={2}>
+                        {pieData.map((entry, i) => (<Cell key={i} fill={entry.color} stroke="#0F1410" strokeWidth={2} />))}
+                      </Pie>
+                      <Tooltip formatter={(v) => formatRupiah(v)} contentStyle={{ background: '#1A211C', border: '1px solid #2A332C', borderRadius: 8, color: '#EAF0EA' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </div>
-              ))}
+              ) : (
+                <div style={styles.emptyHint}>Belum ada pengeluaran untuk ditampilkan.</div>
+              )}
+              <div style={styles.legendWrap}>
+                {pieData.map((p) => (
+                  <div key={p.name} style={styles.legendItem}>
+                    <span style={{ width: 9, height: 9, borderRadius: 2, background: p.color, display: 'inline-block' }} />
+                    <span style={{ fontSize: 12, color: '#9CA89F' }}>{p.name}</span>
+                    <span style={{ fontSize: 12, color: '#EAF0EA', marginLeft: 'auto' }}>{formatRupiah(p.value)}</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div style={styles.sectionHeader}><span style={styles.sectionTitle}>Tren 6 bulan</span></div>
-            <div style={{ width: '100%', height: 220 }}>
-              <ResponsiveContainer>
-                <BarChart data={trendData} barGap={2}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#22291F" vertical={false} />
-                  <XAxis dataKey="label" stroke="#9CA89F" fontSize={11} tickLine={false} axisLine={{ stroke: '#22291F' }} />
-                  <YAxis stroke="#9CA89F" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => (v >= 1000000 ? (v / 1000000).toFixed(0) + 'jt' : v >= 1000 ? (v / 1000).toFixed(0) + 'rb' : v)} />
-                  <Tooltip formatter={(v) => formatRupiah(v)} contentStyle={{ background: '#1A211C', border: '1px solid #2A332C', borderRadius: 8, color: '#EAF0EA' }} />
-                  <Bar dataKey="inc" fill="#7FE8A4" radius={[3, 3, 0, 0]} name="Income" />
-                  <Bar dataKey="exp" fill="#FF9466" radius={[3, 3, 0, 0]} name="Expense" />
-                  <Bar dataKey="sav" fill="#6FB7E8" radius={[3, 3, 0, 0]} name="Saving" />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="dompet-col-right">
+              <div style={styles.sectionHeader}><span style={styles.sectionTitle}>Tren 6 bulan</span></div>
+              <div style={{ width: '100%', height: 260 }}>
+                <ResponsiveContainer>
+                  <BarChart data={trendData} barGap={2}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#22291F" vertical={false} />
+                    <XAxis dataKey="label" stroke="#9CA89F" fontSize={11} tickLine={false} axisLine={{ stroke: '#22291F' }} />
+                    <YAxis stroke="#9CA89F" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => (v >= 1000000 ? (v / 1000000).toFixed(0) + 'jt' : v >= 1000 ? (v / 1000).toFixed(0) + 'rb' : v)} />
+                    <Tooltip formatter={(v) => formatRupiah(v)} contentStyle={{ background: '#1A211C', border: '1px solid #2A332C', borderRadius: 8, color: '#EAF0EA' }} />
+                    <Bar dataKey="inc" fill="#7FE8A4" radius={[3, 3, 0, 0]} name="Income" />
+                    <Bar dataKey="exp" fill="#FF9466" radius={[3, 3, 0, 0]} name="Expense" />
+                    <Bar dataKey="sav" fill="#6FB7E8" radius={[3, 3, 0, 0]} name="Saving" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 8, flexWrap: 'wrap' }}>
+                <span style={styles.legendItem2}><span style={{ width: 9, height: 9, borderRadius: 2, background: '#7FE8A4', display: 'inline-block' }} />Income</span>
+                <span style={styles.legendItem2}><span style={{ width: 9, height: 9, borderRadius: 2, background: '#FF9466', display: 'inline-block' }} />Expense</span>
+                <span style={styles.legendItem2}><span style={{ width: 9, height: 9, borderRadius: 2, background: '#6FB7E8', display: 'inline-block' }} />Saving</span>
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 4, flexWrap: 'wrap' }}>
-              <span style={styles.legendItem2}><span style={{ width: 9, height: 9, borderRadius: 2, background: '#7FE8A4', display: 'inline-block' }} />Income</span>
-              <span style={styles.legendItem2}><span style={{ width: 9, height: 9, borderRadius: 2, background: '#FF9466', display: 'inline-block' }} />Expense</span>
-              <span style={styles.legendItem2}><span style={{ width: 9, height: 9, borderRadius: 2, background: '#6FB7E8', display: 'inline-block' }} />Saving</span>
-            </div>
-          </>
+          </div>
         )}
       </div>
 
-      <button onClick={() => setShowAddModal(true)} style={styles.fab} aria-label="Tambah transaksi"><Plus size={24} color="#0F1410" /></button>
+      <button onClick={() => setShowAddModal(true)} className="dompet-fab" aria-label="Tambah transaksi"><Plus size={24} color="#0F1410" /></button>
 
       {showAddModal && (
         <div style={styles.modalOverlay} onClick={() => setShowAddModal(false)}>
