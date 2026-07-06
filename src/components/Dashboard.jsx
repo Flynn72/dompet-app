@@ -568,7 +568,7 @@ export default function Dashboard({ user, onLogout }) {
                             <Pie data={section.data} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={3}>
                               {section.data.map((entry, i) => (<Cell key={i} fill={entry.color} stroke="#1A211C" strokeWidth={3} />))}
                             </Pie>
-                            <Tooltip formatter={(v) => formatRupiah(v)} contentStyle={{ background: '#0F1410', border: '1px solid #2A332C', borderRadius: 8, color: '#EAF0EA', fontSize: 12 }} />
+                            <Tooltip formatter={(v) => formatRupiah(v)} contentStyle={{ background: '#1E261F', border: '1px solid #3A4A3C', borderRadius: 8, color: '#EAF0EA', fontSize: 13, fontWeight: 600 }} itemStyle={{ color: '#EAF0EA' }} labelStyle={{ color: '#9CA89F' }} />
                           </PieChart>
                         </ResponsiveContainer>
                       </div>
