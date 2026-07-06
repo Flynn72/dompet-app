@@ -547,42 +547,43 @@ export default function Dashboard({ user, onLogout }) {
               </div>
             </div>
 
-            {/* 3 Pie chart */}
-            <div className="dompet-columns" style={{ marginBottom: 32 }}>
+            {/* 3 Pie chart — stack vertikal di HP, 3 kolom di desktop */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20, marginBottom: 32 }} className="pie-grid">
+              <style>{`.pie-grid { } @media(min-width:900px){.pie-grid{grid-template-columns:1fr 1fr 1fr !important;}}`}</style>
               {[
                 { label: 'Income', color: '#7FE8A4', total: totalIncome, data: totalIncome > 0 ? [{ name: 'Income', value: totalIncome, color: '#7FE8A4' }] : [] },
                 { label: 'Expense', color: '#FF9466', total: totalExpense, data: pieData },
                 { label: 'Saving', color: '#6FB7E8', total: totalSaving, data: savingCategories.filter((c) => savingSpend[c.id] > 0).map((c) => ({ name: c.label, value: savingSpend[c.id], color: c.color })) },
               ].map((section) => (
-                <div key={section.label} style={{ background: '#1A211C', borderRadius: 14, padding: 16 }}>
+                <div key={section.label} style={{ background: '#1A211C', borderRadius: 14, padding: '20px 18px' }}>
                   <div style={styles.sectionHeader}>
                     <span style={styles.sectionTitle}>{section.label}</span>
-                    <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 14, color: section.color }}>{formatRupiah(section.total)}</span>
+                    <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 15, color: section.color }}>{formatRupiah(section.total)}</span>
                   </div>
                   {section.total > 0 ? (
                     <>
-                      <div style={{ width: '100%', height: 180 }}>
+                      <div style={{ width: '100%', height: 200 }}>
                         <ResponsiveContainer>
                           <PieChart>
-                            <Pie data={section.data} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={2}>
-                              {section.data.map((entry, i) => (<Cell key={i} fill={entry.color} stroke="#1A211C" strokeWidth={2} />))}
+                            <Pie data={section.data} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={3}>
+                              {section.data.map((entry, i) => (<Cell key={i} fill={entry.color} stroke="#1A211C" strokeWidth={3} />))}
                             </Pie>
                             <Tooltip formatter={(v) => formatRupiah(v)} contentStyle={{ background: '#0F1410', border: '1px solid #2A332C', borderRadius: 8, color: '#EAF0EA', fontSize: 12 }} />
                           </PieChart>
                         </ResponsiveContainer>
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 12 }}>
                         {section.data.map((p) => (
                           <div key={p.name} style={styles.legendItem}>
-                            <span style={{ width: 8, height: 8, borderRadius: 2, background: p.color, display: 'inline-block', flexShrink: 0 }} />
-                            <span style={{ fontSize: 11, color: '#9CA89F', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-                            <span style={{ fontSize: 11, color: '#EAF0EA', flexShrink: 0 }}>{formatRupiah(p.value)}</span>
+                            <span style={{ width: 9, height: 9, borderRadius: 2, background: p.color, display: 'inline-block', flexShrink: 0 }} />
+                            <span style={{ fontSize: 12, color: '#9CA89F', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                            <span style={{ fontSize: 12, color: '#EAF0EA', flexShrink: 0, fontWeight: 600 }}>{formatRupiah(p.value)}</span>
                           </div>
                         ))}
                       </div>
                     </>
                   ) : (
-                    <div style={{ ...styles.emptyHint, padding: '32px 0' }}>Belum ada data {section.label.toLowerCase()} bulan ini.</div>
+                    <div style={{ ...styles.emptyHint, padding: '40px 0' }}>Belum ada data {section.label.toLowerCase()} bulan ini.</div>
                   )}
                 </div>
               ))}
@@ -592,19 +593,34 @@ export default function Dashboard({ user, onLogout }) {
             <div style={{ background: '#1A211C', borderRadius: 14, padding: 16, marginBottom: 32 }}>
               <div style={styles.sectionHeader}><span style={styles.sectionTitle}>Tren 6 bulan</span></div>
               <div style={{ width: '100%', height: 260 }}>
-                <ResponsiveContainer>
-                  <BarChart data={trendData} barGap={2}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={trendData} barCategoryGap="30%" barGap={2} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#22291F" vertical={false} />
                     <XAxis dataKey="label" stroke="#9CA89F" fontSize={11} tickLine={false} axisLine={{ stroke: '#22291F' }} />
-                    <YAxis stroke="#9CA89F" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => v >= 1000000 ? (v / 1000000).toFixed(1) + 'jt' : v >= 1000 ? (v / 1000).toFixed(0) + 'rb' : v} />
-                    <Tooltip formatter={(v) => formatRupiah(v)} contentStyle={{ background: '#0F1410', border: '1px solid #2A332C', borderRadius: 8, color: '#EAF0EA' }} />
-                    <Bar dataKey="inc" fill="#7FE8A4" radius={[3, 3, 0, 0]} name="Income" />
-                    <Bar dataKey="exp" fill="#FF9466" radius={[3, 3, 0, 0]} name="Expense" />
-                    <Bar dataKey="sav" fill="#6FB7E8" radius={[3, 3, 0, 0]} name="Saving" />
+                    <YAxis
+                      stroke="#9CA89F"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                      width={40}
+                      tickFormatter={(v) => {
+                        if (v === 0) return '0';
+                        if (v >= 1000000) return (v / 1000000).toFixed(1) + 'jt';
+                        if (v >= 1000) return (v / 1000).toFixed(0) + 'rb';
+                        return v;
+                      }}
+                    />
+                    <Tooltip
+                      formatter={(v, name) => [formatRupiah(v), name]}
+                      contentStyle={{ background: '#0F1410', border: '1px solid #2A332C', borderRadius: 8, color: '#EAF0EA' }}
+                    />
+                    <Bar dataKey="inc" fill="#7FE8A4" radius={[4, 4, 0, 0]} name="Income" maxBarSize={40} />
+                    <Bar dataKey="exp" fill="#FF9466" radius={[4, 4, 0, 0]} name="Expense" maxBarSize={40} />
+                    <Bar dataKey="sav" fill="#6FB7E8" radius={[4, 4, 0, 0]} name="Saving" maxBarSize={40} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-              <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginTop: 8, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginTop: 12, flexWrap: 'wrap' }}>
                 {[['#7FE8A4','Income'],['#FF9466','Expense'],['#6FB7E8','Saving']].map(([color, name]) => (
                   <span key={name} style={styles.legendItem2}><span style={{ width: 9, height: 9, borderRadius: 2, background: color, display: 'inline-block' }} />{name}</span>
                 ))}
