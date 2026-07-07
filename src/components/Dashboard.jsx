@@ -275,20 +275,30 @@ export default function Dashboard({ user, onLogout }) {
 
   const trendData = useMemo(() => {
     const [yr, mo] = activeMonth.split('-').map(Number);
+    // Hitung total saving kumulatif sampai setiap bulan dari SELURUH transaksi (bukan hanya 6 bulan)
     return Array.from({ length: 6 }, (_, i) => {
-      // Hitung bulan mundur tanpa bergantung pada toISOString (hindari timezone shift)
-      let m = mo - (5 - i); // bisa negatif
+      let m = mo - (5 - i);
       let y = yr;
       while (m < 1) { m += 12; y -= 1; }
       while (m > 12) { m -= 12; y += 1; }
       const key = `${y}-${String(m).padStart(2, '0')}`;
-      const tx = transactions.filter((t) => monthKey(t.date) === key);
+
+      // Income & Expense: total bulan itu saja
+      const monthTxList = transactions.filter((t) => monthKey(t.date) === key);
+      const inc = monthTxList.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+      const exp = monthTxList.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+
+      // Saving: akumulatif dari semua transaksi sampai akhir bulan ini
+      const savCumulative = transactions
+        .filter((t) => t.type === 'saving' && t.date <= `${y}-${String(m).padStart(2, '0')}-31`)
+        .reduce((s, t) => s + t.amount, 0);
+
       return {
         label: MONTHS_ID[m - 1] + ' ' + y,
         key,
-        inc: tx.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0),
-        exp: tx.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
-        sav: tx.filter((t) => t.type === 'saving').reduce((s, t) => s + t.amount, 0),
+        inc,
+        exp,
+        sav: savCumulative,
       };
     });
   }, [transactions, activeMonth]);
@@ -741,7 +751,7 @@ export default function Dashboard({ user, onLogout }) {
                 );
               })()}
               <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginTop: 12, flexWrap: 'wrap' }}>
-                {[['#7FE8A4','Income'],['#FF9466','Expense'],['#6FB7E8','Saving']].map(([color, name]) => (
+                {[['#7FE8A4','Income'],['#FF9466','Expense'],['#6FB7E8','Saving (kumulatif)']].map(([color, name]) => (
                   <span key={name} style={styles.legendItem2}><span style={{ width: 9, height: 9, borderRadius: 2, background: color, display: 'inline-block' }} />{name}</span>
                 ))}
               </div>
