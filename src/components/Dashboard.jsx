@@ -274,13 +274,18 @@ export default function Dashboard({ user, onLogout }) {
   const pieData = useMemo(() => expenseCategories.filter((c) => expenseSpend[c.id] > 0).map((c) => ({ name: c.label, value: expenseSpend[c.id] || 0, color: c.color })), [expenseSpend, expenseCategories]);
 
   const trendData = useMemo(() => {
-    const now = new Date(activeMonth + '-01T00:00:00');
+    const [yr, mo] = activeMonth.split('-').map(Number);
     return Array.from({ length: 6 }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
-      const key = d.toISOString().slice(0, 7);
+      // Hitung bulan mundur tanpa bergantung pada toISOString (hindari timezone shift)
+      let m = mo - (5 - i); // bisa negatif
+      let y = yr;
+      while (m < 1) { m += 12; y -= 1; }
+      while (m > 12) { m -= 12; y += 1; }
+      const key = `${y}-${String(m).padStart(2, '0')}`;
       const tx = transactions.filter((t) => monthKey(t.date) === key);
       return {
-        label: MONTHS_ID[d.getMonth()],
+        label: MONTHS_ID[m - 1] + ' ' + y,
+        key,
         inc: tx.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0),
         exp: tx.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
         sav: tx.filter((t) => t.type === 'saving').reduce((s, t) => s + t.amount, 0),
@@ -669,52 +674,66 @@ export default function Dashboard({ user, onLogout }) {
             {/* Tren 6 bulan */}
             <div style={{ background: 'var(--chart-bg)', border:'1px solid var(--border)', borderRadius: 14, padding: 16, marginBottom: 32 }}>
               <div style={styles.sectionHeader}><span style={styles.sectionTitle}>Tren 6 bulan</span></div>
-              {/* Tampilkan min & max nilai dalam jutaan */}
               {(() => {
                 const allVals = trendData.flatMap((d) => [d.inc, d.exp, d.sav]).filter((v) => v > 0);
                 const maxVal = allVals.length > 0 ? Math.max(...allVals) : 0;
                 const minVal = allVals.length > 0 ? Math.min(...allVals) : 0;
-                const yMax = maxVal > 0 ? Math.ceil(maxVal / 1000000) * 1000000 : 1000000;
-                const yMin = 0;
+                // domain: 0 sampai 110% dari nilai max agar bar tidak menyentuh tepi atas
+                const yMax = maxVal > 0 ? (dataMax) => Math.ceil(dataMax * 1.1) : 'auto';
                 return (
                   <>
                     {maxVal > 0 && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                        <span style={{ fontSize: 11, color: '#9CA89F' }}>
-                          Min: <span style={{ color: '#EAF0EA', fontWeight: 600 }}>{(minVal / 1000000).toFixed(2)} jt</span>
+                        <span style={{ fontSize: 11, color: 'var(--chart-subtext)' }}>
+                          Min: <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                            {minVal >= 1000000 ? (minVal / 1000000).toFixed(2) + ' jt' : minVal >= 1000 ? (minVal / 1000).toFixed(0) + ' rb' : formatRupiah(minVal)}
+                          </span>
                         </span>
-                        <span style={{ fontSize: 11, color: '#9CA89F' }}>
-                          Max: <span style={{ color: '#EAF0EA', fontWeight: 600 }}>{(maxVal / 1000000).toFixed(2)} jt</span>
+                        <span style={{ fontSize: 11, color: 'var(--chart-subtext)' }}>
+                          Max: <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                            {maxVal >= 1000000 ? (maxVal / 1000000).toFixed(2) + ' jt' : maxVal >= 1000 ? (maxVal / 1000).toFixed(0) + ' rb' : formatRupiah(maxVal)}
+                          </span>
                         </span>
                       </div>
                     )}
                     <div style={{ width: '100%', height: 260 }}>
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={trendData} barCategoryGap="30%" barGap={2} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                        <BarChart
+                          data={trendData.map((d) => ({ ...d, label: d.label.slice(0, 3) }))}
+                          barCategoryGap="30%"
+                          barGap={2}
+                          margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                        >
                           <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
-                          <XAxis dataKey="label" stroke="var(--chart-subtext)" fontSize={11} tickLine={false} axisLine={{ stroke: "var(--chart-grid)" }} />
+                          <XAxis
+                            dataKey="label"
+                            stroke="var(--chart-subtext)"
+                            fontSize={11}
+                            tickLine={false}
+                            axisLine={{ stroke: "var(--chart-grid)" }}
+                          />
                           <YAxis
                             stroke="var(--chart-subtext)"
                             fontSize={10}
                             tickLine={false}
                             axisLine={false}
-                            width={44}
-                            domain={[yMin, yMax]}
-                            tickCount={5}
+                            width={48}
+                            domain={[0, (dataMax) => dataMax > 0 ? Math.ceil(dataMax * 1.15 / 500000) * 500000 : 1000000]}
                             tickFormatter={(v) => {
                               if (v === 0) return '0';
-                              if (v >= 1000000) return (v / 1000000).toFixed(1) + 'jt';
+                              if (v >= 1000000) return (v / 1000000).toFixed(v % 1000000 === 0 ? 0 : 1) + 'jt';
                               if (v >= 1000) return (v / 1000).toFixed(0) + 'rb';
                               return v;
                             }}
                           />
                           <Tooltip
                             formatter={(v, name) => [formatRupiah(v), name]}
-                            contentStyle={{ background: 'var(--chart-tooltip)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--chart-text)' }}
+                            contentStyle={{ background: 'var(--chart-tooltip)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--chart-text)', fontSize: 13 }}
+                            labelStyle={{ color: 'var(--chart-subtext)', marginBottom: 4, fontWeight: 600 }}
                           />
-                          <Bar dataKey="inc" fill="#7FE8A4" radius={[4, 4, 0, 0]} name="Income" maxBarSize={40} />
-                          <Bar dataKey="exp" fill="#FF9466" radius={[4, 4, 0, 0]} name="Expense" maxBarSize={40} />
-                          <Bar dataKey="sav" fill="#6FB7E8" radius={[4, 4, 0, 0]} name="Saving" maxBarSize={40} />
+                          <Bar dataKey="inc" fill="#7FE8A4" radius={[4, 4, 0, 0]} name="Income" maxBarSize={36} />
+                          <Bar dataKey="exp" fill="#FF9466" radius={[4, 4, 0, 0]} name="Expense" maxBarSize={36} />
+                          <Bar dataKey="sav" fill="#6FB7E8" radius={[4, 4, 0, 0]} name="Saving" maxBarSize={36} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
