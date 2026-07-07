@@ -5,15 +5,41 @@ import {
   AlertTriangle, Settings, Pencil, LogOut, ShoppingCart, Car, Wifi, Zap,
   Coffee, Heart, BookOpen, Home, Music, Plane, Gift, Phone, CreditCard,
   Briefcase, Star, DollarSign, Utensils, Bus, Shirt, Monitor, Dumbbell,
-  Baby, Dog, Leaf, Fuel, Wrench, Landmark, CircleDollarSign
+  Baby, Dog, Leaf, Fuel, Wrench, Landmark, CircleDollarSign,
+  Banknote, ArrowLeftRight, ShieldCheck, Smartphone, Receipt, Calculator,
+  Vault, BadgeDollarSign, WalletCards, Building2, HandCoins, BadgePercent,
+  Coins, PiggyBank as PiggyBankIcon, Clock, Globe, Umbrella, Lock,
+  QrCode, Nfc, BarChart2, TrendingDown as TrendingDownIcon, Package
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
 const COLOR_PALETTE = ['#7FE8A4','#6FB7E8','#F5C95D','#C99FE8','#FF9466','#6FE8D4','#E89FC9','#E8846F','#A8A89C','#E8C26F'];
 const MONTHS_ID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
 
-// Daftar ikon yang bisa dipilih untuk kategori
+// Daftar ikon yang bisa dipilih untuk kategori — dikelompokkan
 const ICON_LIST = [
+  // Banking & Keuangan
+  { id: 'banknote', label: 'Uang Tunai', Icon: Banknote },
+  { id: 'creditcard', label: 'Kartu Kredit', Icon: CreditCard },
+  { id: 'walletcards', label: 'Dompet', Icon: WalletCards },
+  { id: 'landmark', label: 'Bank', Icon: Landmark },
+  { id: 'building2', label: 'Gedung', Icon: Building2 },
+  { id: 'circledollar', label: 'Tabungan', Icon: CircleDollarSign },
+  { id: 'badgedollar', label: 'Nominal', Icon: BadgeDollarSign },
+  { id: 'coins', label: 'Koin', Icon: Coins },
+  { id: 'handcoins', label: 'Transfer', Icon: HandCoins },
+  { id: 'arrowleftright', label: 'Transaksi', Icon: ArrowLeftRight },
+  { id: 'receipt', label: 'Struk', Icon: Receipt },
+  { id: 'calculator', label: 'Kalkulator', Icon: Calculator },
+  { id: 'vault', label: 'Brankas', Icon: Vault },
+  { id: 'shieldcheck', label: 'Proteksi', Icon: ShieldCheck },
+  { id: 'badgepercent', label: 'Cicilan/Bunga', Icon: BadgePercent },
+  { id: 'umbrella', label: 'Asuransi', Icon: Umbrella },
+  { id: 'lock', label: 'Keamanan', Icon: Lock },
+  { id: 'qrcode', label: 'QR Pay', Icon: QrCode },
+  { id: 'nfc', label: 'Tap Pay', Icon: Nfc },
+  { id: 'barchart2', label: 'Investasi', Icon: BarChart2 },
+  // Kehidupan sehari-hari
   { id: 'utensils', label: 'Makan', Icon: Utensils },
   { id: 'coffee', label: 'Kopi', Icon: Coffee },
   { id: 'car', label: 'Motor/Mobil', Icon: Car },
@@ -21,13 +47,14 @@ const ICON_LIST = [
   { id: 'bus', label: 'Transport', Icon: Bus },
   { id: 'wifi', label: 'Wifi', Icon: Wifi },
   { id: 'phone', label: 'Pulsa', Icon: Phone },
+  { id: 'smartphone', label: 'Mobile', Icon: Smartphone },
   { id: 'zap', label: 'Listrik', Icon: Zap },
   { id: 'home', label: 'Rumah', Icon: Home },
   { id: 'heart', label: 'Kesehatan', Icon: Heart },
   { id: 'dumbbell', label: 'Olahraga', Icon: Dumbbell },
   { id: 'book', label: 'Pendidikan', Icon: BookOpen },
   { id: 'shirt', label: 'Belanja', Icon: Shirt },
-  { id: 'shopping', label: 'Groceries', Icon: ShoppingCart },
+  { id: 'shopping', label: 'Belanja', Icon: ShoppingCart },
   { id: 'monitor', label: 'Elektronik', Icon: Monitor },
   { id: 'music', label: 'Hiburan', Icon: Music },
   { id: 'plane', label: 'Liburan', Icon: Plane },
@@ -35,13 +62,14 @@ const ICON_LIST = [
   { id: 'baby', label: 'Anak', Icon: Baby },
   { id: 'dog', label: 'Hewan', Icon: Dog },
   { id: 'leaf', label: 'Investasi', Icon: Leaf },
-  { id: 'creditcard', label: 'Cicilan', Icon: CreditCard },
-  { id: 'landmark', label: 'Bank', Icon: Landmark },
   { id: 'briefcase', label: 'Kerja', Icon: Briefcase },
   { id: 'wrench', label: 'Service', Icon: Wrench },
-  { id: 'dollar', label: 'Lainnya', Icon: DollarSign },
+  { id: 'package', label: 'Belanja Online', Icon: Package },
+  { id: 'globe', label: 'Internet', Icon: Globe },
+  { id: 'clock', label: 'Langganan', Icon: Clock },
+  { id: 'piggybankicon', label: 'Celengan', Icon: PiggyBankIcon },
   { id: 'star', label: 'Favorit', Icon: Star },
-  { id: 'circledollar', label: 'Tabungan', Icon: CircleDollarSign },
+  { id: 'dollar', label: 'Lainnya', Icon: DollarSign },
 ];
 
 function getIconComponent(iconId) {
@@ -277,20 +305,55 @@ export default function Dashboard({ user, onLogout }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap');
         * { box-sizing: border-box; }
+
+        /* ===== CSS VARIABLES — TEMA NAVY ===== */
+        :root {
+          --bg-base: #0B0F1A;
+          --bg-card: #131929;
+          --bg-card2: #1A2238;
+          --bg-input: #0B0F1A;
+          --border: #1E2D4A;
+          --border2: #2A3B5C;
+          --text-primary: #E8EDF8;
+          --text-secondary: #7A90B8;
+          --text-muted: #4A5A7A;
+          --accent: #7FE8A4;
+          --accent-text: #0B0F1A;
+          --scrollbar: #1E2D4A;
+        }
+
+        /* Light mode — base navy terang */
+        @media (prefers-color-scheme: light) {
+          :root {
+            --bg-base: #EEF2FA;
+            --bg-card: #FFFFFF;
+            --bg-card2: #F0F4FF;
+            --bg-input: #F5F7FF;
+            --border: #C8D4EC;
+            --border2: #A8BCDC;
+            --text-primary: #0D1B3E;
+            --text-secondary: #3D5A8A;
+            --text-muted: #7A90B8;
+            --accent: #1A6B4A;
+            --accent-text: #FFFFFF;
+            --scrollbar: #C8D4EC;
+          }
+        }
+
         ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-thumb { background: #2A332C; border-radius: 3px; }
-        body { font-family: 'Inter', sans-serif; background: #0F1410; margin: 0; }
+        ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 3px; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-base); margin: 0; color: var(--text-primary); }
         input, select { font-family: 'Inter', sans-serif; }
         @keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
 
-        .dompet-page { min-height: 100vh; background: #0F1410; color: #EAF0EA; padding-bottom: 90px; max-width: 480px; margin: 0 auto; position: relative; }
-        .dompet-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 12px; }
-        .dompet-tabbar { display: flex; align-items: center; gap: 4px; padding: 0 20px 16px; border-bottom: 1px solid #1E261F; }
+        .dompet-page { min-height: 100vh; background: var(--bg-base); color: var(--text-primary); padding-bottom: 90px; max-width: 480px; margin: 0 auto; position: relative; }
+        .dompet-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 12px; background: var(--bg-base); }
+        .dompet-tabbar { display: flex; align-items: center; gap: 4px; padding: 0 20px 16px; border-bottom: 1px solid var(--border); }
         .dompet-content { padding: 16px 20px 0; }
         .dompet-columns { display: block; }
         .dompet-col-left { width: 100%; }
         .dompet-col-right { width: 100%; }
-        .dompet-fab { position: fixed; bottom: 24px; right: 24px; width: 54px; height: 54px; border-radius: 16px; background: #7FE8A4; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 16px rgba(127,232,164,0.35); z-index: 40; }
+        .dompet-fab { position: fixed; bottom: 24px; right: 24px; width: 54px; height: 54px; border-radius: 16px; background: var(--accent); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 20px rgba(127,232,164,0.30); z-index: 40; }
 
         @media (min-width: 900px) {
           .dompet-page { max-width: 100%; padding-bottom: 40px; }
@@ -840,53 +903,53 @@ function TxRow({ t, onDelete, catLookup }) {
 }
 
 const styles = {
-  errorBanner: { background: '#3A2418', color: '#FF9466', fontSize: 12, padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 6 },
-  logoMark: { width: 30, height: 30, borderRadius: 8, background: '#7FE8A4', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  logoText: { fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 17, letterSpacing: '-0.02em' },
-  monthBtn: { width: 28, height: 28, borderRadius: 7, border: '1px solid #2A332C', background: 'transparent', color: '#9CA89F', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  monthSelect: { background: 'transparent', color: '#EAF0EA', border: '1px solid #2A332C', borderRadius: 7, padding: '5px 8px', fontSize: 12, cursor: 'pointer' },
-  tabBtn: { background: 'transparent', border: 'none', color: '#6B7568', fontSize: 13, padding: '8px 12px', borderRadius: 8, cursor: 'pointer', fontWeight: 500 },
-  tabBtnActive: { background: '#1A211C', color: '#EAF0EA' },
-  settingsBtn: { marginLeft: 'auto', background: 'transparent', border: '1px solid #2A332C', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
+  errorBanner: { background: '#3A1A18', color: '#FF9466', fontSize: 12, padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 6 },
+  logoMark: { width: 30, height: 30, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  logoText: { fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 17, letterSpacing: '-0.02em', color: 'var(--text-primary)' },
+  monthBtn: { width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  monthSelect: { background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 7, padding: '5px 8px', fontSize: 12, cursor: 'pointer' },
+  tabBtn: { background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: 13, padding: '8px 12px', borderRadius: 8, cursor: 'pointer', fontWeight: 500 },
+  tabBtnActive: { background: 'var(--bg-card)', color: 'var(--text-primary)' },
+  settingsBtn: { marginLeft: 'auto', background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
   summaryGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 8 },
-  summaryCard: { background: '#1A211C', borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 6 },
-  summaryLabel: { fontSize: 12, color: '#9CA89F' },
+  summaryCard: { background: 'var(--bg-card)', borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 6 },
+  summaryLabel: { fontSize: 12, color: 'var(--text-secondary)' },
   summaryIconRow: { display: 'flex', alignItems: 'center', gap: 6 },
   balanceNumber: { fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 28, letterSpacing: '-0.02em' },
   summaryNumber: { fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 18 },
   sectionHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, marginTop: 4 },
-  sectionTitle: { fontSize: 13, fontWeight: 600, color: '#9CA89F', textTransform: 'uppercase', letterSpacing: '0.04em' },
-  linkBtn: { background: 'transparent', border: 'none', color: '#7FE8A4', fontSize: 12, cursor: 'pointer', fontWeight: 500 },
-  budgetCard: { background: '#1A211C', borderRadius: 14, padding: '14px 16px' },
-  emptyCard: { background: '#1A211C', borderRadius: 14, padding: '20px 16px', textAlign: 'center' },
-  barTrack: { height: 5, borderRadius: 3, background: '#1E261F', overflow: 'hidden', marginBottom: 2 },
+  sectionTitle: { fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' },
+  linkBtn: { background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 12, cursor: 'pointer', fontWeight: 500 },
+  budgetCard: { background: 'var(--bg-card)', borderRadius: 14, padding: '14px 16px' },
+  emptyCard: { background: 'var(--bg-card)', borderRadius: 14, padding: '20px 16px', textAlign: 'center' },
+  barTrack: { height: 5, borderRadius: 3, background: 'var(--bg-card2)', overflow: 'hidden', marginBottom: 2 },
   barFill: { height: '100%', borderRadius: 3, transition: 'width 0.4s ease' },
   txList: { display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 20 },
-  txRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #1A211C' },
+  txRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)' },
   deleteBtn: { background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, display: 'flex' },
-  emptyHint: { fontSize: 13, color: '#6B7568', textAlign: 'center', padding: '24px 0' },
+  emptyHint: { fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' },
   legendWrap: { display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10, marginBottom: 24 },
   legendItem: { display: 'flex', alignItems: 'center', gap: 8 },
-  legendItem2: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9CA89F' },
-  modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 50 },
-  modalCard: { background: '#161C17', borderRadius: '20px 20px 0 0', padding: 20, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 -8px 30px rgba(0,0,0,0.4)' },
+  legendItem2: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-secondary)' },
+  modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 50 },
+  modalCard: { background: 'var(--bg-card)', borderRadius: '20px 20px 0 0', padding: 20, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 -8px 30px rgba(0,0,0,0.4)' },
   modalHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  modalTitle: { fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 16 },
+  modalTitle: { fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 16, color: 'var(--text-primary)' },
   iconBtn: { background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', padding: 4 },
   typeToggle: { display: 'flex', gap: 6, marginBottom: 18 },
-  typeBtn: { flex: 1, padding: '10px 0', borderRadius: 10, border: '1px solid #2A332C', background: 'transparent', color: '#9CA89F', fontSize: 12.5, fontWeight: 500, cursor: 'pointer' },
+  typeBtn: { flex: 1, padding: '10px 0', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12.5, fontWeight: 500, cursor: 'pointer' },
   typeBtnExpenseActive: { background: '#FF946622', borderColor: '#FF9466', color: '#FF9466' },
   typeBtnSavingActive: { background: '#6FB7E822', borderColor: '#6FB7E8', color: '#6FB7E8' },
   typeBtnIncomeActive: { background: '#7FE8A422', borderColor: '#7FE8A4', color: '#7FE8A4' },
-  formLabel: { display: 'block', fontSize: 12, color: '#9CA89F', marginBottom: 6, marginTop: 14 },
-  input: { width: '100%', background: '#0F1410', border: '1px solid #2A332C', borderRadius: 10, padding: '11px 12px', color: '#EAF0EA', fontSize: 14, outline: 'none', marginBottom: 4 },
+  formLabel: { display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6, marginTop: 14 },
+  input: { width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', marginBottom: 4 },
   catGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 },
-  catChip: { display: 'flex', alignItems: 'center', gap: 6, padding: '9px 10px', borderRadius: 9, border: '1px solid #2A332C', background: 'transparent', color: '#EAF0EA', fontSize: 12, cursor: 'pointer', textAlign: 'left' },
-  submitBtn: { width: '100%', marginTop: 20, padding: '13px 0', borderRadius: 12, border: 'none', background: '#7FE8A4', color: '#0F1410', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  catChip: { display: 'flex', alignItems: 'center', gap: 6, padding: '9px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-primary)', fontSize: 12, cursor: 'pointer', textAlign: 'left' },
+  submitBtn: { width: '100%', marginTop: 20, padding: '13px 0', borderRadius: 12, border: 'none', background: 'var(--accent)', color: 'var(--accent-text)', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
   budgetInputRow: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 },
-  budgetGroupLabel: { fontSize: 11, color: '#6B7568', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 },
-  categoryRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid #1E261F' },
+  budgetGroupLabel: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 },
+  categoryRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--border)' },
   smallIconBtn: { background: 'transparent', border: 'none', cursor: 'pointer', padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6, flexShrink: 0 },
-  iconGrid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, padding: '10px 0', marginBottom: 8 },
-  iconChip: { width: 36, height: 36, borderRadius: 9, border: '1px solid #2A332C', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
+  iconGrid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, padding: '10px 0', marginBottom: 8, maxHeight: 220, overflowY: 'auto' },
+  iconChip: { width: 36, height: 36, borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
 };
