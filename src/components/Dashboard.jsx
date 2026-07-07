@@ -15,8 +15,8 @@ import { supabase } from '../lib/supabaseClient';
 
 const COLOR_PALETTE = ['#7FE8A4','#6FB7E8','#F5C95D','#C99FE8','#FF9466','#6FE8D4','#E89FC9','#E8846F','#A8A89C','#E8C26F'];
 const MONTHS_ID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+const chartTheme = { bg: 'var(--chart-bg)', grid: 'var(--chart-grid)', tooltip: 'var(--chart-tooltip)', text: 'var(--chart-text)', subtext: 'var(--chart-subtext)' };
 
-};
 // Daftar ikon yang bisa dipilih untuk kategori — dikelompokkan
 const ICON_LIST = [
   // Banking & Keuangan
