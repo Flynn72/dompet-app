@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend, Dot } from 'recharts';
 import {
   Plus, Trash2, TrendingUp, TrendingDown, PiggyBank, Wallet, X, Check,
   AlertTriangle, Settings, Pencil, LogOut, ShoppingCart, Car, Wifi, Zap,
@@ -708,11 +708,9 @@ export default function Dashboard({ user, onLogout }) {
                     )}
                     <div style={{ width: '100%', height: 260 }}>
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
+                        <LineChart
                           data={trendData.map((d) => ({ ...d, label: d.label.slice(0, 3) }))}
-                          barCategoryGap="30%"
-                          barGap={2}
-                          margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                          margin={{ top: 12, right: 16, left: 0, bottom: 0 }}
                         >
                           <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
                           <XAxis
@@ -741,10 +739,35 @@ export default function Dashboard({ user, onLogout }) {
                             contentStyle={{ background: 'var(--chart-tooltip)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--chart-text)', fontSize: 13 }}
                             labelStyle={{ color: 'var(--chart-subtext)', marginBottom: 4, fontWeight: 600 }}
                           />
-                          <Bar dataKey="inc" fill="#7FE8A4" radius={[4, 4, 0, 0]} name="Income" maxBarSize={36} />
-                          <Bar dataKey="exp" fill="#FF9466" radius={[4, 4, 0, 0]} name="Expense" maxBarSize={36} />
-                          <Bar dataKey="sav" fill="#6FB7E8" radius={[4, 4, 0, 0]} name="Saving" maxBarSize={36} />
-                        </BarChart>
+                          <Line
+                            type="monotone"
+                            dataKey="inc"
+                            stroke="#7FE8A4"
+                            strokeWidth={2.5}
+                            name="Income"
+                            dot={{ r: 5, fill: '#7FE8A4', stroke: '#0F1410', strokeWidth: 2 }}
+                            activeDot={{ r: 7, fill: '#7FE8A4', stroke: '#0F1410', strokeWidth: 2 }}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="exp"
+                            stroke="#FF9466"
+                            strokeWidth={2.5}
+                            name="Expense"
+                            dot={{ r: 5, fill: '#FF9466', stroke: '#0F1410', strokeWidth: 2 }}
+                            activeDot={{ r: 7, fill: '#FF9466', stroke: '#0F1410', strokeWidth: 2 }}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="sav"
+                            stroke="#6FB7E8"
+                            strokeWidth={2.5}
+                            name="Saving (kumulatif)"
+                            strokeDasharray="5 3"
+                            dot={{ r: 5, fill: '#6FB7E8', stroke: '#0F1410', strokeWidth: 2 }}
+                            activeDot={{ r: 7, fill: '#6FB7E8', stroke: '#0F1410', strokeWidth: 2 }}
+                          />
+                        </LineChart>
                       </ResponsiveContainer>
                     </div>
                   </>
