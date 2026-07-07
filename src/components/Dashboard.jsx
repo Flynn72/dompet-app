@@ -16,6 +16,7 @@ import { supabase } from '../lib/supabaseClient';
 const COLOR_PALETTE = ['#7FE8A4','#6FB7E8','#F5C95D','#C99FE8','#FF9466','#6FE8D4','#E89FC9','#E8846F','#A8A89C','#E8C26F'];
 const MONTHS_ID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
 
+};
 // Daftar ikon yang bisa dipilih untuk kategori — dikelompokkan
 const ICON_LIST = [
   // Banking & Keuangan
@@ -320,6 +321,12 @@ export default function Dashboard({ user, onLogout }) {
           --accent: #7FE8A4;
           --accent-text: #0B0F1A;
           --scrollbar: #1E2D4A;
+          /* ===== CHART ===== */
+          --chart-bg: #131929;
+          --chart-grid: #24314D;
+          --chart-tooltip: #182238;
+          --chart-text: #E8EDF8;
+          --chart-subtext: #9CB2D8;
         }
 
         /* Light mode — base navy terang */
@@ -337,6 +344,13 @@ export default function Dashboard({ user, onLogout }) {
             --accent: #1A6B4A;
             --accent-text: #FFFFFF;
             --scrollbar: #C8D4EC;
+
+            /* ===== CHART ===== */
+            --chart-bg: #FFFFFF;
+            --chart-grid: #D6E1F5;
+            --chart-tooltip: #FFFFFF;
+            --chart-text: #10254F;
+            --chart-subtext: #6079A3;
           }
         }
 
@@ -618,7 +632,7 @@ export default function Dashboard({ user, onLogout }) {
                 { label: 'Expense', color: '#FF9466', total: totalExpense, data: pieData },
                 { label: 'Saving', color: '#6FB7E8', total: totalSaving, data: savingCategories.filter((c) => savingSpend[c.id] > 0).map((c) => ({ name: c.label, value: savingSpend[c.id], color: c.color })) },
               ].map((section) => (
-                <div key={section.label} style={{ background: '#1A211C', borderRadius: 14, padding: '20px 18px' }}>
+                <div key={section.label} style={{ background: chartTheme.bg, border: "1px solid var(--border)", borderRadius: 14, padding: '20px 18px' }}>
                   <div style={styles.sectionHeader}>
                     <span style={styles.sectionTitle}>{section.label}</span>
                     <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 15, color: section.color }}>{formatRupiah(section.total)}</span>
@@ -629,9 +643,9 @@ export default function Dashboard({ user, onLogout }) {
                         <ResponsiveContainer>
                           <PieChart>
                             <Pie data={section.data} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={3}>
-                              {section.data.map((entry, i) => (<Cell key={i} fill={entry.color} stroke="#1A211C" strokeWidth={3} />))}
+                              {section.data.map((entry, i) => (<Cell key={i} fill={entry.color} stroke="var(--chart-bg)" strokeWidth={3} />))}
                             </Pie>
-                            <Tooltip formatter={(v) => formatRupiah(v)} contentStyle={{ background: '#1E261F', border: '1px solid #3A4A3C', borderRadius: 8, color: '#EAF0EA', fontSize: 13, fontWeight: 600 }} itemStyle={{ color: '#EAF0EA' }} labelStyle={{ color: '#9CA89F' }} />
+                            <Tooltip formatter={(v) => formatRupiah(v)} contentStyle={{ background: chartTheme.tooltip, border: '1px solid var(--border)', borderRadius: 8, color: chartTheme.text, fontSize: 13, fontWeight: 600 }} itemStyle={{ color: chartTheme.text }} labelStyle={{ color: chartTheme.subtext }} />
                           </PieChart>
                         </ResponsiveContainer>
                       </div>
@@ -639,8 +653,8 @@ export default function Dashboard({ user, onLogout }) {
                         {section.data.map((p) => (
                           <div key={p.name} style={styles.legendItem}>
                             <span style={{ width: 9, height: 9, borderRadius: 2, background: p.color, display: 'inline-block', flexShrink: 0 }} />
-                            <span style={{ fontSize: 12, color: '#9CA89F', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-                            <span style={{ fontSize: 12, color: '#EAF0EA', flexShrink: 0, fontWeight: 600 }}>{formatRupiah(p.value)}</span>
+                            <span style={{ fontSize: 12, color: 'var(--chart-subtext)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                            <span style={{ fontSize: 12, color: 'var(--chart-text)', flexShrink: 0, fontWeight: 600 }}>{formatRupiah(p.value)}</span>
                           </div>
                         ))}
                       </div>
@@ -653,15 +667,15 @@ export default function Dashboard({ user, onLogout }) {
             </div>
 
             {/* Tren 6 bulan */}
-            <div style={{ background: '#1A211C', borderRadius: 14, padding: 16, marginBottom: 32 }}>
+            <div style={{ background: 'var(--chart-bg)', border:'1px solid var(--border)', borderRadius: 14, padding: 16, marginBottom: 32 }}>
               <div style={styles.sectionHeader}><span style={styles.sectionTitle}>Tren 6 bulan</span></div>
               <div style={{ width: '100%', height: 260 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={trendData} barCategoryGap="30%" barGap={2} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#22291F" vertical={false} />
-                    <XAxis dataKey="label" stroke="#9CA89F" fontSize={11} tickLine={false} axisLine={{ stroke: '#22291F' }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+                    <XAxis dataKey="label" stroke="var(--chart-subtext)" fontSize={11} tickLine={false} axisLine={{ stroke: "var(--chart-grid)" }} />
                     <YAxis
-                      stroke="#9CA89F"
+                      stroke="var(--chart-subtext)"
                       fontSize={10}
                       tickLine={false}
                       axisLine={false}
@@ -675,7 +689,7 @@ export default function Dashboard({ user, onLogout }) {
                     />
                     <Tooltip
                       formatter={(v, name) => [formatRupiah(v), name]}
-                      contentStyle={{ background: '#0F1410', border: '1px solid #2A332C', borderRadius: 8, color: '#EAF0EA' }}
+                      contentStyle={{ background: 'var(--chart-tooltip)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--chart-text)' }}
                     />
                     <Bar dataKey="inc" fill="#7FE8A4" radius={[4, 4, 0, 0]} name="Income" maxBarSize={40} />
                     <Bar dataKey="exp" fill="#FF9466" radius={[4, 4, 0, 0]} name="Expense" maxBarSize={40} />
