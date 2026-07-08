@@ -89,6 +89,44 @@ function monthKey(dateStr) {
   return dateStr.slice(0, 7);
 }
 
+const ONBOARDING_STEPS = [
+  {
+    emoji: '👋',
+    title: 'Selamat datang di Dompet!',
+    desc: 'Aplikasi pencatat keuangan pribadi yang mudah digunakan. Yuk, kita mulai setup dalam beberapa langkah singkat.',
+    hint: null,
+    color: '#7FE8A4',
+  },
+  {
+    emoji: '⚙️',
+    title: 'Buat kategori keuangan',
+    desc: 'Pertama, buat kategori sesuai kebutuhan kamu — misalnya Makan, Bensin, Wifi, atau Investasi. Klik ikon ⚙️ di pojok kanan atas untuk mulai.',
+    hint: 'Klik ikon ⚙️ di tab bar →',
+    color: '#C99FE8',
+  },
+  {
+    emoji: '💰',
+    title: 'Catat income kamu',
+    desc: 'Setelah kategori siap, catat gaji atau pemasukan bulanan kamu. Klik tombol + hijau di pojok kanan bawah, lalu pilih "Income".',
+    hint: 'Tekan tombol + di bawah →',
+    color: '#7FE8A4',
+  },
+  {
+    emoji: '📊',
+    title: 'Atur budget per kategori',
+    desc: 'Tentukan batas pengeluaran untuk tiap kategori agar tidak over-budget. Klik "Atur budget" di tab Dashboard.',
+    hint: '← Klik "Atur budget" di Dashboard',
+    color: '#F5C95D',
+  },
+  {
+    emoji: '🎯',
+    title: 'Pantau laporan bulanan',
+    desc: 'Lihat pie chart dan tren 6 bulan di tab Laporan untuk memahami pola keuangan kamu. Data akan otomatis terupdate setiap kali ada transaksi baru.',
+    hint: '← Buka tab Laporan',
+    color: '#6FB7E8',
+  },
+];
+
 export default function Dashboard({ user, onLogout }) {
   const [transactions, setTransactions] = useState([]);
   const [budgets, setBudgets] = useState([]);
@@ -100,6 +138,9 @@ export default function Dashboard({ user, onLogout }) {
   const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [tab, setTab] = useState('overview');
+
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
 
   const [form, setForm] = useState({ type: 'expense', amount: '', categoryId: null, note: '', date: todayStr() });
   const [catEditType, setCatEditType] = useState('expense');
@@ -150,10 +191,16 @@ export default function Dashboard({ user, onLogout }) {
         setTransactions((txs || []).map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date })));
         setBudgets(bgs || []);
         setSaveError(false);
+        // Tampilkan onboarding hanya untuk user baru (belum punya kategori sama sekali)
+        if ((cats || []).length === 0) {
+          const doneKey = `onboarding_done_${user.id}`;
+          const alreadyDone = localStorage.getItem(doneKey);
+          if (!alreadyDone) setShowOnboarding(true);
+        }
       }
     } catch (e) { setSaveError(true); }
     setLoaded(true);
-  }, []);
+  }, [user.id]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -304,6 +351,24 @@ export default function Dashboard({ user, onLogout }) {
   }, [transactions, activeMonth]);
 
   async function handleLogout() { await supabase.auth.signOut(); onLogout(); }
+
+  function finishOnboarding() {
+    localStorage.setItem(`onboarding_done_${user.id}`, '1');
+    setShowOnboarding(false);
+    setOnboardingStep(0);
+  }
+
+  function nextStep() {
+    if (onboardingStep < ONBOARDING_STEPS.length - 1) {
+      setOnboardingStep((s) => s + 1);
+    } else {
+      finishOnboarding();
+    }
+  }
+
+  function prevStep() {
+    if (onboardingStep > 0) setOnboardingStep((s) => s - 1);
+  }
 
   if (!loaded) {
     return (
@@ -784,6 +849,122 @@ export default function Dashboard({ user, onLogout }) {
 
       {/* FAB */}
       <button onClick={() => setShowAddModal(true)} className="dompet-fab" aria-label="Tambah transaksi"><Plus size={24} color="#0F1410" /></button>
+
+      {/* ====== ONBOARDING OVERLAY ====== */}
+      {showOnboarding && (() => {
+        const step = ONBOARDING_STEPS[onboardingStep];
+        const isLast = onboardingStep === ONBOARDING_STEPS.length - 1;
+        const isFirst = onboardingStep === 0;
+        return (
+          <div style={{
+            position: 'fixed', inset: 0, zIndex: 100,
+            background: 'rgba(0,0,0,0.78)',
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+            backdropFilter: 'blur(6px)',
+          }}>
+            <div style={{
+              width: '100%', maxWidth: 480,
+              background: 'var(--bg-card)',
+              borderRadius: '28px 28px 0 0',
+              padding: '32px 28px 48px',
+              boxShadow: '0 -20px 60px rgba(0,0,0,0.5)',
+              position: 'relative',
+            }}>
+              <style>{`
+                @keyframes slideUpOB { from { transform: translateY(80px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+                @keyframes popInOB { from { transform: scale(0.5) rotate(-10deg); opacity: 0; } to { transform: scale(1) rotate(0deg); opacity: 1; } }
+                @keyframes pulseHint { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
+                .ob-card { animation: slideUpOB 0.35s cubic-bezier(0.34,1.56,0.64,1); }
+                .ob-emoji { animation: popInOB 0.45s cubic-bezier(0.34,1.56,0.64,1); }
+                .ob-hint { animation: pulseHint 2s ease-in-out infinite; }
+              `}</style>
+
+              {/* Skip */}
+              <button onClick={finishOnboarding} style={{
+                position: 'absolute', top: 20, right: 24,
+                background: 'transparent', border: 'none',
+                color: 'var(--text-muted)', fontSize: 13,
+                cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+              }}>Lewati</button>
+
+              {/* Step dots */}
+              <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 28 }}>
+                {ONBOARDING_STEPS.map((s, i) => (
+                  <div key={i} onClick={() => setOnboardingStep(i)} style={{
+                    width: i === onboardingStep ? 28 : 8,
+                    height: 8, borderRadius: 4,
+                    background: i === onboardingStep ? step.color : 'var(--bg-card2)',
+                    transition: 'all 0.35s cubic-bezier(0.34,1.56,0.64,1)',
+                    cursor: 'pointer',
+                  }} />
+                ))}
+              </div>
+
+              {/* Emoji */}
+              <div className="ob-emoji" key={onboardingStep} style={{ fontSize: 80, textAlign: 'center', marginBottom: 24, lineHeight: 1 }}>
+                {step.emoji}
+              </div>
+
+              {/* Accent bar */}
+              <div style={{ width: 40, height: 4, borderRadius: 2, background: step.color, margin: '0 auto 16px' }} />
+
+              {/* Title */}
+              <h2 style={{
+                fontFamily: "'Space Grotesk', sans-serif",
+                fontWeight: 700, fontSize: 22, color: 'var(--text-primary)',
+                textAlign: 'center', margin: '0 0 14px', lineHeight: 1.3,
+              }}>{step.title}</h2>
+
+              {/* Desc */}
+              <p style={{
+                fontSize: 14, color: 'var(--text-secondary)',
+                textAlign: 'center', lineHeight: 1.75,
+                margin: 0, padding: '0 4px',
+              }}>{step.desc}</p>
+
+              {/* Hint */}
+              {step.hint && (
+                <div className="ob-hint" style={{
+                  marginTop: 16, padding: '10px 16px',
+                  background: step.color + '18',
+                  border: `1px solid ${step.color}44`,
+                  borderRadius: 10, textAlign: 'center',
+                  fontSize: 13, color: step.color, fontWeight: 600,
+                }}>
+                  {step.hint}
+                </div>
+              )}
+
+              {/* Step number */}
+              <div style={{ textAlign: 'center', marginTop: 20, fontSize: 12, color: 'var(--text-muted)' }}>
+                Langkah {onboardingStep + 1} dari {ONBOARDING_STEPS.length}
+              </div>
+
+              {/* Buttons */}
+              <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+                {!isFirst && (
+                  <button onClick={prevStep} style={{
+                    flex: 1, padding: '14px 0', borderRadius: 14,
+                    border: '1px solid var(--border)', background: 'transparent',
+                    color: 'var(--text-secondary)', fontSize: 14, fontWeight: 600,
+                    cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+                  }}>← Kembali</button>
+                )}
+                <button onClick={nextStep} style={{
+                  flex: isFirst ? 1 : 2,
+                  padding: '14px 0', borderRadius: 14, border: 'none',
+                  background: step.color, color: '#0B0F1A',
+                  fontSize: 14, fontWeight: 700,
+                  cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+                  boxShadow: `0 6px 20px ${step.color}44`,
+                }}>
+                  {isLast ? '🚀 Mulai sekarang!' : 'Selanjutnya →'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Modal: tambah transaksi */}
       {showAddModal && (
