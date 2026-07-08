@@ -763,7 +763,6 @@ export default function Dashboard({ user, onLogout }) {
                             stroke="#6FB7E8"
                             strokeWidth={2.5}
                             name="Saving"
-                            strokeDasharray="5 3"
                             dot={{ r: 5, fill: '#6FB7E8', stroke: '#0F1410', strokeWidth: 2 }}
                             activeDot={{ r: 7, fill: '#6FB7E8', stroke: '#0F1410', strokeWidth: 2 }}
                           />
