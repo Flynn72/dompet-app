@@ -112,7 +112,7 @@ export default function AuthPage({ onAuthSuccess }) {
           <span style={styles.logoText}>Dompet</span>
         </div>
         <p style={styles.subtitle}>
-          {mode === 'login' ? 'Masuk untuk mengelola keuangan Anda' : 'Buat akun baru untuk mulai mencatat'}
+          {mode === 'login' ? 'Kelola dana Anda dengan lebih mudah' : 'Buat akun baru untuk mulai mencatat'}
         </p>
 
         <form onSubmit={handleSubmit}>
