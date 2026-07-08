@@ -762,7 +762,7 @@ export default function Dashboard({ user, onLogout }) {
                             dataKey="sav"
                             stroke="#6FB7E8"
                             strokeWidth={2.5}
-                            name="Saving (kumulatif)"
+                            name="Saving"
                             strokeDasharray="5 3"
                             dot={{ r: 5, fill: '#6FB7E8', stroke: '#0F1410', strokeWidth: 2 }}
                             activeDot={{ r: 7, fill: '#6FB7E8', stroke: '#0F1410', strokeWidth: 2 }}
@@ -774,7 +774,7 @@ export default function Dashboard({ user, onLogout }) {
                 );
               })()}
               <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginTop: 12, flexWrap: 'wrap' }}>
-                {[['#7FE8A4','Income'],['#FF9466','Expense'],['#6FB7E8','Saving (kumulatif)']].map(([color, name]) => (
+                {[['#7FE8A4','Income'],['#FF9466','Expense'],['#6FB7E8','Saving']].map(([color, name]) => (
                   <span key={name} style={styles.legendItem2}><span style={{ width: 9, height: 9, borderRadius: 2, background: color, display: 'inline-block' }} />{name}</span>
                 ))}
               </div>
