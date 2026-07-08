@@ -75,9 +75,36 @@ export default function AuthPage({ onAuthSuccess }) {
   return (
     <div style={styles.page}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap');
-        * { box-sizing: border-box; }
-        input { font-family: 'Inter', sans-serif; }
+      @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap');
+      *{
+        box-sizing:border-box;
+      }
+      
+      :root{
+        --bg-base:#0B0F1A;
+        --bg-card:#131929;
+        --bg-input:#0B0F1A;
+        --border:#1E2D4A;
+        --text-primary:#E8EDF8;
+        --text-secondary:#7A90B8;
+        --accent:#7FE8A4;
+      }
+      
+      @media(prefers-color-scheme:light){
+        :root{
+        --bg-base:#EEF2FA;
+        --bg-card:#FFFFFF;
+        --bg-input:#F6F8FD;
+        --border:#C8D4EC;
+        --text-primary:#0D1B3E;
+        --text-secondary:#6079A3;
+        --accent:#1A6B4A;
+      }
+    }
+    
+    input{
+      font-family:'Inter',sans-serif;
+    }
       `}</style>
       <div style={styles.card}>
         <div style={styles.logoWrap}>
@@ -153,18 +180,18 @@ export default function AuthPage({ onAuthSuccess }) {
 
 const styles = {
   page: {
-    minHeight: '100vh', background: '#0F1410', fontFamily: "'Inter', sans-serif", color: '#EAF0EA',
+    minHeight: '100vh', background: 'var(--bg-base)', fontFamily: "'Inter', sans-serif", color: 'var(--text-primary)',
     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
   },
-  card: { width: '100%', maxWidth: 380, background: '#161C17', borderRadius: 20, padding: '32px 24px' },
+  card: { width: '100%', maxWidth: 380, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: '32px 24px' },
   logoWrap: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 8 },
-  logoMark: { width: 38, height: 38, borderRadius: 10, background: '#7FE8A4', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  logoText: { fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: '-0.02em' },
-  subtitle: { textAlign: 'center', fontSize: 13, color: '#9CA89F', marginBottom: 28 },
-  label: { display: 'block', fontSize: 12, color: '#9CA89F', marginBottom: 6, marginTop: 14 },
+  logoMark: { width: 38, height: 38, borderRadius: 10, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  logoText: { fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 22, color:'var(--text-primary)', letterSpacing: '-0.02em' },
+  subtitle: { textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 28 },
+  label: { display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6, marginTop: 14 },
   input: {
-    width: '100%', background: '#0F1410', border: '1px solid #2A332C', borderRadius: 10, padding: '12px 14px',
-    color: '#EAF0EA', fontSize: 14, outline: 'none',
+    width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px',
+    color: 'var(--text-primary)', fontSize: 14, outline: 'none',
   },
   eyeBtn: {
     position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'transparent',
