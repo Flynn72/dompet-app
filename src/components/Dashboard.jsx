@@ -307,9 +307,9 @@ export default function Dashboard({ user, onLogout }) {
 
   if (!loaded) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0F1410', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ minHeight: '100vh', background: 'var(--bg-base)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: 36, height: 36, borderRadius: 10, background: '#7FE8A4', animation: 'pulse 1.2s ease-in-out infinite' }} />
-        <p style={{ color: '#9CA89F', marginTop: 16, fontFamily: 'Inter, sans-serif' }}>Memuat data...</p>
+        <p style={{ color: 'var(--text-secondary)', marginTop: 16, fontFamily: 'Inter, sans-serif' }}>Memuat data...</p>
       </div>
     );
   }
@@ -418,7 +418,7 @@ export default function Dashboard({ user, onLogout }) {
             style={styles.monthSelect}
           >
             {monthOptions.map((m) => (
-              <option key={m.key} value={m.key} style={{ background: '#1A211C' }}>{m.label}</option>
+              <option key={m.key} value={m.key} style={{ background: 'var(--bg-card)' }}>{m.label}</option>
             ))}
           </select>
           <button onClick={() => shiftMonth(1)} style={styles.monthBtn}>›</button>
@@ -450,7 +450,7 @@ export default function Dashboard({ user, onLogout }) {
                 <div style={{ ...styles.summaryCard, gridColumn: '1 / -1' }}>
                   <span style={styles.summaryLabel}>Sisa saldo bulan ini</span>
                   <span style={{ ...styles.balanceNumber, color: balance >= 0 ? '#7FE8A4' : '#FF9466' }}>{formatRupiah(balance)}</span>
-                  <span style={{ fontSize: 11, color: '#6B7568' }}>Income dikurangi expense dan saving/investasi</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Income dikurangi expense dan saving/investasi</span>
                 </div>
                 <div style={styles.summaryCard}>
                   <div style={styles.summaryIconRow}><TrendingUp size={14} color="#7FE8A4" /><span style={styles.summaryLabel}>Income</span></div>
@@ -458,8 +458,8 @@ export default function Dashboard({ user, onLogout }) {
                 </div>
                 <div style={styles.summaryCard}>
                   <span style={styles.summaryLabel}>Total terpakai</span>
-                  <span style={{ ...styles.summaryNumber, color: '#EAF0EA' }}>{formatRupiah(totalUsed)}</span>
-                  <span style={{ fontSize: 10, color: '#6B7568' }}>Expense + saving</span>
+                  <span style={{ ...styles.summaryNumber, color: 'var(--text-primary)' }}>{formatRupiah(totalUsed)}</span>
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Expense + saving</span>
                 </div>
                 <div style={styles.summaryCard}>
                   <div style={styles.summaryIconRow}><TrendingDown size={14} color="#FF9466" /><span style={styles.summaryLabel}>Expense</span></div>
@@ -478,7 +478,7 @@ export default function Dashboard({ user, onLogout }) {
               </div>
               {expenseCategories.length === 0 ? (
                 <div style={styles.emptyCard}>
-                  <span style={{ fontSize: 13, color: '#6B7568' }}>Belum ada kategori expense.</span>
+                  <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Belum ada kategori expense.</span>
                   <button onClick={() => setShowCategoryModal(true)} style={{ ...styles.linkBtn, marginTop: 8, display: 'block' }}>+ Tambah kategori</button>
                 </div>
               ) : (
@@ -501,13 +501,13 @@ export default function Dashboard({ user, onLogout }) {
                             <CatIcon size={16} color={c.color} />
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: '#EAF0EA' }}>{c.label}</div>
-                            <div style={{ fontSize: 11, color: over ? '#FF9466' : '#9CA89F' }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{c.label}</div>
+                            <div style={{ fontSize: 11, color: over ? '#FF9466' : 'var(--text-muted)' }}>
                               {formatRupiah(spent)}{budget > 0 ? ` / ${formatRupiah(budget)}` : ''}
                               {over && ' — Lewat!'}
                             </div>
                           </div>
-                          <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 13, color: over ? '#FF9466' : '#EAF0EA', flexShrink: 0 }}>
+                          <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 13, color: over ? '#FF9466' : 'var(--text-primary)', flexShrink: 0 }}>
                             {formatRupiah(spent)}
                           </span>
                         </div>
@@ -522,10 +522,10 @@ export default function Dashboard({ user, onLogout }) {
                           <div style={{ marginTop: 10, borderTop: '1px solid #22291F', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
                             {subTx.map((t) => (
                               <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                                <span style={{ fontSize: 12, color: '#9CA89F', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                   {t.note || c.label}
                                 </span>
-                                <span style={{ fontSize: 11, color: '#6B7568', flexShrink: 0 }}>
+                                <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
                                   {new Date(t.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
                                 </span>
                                 <span style={{ fontSize: 12, fontWeight: 600, color: '#FF9466', flexShrink: 0 }}>-{formatRupiah(t.amount)}</span>
@@ -549,7 +549,7 @@ export default function Dashboard({ user, onLogout }) {
               </div>
               {savingCategories.length === 0 ? (
                 <div style={styles.emptyCard}>
-                  <span style={{ fontSize: 13, color: '#6B7568' }}>Belum ada kategori saving.</span>
+                  <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Belum ada kategori saving.</span>
                   <button onClick={() => setShowCategoryModal(true)} style={{ ...styles.linkBtn, marginTop: 8, display: 'block' }}>+ Tambah kategori</button>
                 </div>
               ) : (
@@ -567,8 +567,8 @@ export default function Dashboard({ user, onLogout }) {
                             <CatIcon size={16} color={c.color} />
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: '#EAF0EA' }}>{c.label}</div>
-                            <div style={{ fontSize: 11, color: '#9CA89F' }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{c.label}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
                               {formatRupiah(spent)}{target > 0 ? ` / ${formatRupiah(target)}` : ''}
                             </div>
                           </div>
@@ -585,8 +585,8 @@ export default function Dashboard({ user, onLogout }) {
                           <div style={{ marginTop: 10, borderTop: '1px solid #22291F', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
                             {subTx.map((t) => (
                               <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                                <span style={{ fontSize: 12, color: '#9CA89F', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.note || c.label}</span>
-                                <span style={{ fontSize: 11, color: '#6B7568', flexShrink: 0 }}>{new Date(t.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
+                                <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.note || c.label}</span>
+                                <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{new Date(t.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
                                 <span style={{ fontSize: 12, fontWeight: 600, color: '#6FB7E8', flexShrink: 0 }}>-{formatRupiah(t.amount)}</span>
                                 <button onClick={() => deleteTransaction(t.id)} style={styles.deleteBtn}><Trash2 size={12} color="#6B7568" /></button>
                               </div>
@@ -618,7 +618,7 @@ export default function Dashboard({ user, onLogout }) {
               <div style={{ ...styles.summaryCard, gridColumn: '1 / -1' }}>
                 <span style={styles.summaryLabel}>Sisa saldo bulan ini</span>
                 <span style={{ ...styles.balanceNumber, color: balance >= 0 ? '#7FE8A4' : '#FF9466' }}>{formatRupiah(balance)}</span>
-                <span style={{ fontSize: 11, color: '#6B7568' }}>Income dikurangi expense dan saving/investasi</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Income dikurangi expense dan saving/investasi</span>
               </div>
               <div style={styles.summaryCard}>
                 <div style={styles.summaryIconRow}><TrendingUp size={14} color="#7FE8A4" /><span style={styles.summaryLabel}>Income</span></div>
@@ -626,8 +626,8 @@ export default function Dashboard({ user, onLogout }) {
               </div>
               <div style={styles.summaryCard}>
                 <span style={styles.summaryLabel}>Total terpakai</span>
-                <span style={{ ...styles.summaryNumber, color: '#EAF0EA' }}>{formatRupiah(totalUsed)}</span>
-                <span style={{ fontSize: 10, color: '#6B7568' }}>Expense + saving</span>
+                <span style={{ ...styles.summaryNumber, color: 'var(--text-primary)' }}>{formatRupiah(totalUsed)}</span>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Expense + saving</span>
               </div>
               <div style={styles.summaryCard}>
                 <div style={styles.summaryIconRow}><TrendingDown size={14} color="#FF9466" /><span style={styles.summaryLabel}>Expense</span></div>
@@ -845,7 +845,7 @@ export default function Dashboard({ user, onLogout }) {
                 const CatIcon = getIconComponent(c.icon);
                 return (
                   <div key={c.id} style={styles.budgetInputRow}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#EAF0EA', minWidth: 150 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-primary)', minWidth: 150 }}>
                       <CatIcon size={14} color={c.color} />{c.label}
                     </span>
                     <input type="number" inputMode="numeric" placeholder="0" defaultValue={getBudgetAmount(c.id, activeMonth) || ''} onBlur={(e) => setBudgetAmount(c.id, e.target.value)} style={{ ...styles.input, marginBottom: 0 }} />
@@ -858,7 +858,7 @@ export default function Dashboard({ user, onLogout }) {
                 const CatIcon = getIconComponent(c.icon);
                 return (
                   <div key={c.id} style={styles.budgetInputRow}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#EAF0EA', minWidth: 150 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-primary)', minWidth: 150 }}>
                       <CatIcon size={14} color={c.color} />{c.label}
                     </span>
                     <input type="number" inputMode="numeric" placeholder="0" defaultValue={getBudgetAmount(c.id, activeMonth) || ''} onBlur={(e) => setBudgetAmount(c.id, e.target.value)} style={{ ...styles.input, marginBottom: 0 }} />
@@ -894,7 +894,7 @@ export default function Dashboard({ user, onLogout }) {
                     {editingCatId === c.id ? (
                       <>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <button onClick={() => setShowEditIconPicker(!showEditIconPicker)} style={{ width: 34, height: 34, borderRadius: 8, background: c.color + '25', border: '1px solid #2A332C', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                          <button onClick={() => setShowEditIconPicker(!showEditIconPicker)} style={{ width: 34, height: 34, borderRadius: 8, background: c.color + '25', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
                             {React.createElement(getIconComponent(editingCatIcon), { size: 16, color: c.color })}
                           </button>
                           <input type="text" value={editingCatLabel} onChange={(e) => setEditingCatLabel(e.target.value)} style={{ ...styles.input, marginBottom: 0, flex: 1 }} autoFocus />
@@ -907,7 +907,7 @@ export default function Dashboard({ user, onLogout }) {
                               <button key={ic.id} onClick={() => { setEditingCatIcon(ic.id); setShowEditIconPicker(false); }}
                                 style={{ ...styles.iconChip, borderColor: editingCatIcon === ic.id ? '#7FE8A4' : '#2A332C', background: editingCatIcon === ic.id ? '#7FE8A422' : 'transparent' }}
                                 title={ic.label}>
-                                <ic.Icon size={16} color={editingCatIcon === ic.id ? '#7FE8A4' : '#9CA89F'} />
+                                <ic.Icon size={16} color={editingCatIcon === ic.id ? '#7FE8A4' : 'var(--text-muted)'} />
                               </button>
                             ))}
                           </div>
@@ -923,7 +923,7 @@ export default function Dashboard({ user, onLogout }) {
                             <button key={col} onClick={() => setCategoryColor(c.id, col)} style={{ width: 14, height: 14, borderRadius: '50%', background: col, border: c.color === col ? '2px solid #EAF0EA' : '2px solid transparent', cursor: 'pointer', padding: 0, flexShrink: 0 }} />
                           ))}
                         </div>
-                        <span style={{ flex: 1, fontSize: 13, color: '#EAF0EA', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.label}</span>
+                        <span style={{ flex: 1, fontSize: 13, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.label}</span>
                         <button onClick={() => startEditCategory(c)} style={styles.smallIconBtn}><Pencil size={14} color="#9CA89F" /></button>
                         <button onClick={() => deleteCategory(c.id)} style={styles.smallIconBtn}><Trash2 size={14} color="#FF9466" /></button>
                       </div>
@@ -937,9 +937,9 @@ export default function Dashboard({ user, onLogout }) {
             <label style={styles.formLabel}>Tambah kategori baru</label>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
               <button onClick={() => setShowIconPicker(!showIconPicker)}
-                style={{ width: 38, height: 38, borderRadius: 10, border: '1px solid #2A332C', background: '#0F1410', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+                style={{ width: 38, height: 38, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-base)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
                 title="Pilih ikon">
-                {React.createElement(getIconComponent(newCatIcon), { size: 18, color: '#9CA89F' })}
+                {React.createElement(getIconComponent(newCatIcon), { size: 18, color: 'var(--text-secondary)' })}
               </button>
               <input type="text" placeholder={catEditType === 'saving' ? 'Contoh: Emergency Fund' : 'Contoh: Belanja Bulanan'} value={newCatLabel} onChange={(e) => setNewCatLabel(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addCategory(); }} style={{ ...styles.input, marginBottom: 0, flex: 1 }} />
               <button onClick={addCategory} style={{ ...styles.smallIconBtn, width: 38, height: 38, background: '#7FE8A4', flexShrink: 0 }}><Plus size={18} color="#0F1410" /></button>
@@ -950,7 +950,7 @@ export default function Dashboard({ user, onLogout }) {
                   <button key={ic.id} onClick={() => { setNewCatIcon(ic.id); setShowIconPicker(false); }}
                     style={{ ...styles.iconChip, borderColor: newCatIcon === ic.id ? '#7FE8A4' : '#2A332C', background: newCatIcon === ic.id ? '#7FE8A422' : 'transparent' }}
                     title={ic.label}>
-                    <ic.Icon size={16} color={newCatIcon === ic.id ? '#7FE8A4' : '#9CA89F'} />
+                    <ic.Icon size={16} color={newCatIcon === ic.id ? '#7FE8A4' : 'var(--text-muted)'} />
                   </button>
                 ))}
               </div>
@@ -980,8 +980,8 @@ function TxRow({ t, onDelete, catLookup }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
         <div style={{ width: 32, height: 32, borderRadius: 8, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{iconEl}</div>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13, color: '#EAF0EA', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.note || (isIncome ? 'Income' : cat ? cat.label : 'Lainnya')}</div>
-          <div style={{ fontSize: 11, color: '#9CA89F' }}>{new Date(t.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</div>
+          <div style={{ fontSize: 13, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.note || (isIncome ? 'Income' : cat ? cat.label : 'Lainnya')}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{new Date(t.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</div>
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
