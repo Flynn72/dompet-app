@@ -58,4 +58,4 @@ export default function App() {
   if (isAdmin) return <AdminPanel user={session.user} onLogout={() => setSession(null)} />;
 
   return <Dashboard user={session.user} onLogout={() => setSession(null)} />;
-}
+};
