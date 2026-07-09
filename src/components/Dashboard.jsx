@@ -92,38 +92,50 @@ function monthKey(dateStr) {
 const ONBOARDING_STEPS = [
   {
     emoji: '👋',
-    title: 'Selamat datang di Dompet!',
-    desc: 'Aplikasi pencatat keuangan pribadi yang mudah digunakan. Yuk, kita mulai setup dalam beberapa langkah singkat.',
+    title: 'Selamat datang!',
+    desc: 'Mulai setup keuangan kamu dalam 4 langkah singkat.',
     hint: null,
     color: '#7FE8A4',
+    // posisi pop-up: center (tidak ada spotlight)
+    position: 'center',
   },
   {
     emoji: '⚙️',
-    title: 'Buat kategori keuangan',
-    desc: 'Pertama, buat kategori sesuai kebutuhan kamu — misalnya Makan, Bensin, Wifi, atau Investasi. Klik ikon ⚙️ di pojok kanan atas untuk mulai.',
-    hint: 'Klik ikon ⚙️ di tab bar →',
+    title: 'Buat kategori dulu',
+    desc: 'Klik ikon pengaturan di pojok kanan atas untuk tambah kategori Expense & Saving.',
+    hint: null,
     color: '#C99FE8',
+    // spotlight di pojok kanan atas (settings button)
+    position: 'top-right',
+    // pop-up muncul di bawah elemen
+    popupAlign: 'below-settings',
   },
   {
     emoji: '💰',
-    title: 'Catat income kamu',
-    desc: 'Setelah kategori siap, catat gaji atau pemasukan bulanan kamu. Klik tombol + hijau di pojok kanan bawah, lalu pilih "Income".',
-    hint: 'Tekan tombol + di bawah →',
+    title: 'Catat transaksi',
+    desc: 'Tekan tombol + di pojok kanan bawah untuk catat Income, Expense, atau Saving.',
+    hint: null,
     color: '#7FE8A4',
+    position: 'bottom-right',
+    popupAlign: 'above-fab',
   },
   {
     emoji: '📊',
-    title: 'Atur budget per kategori',
-    desc: 'Tentukan batas pengeluaran untuk tiap kategori agar tidak over-budget. Klik "Atur budget" di tab Dashboard.',
-    hint: '← Klik "Atur budget" di Dashboard',
+    title: 'Atur budget',
+    desc: 'Klik "Atur budget" di tab Dashboard untuk tentukan batas pengeluaran per kategori.',
+    hint: null,
     color: '#F5C95D',
+    position: 'center',
+    popupAlign: 'center',
   },
   {
     emoji: '🎯',
-    title: 'Pantau laporan bulanan',
-    desc: 'Lihat pie chart dan tren 6 bulan di tab Laporan untuk memahami pola keuangan kamu. Data akan otomatis terupdate setiap kali ada transaksi baru.',
-    hint: '← Buka tab Laporan',
+    title: 'Cek laporan',
+    desc: 'Buka tab Laporan untuk lihat pie chart dan tren 6 bulan keuangan kamu.',
+    hint: null,
     color: '#6FB7E8',
+    position: 'top-left',
+    popupAlign: 'below-tab',
   },
 ];
 
@@ -855,111 +867,149 @@ export default function Dashboard({ user, onLogout }) {
         const step = ONBOARDING_STEPS[onboardingStep];
         const isLast = onboardingStep === ONBOARDING_STEPS.length - 1;
         const isFirst = onboardingStep === 0;
+
+        // Posisi pop-up dan spotlight berdasarkan step
+        const spotlightMap = {
+          'top-right':    { top: 140, right: 20, width: 40, height: 40, label: '⬆️', labelPos: { top: 190, right: 14 } },
+          'bottom-right': { bottom: 80, right: 20, width: 58, height: 58, label: '⬇️', labelPos: { bottom: 148, right: 26 } },
+          'top-left':     { top: 162, left: 20, width: 80, height: 36, label: '⬆️', labelPos: { top: 206, left: 28 } },
+          'center':       null,
+        };
+        const spotlight = spotlightMap[step.position];
+
+        // Pop-up kecil di pojok atau tengah
+        const popupStyleMap = {
+          'above-fab':      { position: 'fixed', bottom: 148, right: 16, width: 240 },
+          'below-settings': { position: 'fixed', top: 190, right: 12, width: 240 },
+          'below-tab':      { position: 'fixed', top: 200, left: 16, width: 240 },
+          'center':         { position: 'fixed', bottom: '40%', left: '50%', transform: 'translateX(-50%)', width: 280 },
+        };
+        const popupStyle = popupStyleMap[step.popupAlign || 'center'];
+
         return (
-          <div style={{
-            position: 'fixed', inset: 0, zIndex: 100,
-            background: 'rgba(0,0,0,0.78)',
-            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-            backdropFilter: 'blur(6px)',
-          }}>
-            <div style={{
-              width: '100%', maxWidth: 480,
+          <div style={{ position: 'fixed', inset: 0, zIndex: 100, pointerEvents: 'none' }}>
+            <style>{`
+              @keyframes obFadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+              @keyframes obPulseRing { 0%,100% { box-shadow: 0 0 0 0 ${step.color}66; } 50% { box-shadow: 0 0 0 8px ${step.color}00; } }
+              .ob-popup { animation: obFadeIn 0.25s cubic-bezier(0.34,1.56,0.64,1); }
+              .ob-ring { animation: obPulseRing 1.8s ease-in-out infinite; }
+            `}</style>
+
+            {/* Overlay gelap dengan "lubang" spotlight */}
+            {spotlight && (
+              <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none' }}>
+                {/* Overlay atas */}
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0,
+                  height: spotlight.top ?? (spotlight.bottom ? `calc(100vh - ${spotlight.bottom + spotlight.height + 20}px)` : 0),
+                  background: 'rgba(0,0,0,0.72)' }} />
+                {/* Overlay bawah */}
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0,
+                  height: spotlight.bottom ?? 0,
+                  background: 'rgba(0,0,0,0.72)' }} />
+                {/* Kiri dari spotlight */}
+                <div style={{
+                  position: 'absolute',
+                  top: spotlight.top ?? `calc(100vh - ${(spotlight.bottom || 0) + spotlight.height + 20}px)`,
+                  left: 0,
+                  width: spotlight.left ?? (spotlight.right ? `calc(100vw - ${spotlight.right + spotlight.width + 8}px)` : 0),
+                  height: spotlight.height + 16,
+                  background: 'rgba(0,0,0,0.72)',
+                }} />
+                {/* Kanan dari spotlight */}
+                <div style={{
+                  position: 'absolute',
+                  top: spotlight.top ?? `calc(100vh - ${(spotlight.bottom || 0) + spotlight.height + 20}px)`,
+                  right: 0,
+                  width: spotlight.right ?? 0,
+                  height: spotlight.height + 16,
+                  background: 'rgba(0,0,0,0.72)',
+                }} />
+                {/* Ring pulsing di sekitar spotlight */}
+                <div className="ob-ring" style={{
+                  position: 'absolute',
+                  top: (spotlight.top != null ? spotlight.top - 4 : undefined),
+                  bottom: (spotlight.bottom != null ? spotlight.bottom - 4 : undefined),
+                  left: (spotlight.left != null ? spotlight.left - 4 : undefined),
+                  right: (spotlight.right != null ? spotlight.right - 4 : undefined),
+                  width: spotlight.width + 8,
+                  height: spotlight.height + 8,
+                  borderRadius: 12,
+                  border: `2px solid ${step.color}`,
+                }} />
+              </div>
+            )}
+
+            {/* Overlay gelap penuh untuk step tanpa spotlight */}
+            {!spotlight && (
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.70)', backdropFilter: 'blur(3px)' }} />
+            )}
+
+            {/* Pop-up kecil */}
+            <div className="ob-popup" key={onboardingStep} style={{
+              ...popupStyle,
+              pointerEvents: 'all',
               background: 'var(--bg-card)',
-              borderRadius: '28px 28px 0 0',
-              padding: '32px 28px 48px',
-              boxShadow: '0 -20px 60px rgba(0,0,0,0.5)',
-              position: 'relative',
+              borderRadius: 18,
+              padding: '16px 18px',
+              boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px ${step.color}33`,
+              border: `1px solid ${step.color}44`,
             }}>
-              <style>{`
-                @keyframes slideUpOB { from { transform: translateY(80px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-                @keyframes popInOB { from { transform: scale(0.5) rotate(-10deg); opacity: 0; } to { transform: scale(1) rotate(0deg); opacity: 1; } }
-                @keyframes pulseHint { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
-                .ob-card { animation: slideUpOB 0.35s cubic-bezier(0.34,1.56,0.64,1); }
-                .ob-emoji { animation: popInOB 0.45s cubic-bezier(0.34,1.56,0.64,1); }
-                .ob-hint { animation: pulseHint 2s ease-in-out infinite; }
-              `}</style>
-
-              {/* Skip */}
-              <button onClick={finishOnboarding} style={{
-                position: 'absolute', top: 20, right: 24,
-                background: 'transparent', border: 'none',
-                color: 'var(--text-muted)', fontSize: 13,
-                cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-              }}>Lewati</button>
-
-              {/* Step dots */}
-              <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 28 }}>
-                {ONBOARDING_STEPS.map((s, i) => (
-                  <div key={i} onClick={() => setOnboardingStep(i)} style={{
-                    width: i === onboardingStep ? 28 : 8,
-                    height: 8, borderRadius: 4,
-                    background: i === onboardingStep ? step.color : 'var(--bg-card2)',
-                    transition: 'all 0.35s cubic-bezier(0.34,1.56,0.64,1)',
-                    cursor: 'pointer',
-                  }} />
-                ))}
+              {/* Header: emoji + dots + skip */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <span style={{ fontSize: 28 }}>{step.emoji}</span>
+                <div style={{ flex: 1, display: 'flex', gap: 4 }}>
+                  {ONBOARDING_STEPS.map((_, i) => (
+                    <div key={i} onClick={() => setOnboardingStep(i)} style={{
+                      width: i === onboardingStep ? 18 : 5,
+                      height: 5, borderRadius: 3,
+                      background: i === onboardingStep ? step.color : 'var(--bg-card2)',
+                      transition: 'all 0.3s ease',
+                      cursor: 'pointer',
+                    }} />
+                  ))}
+                </div>
+                <button onClick={finishOnboarding} style={{
+                  background: 'transparent', border: 'none',
+                  color: 'var(--text-muted)', fontSize: 12,
+                  cursor: 'pointer', padding: '2px 6px', borderRadius: 6,
+                }}>✕</button>
               </div>
 
-              {/* Emoji */}
-              <div className="ob-emoji" key={onboardingStep} style={{ fontSize: 80, textAlign: 'center', marginBottom: 24, lineHeight: 1 }}>
-                {step.emoji}
-              </div>
-
-              {/* Accent bar */}
-              <div style={{ width: 40, height: 4, borderRadius: 2, background: step.color, margin: '0 auto 16px' }} />
-
-              {/* Title */}
-              <h2 style={{
+              {/* Judul */}
+              <div style={{
                 fontFamily: "'Space Grotesk', sans-serif",
-                fontWeight: 700, fontSize: 22, color: 'var(--text-primary)',
-                textAlign: 'center', margin: '0 0 14px', lineHeight: 1.3,
-              }}>{step.title}</h2>
+                fontWeight: 700, fontSize: 15,
+                color: step.color, marginBottom: 6,
+              }}>{step.title}</div>
 
-              {/* Desc */}
+              {/* Deskripsi */}
               <p style={{
-                fontSize: 14, color: 'var(--text-secondary)',
-                textAlign: 'center', lineHeight: 1.75,
-                margin: 0, padding: '0 4px',
+                fontSize: 12.5, color: 'var(--text-secondary)',
+                lineHeight: 1.6, margin: '0 0 14px',
               }}>{step.desc}</p>
 
-              {/* Hint */}
-              {step.hint && (
-                <div className="ob-hint" style={{
-                  marginTop: 16, padding: '10px 16px',
-                  background: step.color + '18',
-                  border: `1px solid ${step.color}44`,
-                  borderRadius: 10, textAlign: 'center',
-                  fontSize: 13, color: step.color, fontWeight: 600,
-                }}>
-                  {step.hint}
-                </div>
-              )}
-
-              {/* Step number */}
-              <div style={{ textAlign: 'center', marginTop: 20, fontSize: 12, color: 'var(--text-muted)' }}>
-                Langkah {onboardingStep + 1} dari {ONBOARDING_STEPS.length}
-              </div>
-
-              {/* Buttons */}
-              <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+              {/* Tombol */}
+              <div style={{ display: 'flex', gap: 8 }}>
                 {!isFirst && (
                   <button onClick={prevStep} style={{
-                    flex: 1, padding: '14px 0', borderRadius: 14,
+                    flex: 1, padding: '8px 0', borderRadius: 10,
                     border: '1px solid var(--border)', background: 'transparent',
-                    color: 'var(--text-secondary)', fontSize: 14, fontWeight: 600,
-                    cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-                  }}>← Kembali</button>
+                    color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer',
+                  }}>←</button>
                 )}
                 <button onClick={nextStep} style={{
-                  flex: isFirst ? 1 : 2,
-                  padding: '14px 0', borderRadius: 14, border: 'none',
+                  flex: 3, padding: '9px 0', borderRadius: 10, border: 'none',
                   background: step.color, color: '#0B0F1A',
-                  fontSize: 14, fontWeight: 700,
-                  cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-                  boxShadow: `0 6px 20px ${step.color}44`,
+                  fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+                  boxShadow: `0 4px 12px ${step.color}44`,
                 }}>
-                  {isLast ? '🚀 Mulai sekarang!' : 'Selanjutnya →'}
+                  {isLast ? '🚀 Mulai!' : 'Lanjut →'}
                 </button>
+              </div>
+
+              {/* Step counter */}
+              <div style={{ textAlign: 'center', fontSize: 10, color: 'var(--text-muted)', marginTop: 8 }}>
+                {onboardingStep + 1} / {ONBOARDING_STEPS.length}
               </div>
             </div>
           </div>
