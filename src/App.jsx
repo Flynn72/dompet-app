@@ -19,7 +19,7 @@ async function checkAdmin(userId) {
   console.log("PROFILE :", data);
   console.log("ERROR :", error);
 
-  return data?.is_admin || false;
+  return data?.is_admin ?? false;
 }
 
 async function handleSession(s) {
