@@ -41,6 +41,7 @@ async function handleSession(s) {
     const admin = await checkAdmin(s.user.id);
 
     console.log("User ID:", s.user.id);
+    console.log("User Email:", s.user.email);
     console.log("isAdmin:", admin);
 
     setIsAdmin(admin);
