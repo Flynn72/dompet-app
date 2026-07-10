@@ -24,7 +24,10 @@ async function handleSession(s) {
   setSession(s);
 
   if (s?.user) {
-    await supabase.rpc('update_last_login', { user_id: s.user.id }).catch(() => {});
+
+    // await supabase.rpc('update_last_login', {
+    //   user_id: s.user.id
+    // });
 
     const admin = await checkAdmin(s.user.id);
 
@@ -32,6 +35,7 @@ async function handleSession(s) {
     console.log("isAdmin:", admin);
 
     setIsAdmin(admin);
+
   } else {
     setIsAdmin(false);
   }
