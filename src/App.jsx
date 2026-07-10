@@ -12,16 +12,14 @@ export default function App() {
 async function checkAdmin(userId) {
   const { data, error } = await supabase
     .from("user_profiles")
-    .select("is_admin")
+    .select("*")
     .eq("id", userId)
     .single();
 
-  console.log("DATA:", data);
-  console.log("ERROR:", error);
+  console.log("PROFILE :", data);
+  console.log("ERROR :", error);
 
-  if (error) return false;
-
-  return data.is_admin;
+  return data?.is_admin || false;
 }
 
 async function handleSession(s) {
