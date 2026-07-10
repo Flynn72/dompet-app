@@ -36,24 +36,21 @@ async function loadUsers() {
   setLoading(true);
   setError('');
 
-  try {
-    const { data, error } = await supabase.rpc('admin_get_all_users');
+  const { data, error } = await supabase.rpc('admin_get_all_users');
 
-    console.log("RPC DATA:", data);
-    console.log("RPC ERROR:", error);
+  console.log("RPC DATA =", data);
+  console.log("RPC ERROR =", JSON.stringify(error));
 
-    if (error) {
-      throw error;
-    }
-
-    setUsers(data || []);
-  } catch (e) {
-    console.error("FULL ERROR:", e);
-    setError('Gagal memuat data user: ' + (e.message || 'Unknown error'));
+  if (error) {
+    setError(error.message);
+    setLoading(false);
+    return;
   }
 
+  setUsers(data || []);
   setLoading(false);
 }
+  
 useEffect(() => {
   async function init() {
     const { error } = await supabase.rpc(
