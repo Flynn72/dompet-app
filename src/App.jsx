@@ -9,16 +9,20 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [checking, setChecking] = useState(true);
 
-  async function checkAdmin(userId) {
-    try {
-      const { data } = await supabase
-        .from('user_profiles')
-        .select('is_admin')
-        .eq('id', userId)
-        .single();
-      return data?.is_admin || false;
-    } catch { return false; }
-  }
+async function checkAdmin(userId) {
+  const { data, error } = await supabase
+    .from("user_profiles")
+    .select("is_admin")
+    .eq("id", userId)
+    .single();
+
+  console.log("DATA:", data);
+  console.log("ERROR:", error);
+
+  if (error) return false;
+
+  return data.is_admin;
+}
 
 async function handleSession(s) {
   setSession(s);
