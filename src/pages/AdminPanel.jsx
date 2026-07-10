@@ -45,12 +45,22 @@ export default function AdminPanel({ user, onLogout }) {
     setLoading(false);
   }
 
-  useEffect(() => {
-    // Update last_login saat admin login
-    supabase.rpc('update_last_login', { user_id: user.id }).catch(() => {});
-    loadUsers();
-  }, []);
+useEffect(() => {
+  async function init() {
+    const { error } = await supabase.rpc(
+      'update_last_login',
+      { user_id: user.id }
+    );
 
+    if (error) {
+      console.log(error);
+    }
+
+    loadUsers();
+  }
+
+  init();
+}, []);
   async function deleteUser(targetId, username) {
     setDeleting(targetId);
     try {
