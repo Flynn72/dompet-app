@@ -1,2 +1,2 @@
 # dompet-app
-Project Kecil tentang aplikasi pencatatan
+Project Kecil tentang aplikasi pencatatan Keuangan
