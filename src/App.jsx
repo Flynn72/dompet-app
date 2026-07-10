@@ -20,17 +20,22 @@ export default function App() {
     } catch { return false; }
   }
 
-  async function handleSession(s) {
-    setSession(s);
-    if (s?.user) {
-      // Update last_login
-      await supabase.rpc('update_last_login', { user_id: s.user.id }).catch(() => {});
-      const admin = await checkAdmin(s.user.id);
-      setIsAdmin(admin);
-    } else {
-      setIsAdmin(false);
-    }
+async function handleSession(s) {
+  setSession(s);
+
+  if (s?.user) {
+    await supabase.rpc('update_last_login', { user_id: s.user.id }).catch(() => {});
+
+    const admin = await checkAdmin(s.user.id);
+
+    console.log("User ID:", s.user.id);
+    console.log("isAdmin:", admin);
+
+    setIsAdmin(admin);
+  } else {
+    setIsAdmin(false);
   }
+}
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session: s } }) => {
@@ -53,9 +58,13 @@ export default function App() {
     );
   }
 
-  if (!session) return <AuthPage onAuthSuccess={() => {}} />;
+if (!session) {
+  return <AuthPage onAuthSuccess={() => {}} />;
+}
 
-  if (isAdmin) return <AdminPanel user={session.user} onLogout={() => setSession(null)} />;
+if (isAdmin) {
+  return <AdminPanel user={session.user} onLogout={() => setSession(null)} />;
+}
 
-  return <Dashboard user={session.user} onLogout={() => setSession(null)} />;
+return <Dashboard user={session.user} onLogout={() => setSession(null)} />;
 };
