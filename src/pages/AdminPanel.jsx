@@ -31,6 +31,7 @@ export default function AdminPanel({ user, onLogout }) {
   const [filterInactive, setFilterInactive] = useState(false);
   const [search, setSearch] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [lastUpdate, setLastUpdate] = useState(new Date());
 
 async function loadUsers() {
   setLoading(true);
@@ -47,14 +48,15 @@ async function loadUsers() {
     return;
   }
 
-  setUsers(data || []);
-  setLoading(false);
+setUsers(data || []);
+setLastUpdate(new Date());
+setLoading(false);
 }
   
 useEffect(() => {
   async function init() {
     const { error } = await supabase.rpc(
-      'update_last_login',
+      "update_last_login",
       { user_id: user.id }
     );
 
@@ -62,11 +64,59 @@ useEffect(() => {
       console.log(error);
     }
 
-    loadUsers();
+    await loadUsers();
   }
 
   init();
+
+  // Realtime transaksi
+  const transactionChannel = supabase
+    .channel("admin-transactions")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "transactions",
+      },
+      () => {
+        console.log("Transaksi berubah");
+        loadUsers();
+      }
+    )
+    .subscribe();
+
+  // Realtime kategori
+  const categoryChannel = supabase
+    .channel("admin-categories")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "categories",
+      },
+      () => {
+        console.log("Kategori berubah");
+        loadUsers();
+      }
+    )
+    .subscribe();
+
+  // Auto refresh setiap 30 detik
+  const interval = setInterval(() => {
+    console.log("Auto refresh");
+    loadUsers();
+  }, 30000);
+
+  return () => {
+    clearInterval(interval);
+
+    supabase.removeChannel(transactionChannel);
+    supabase.removeChannel(categoryChannel);
+  };
 }, []);
+  
   async function deleteUser(targetId, username) {
     setDeleting(targetId);
     try {
@@ -295,9 +345,26 @@ useEffect(() => {
             </table>
           </div>
         )}
-        <div style={{ fontSize: 12, color: '#4A6A9A', marginTop: 12 }}>
-          Menampilkan {filtered.length} dari {users.length} user
-        </div>
+        <div
+  style={{
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 12,
+    fontSize: 12,
+    color: "#4A6A9A",
+  }}
+>
+  <span>
+    Menampilkan {filtered.length} dari {users.length} user
+  </span>
+
+  <span>
+    Terakhir diperbarui :
+    {" "}
+    {lastUpdate.toLocaleTimeString("id-ID")}
+  </span>
+</div>
       </div>
     </div>
   );
