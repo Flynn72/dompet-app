@@ -27,9 +27,16 @@ async function handleSession(s) {
 
   if (s?.user) {
 
-    // await supabase.rpc('update_last_login', {
-    //   user_id: s.user.id
-    // });
+    const { error } = await supabase.rpc(
+      "update_last_login",
+      {
+        user_id: s.user.id
+      }
+    );
+
+    if (error) {
+      console.log("RPC Error:", error);
+    }
 
     const admin = await checkAdmin(s.user.id);
 
@@ -37,7 +44,6 @@ async function handleSession(s) {
     console.log("isAdmin:", admin);
 
     setIsAdmin(admin);
-
   } else {
     setIsAdmin(false);
   }
