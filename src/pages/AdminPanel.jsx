@@ -32,19 +32,28 @@ export default function AdminPanel({ user, onLogout }) {
   const [search, setSearch] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  async function loadUsers() {
-    setLoading(true);
-    setError('');
-    try {
-      const { data, error: err } = await supabase.rpc('admin_get_all_users');
-      if (err) throw err;
-      setUsers(data || []);
-    } catch (e) {
-      setError('Gagal memuat data user: ' + (e.message || 'Unknown error'));
+async function loadUsers() {
+  setLoading(true);
+  setError('');
+
+  try {
+    const { data, error } = await supabase.rpc('admin_get_all_users');
+
+    console.log("RPC DATA:", data);
+    console.log("RPC ERROR:", error);
+
+    if (error) {
+      throw error;
     }
-    setLoading(false);
+
+    setUsers(data || []);
+  } catch (e) {
+    console.error("FULL ERROR:", e);
+    setError('Gagal memuat data user: ' + (e.message || 'Unknown error'));
   }
 
+  setLoading(false);
+}
 useEffect(() => {
   async function init() {
     const { error } = await supabase.rpc(
