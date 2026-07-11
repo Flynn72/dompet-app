@@ -16,8 +16,9 @@ async function checkAdmin(userId) {
     .eq("id", userId)
     .single();
 
-  console.log("PROFILE :", data);
-  console.log("ERROR :", error);
+  if (error) {
+    console.error('[App] Gagal ambil profil user:', error.message);
+  }
 
   return data?.is_admin ?? false;
 }
@@ -35,15 +36,10 @@ async function handleSession(s) {
     );
 
     if (error) {
-      console.log("RPC Error:", error);
+      console.error('[App] Gagal update last_login:', error.message);
     }
 
     const admin = await checkAdmin(s.user.id);
-
-    console.log("User ID:", s.user.id);
-    console.log("User Email:", s.user.email);
-    console.log("isAdmin:", admin);
-
     setIsAdmin(admin);
   } else {
     setIsAdmin(false);
