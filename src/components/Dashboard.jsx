@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend, Dot } from 'recharts';
 import {
   Plus, Trash2, TrendingUp, TrendingDown, PiggyBank, Wallet, X, Check,
@@ -94,48 +94,36 @@ const ONBOARDING_STEPS = [
     emoji: '👋',
     title: 'Selamat datang!',
     desc: 'Yuk kenalan dulu sama Dompet — aplikasi buat catat keuangan kamu sehari-hari. Cuma butuh 4 langkah singkat untuk mulai.',
-    hint: null,
     color: '#7FE8A4',
-    // posisi pop-up: center (tidak ada spotlight)
-    position: 'center',
+    target: null, // tidak ada spotlight, pop-up di tengah
   },
   {
     emoji: '⚙️',
     title: 'Buat kategori dulu',
-    desc: 'Klik ikon pengaturan di pojok kanan atas ini untuk bikin kategori Expense (pengeluaran) & Saving (tabungan) sesuai kebutuhan kamu.',
-    hint: null,
+    desc: 'Klik ikon pengaturan ini untuk bikin kategori Expense (pengeluaran) & Saving (tabungan) sesuai kebutuhan kamu.',
     color: '#C99FE8',
-    // spotlight di pojok kanan atas (settings button)
-    position: 'top-right',
-    // pop-up muncul di bawah elemen
-    popupAlign: 'below-settings',
+    target: 'settings', // ref ke tombol kelola kategori
   },
   {
     emoji: '💰',
     title: 'Catat Income pertama',
-    desc: 'Tekan tombol + di pojok kanan bawah ini untuk catat pemasukan (Income) pertama kamu — atau pengeluaran & tabungan kapan saja.',
-    hint: null,
+    desc: 'Tekan tombol + ini untuk catat pemasukan (Income) pertama kamu — atau pengeluaran & tabungan kapan saja.',
     color: '#7FE8A4',
-    position: 'bottom-right',
-    popupAlign: 'above-fab',
+    target: 'fab', // ref ke tombol tambah transaksi
   },
   {
     emoji: '📊',
     title: 'Atur budget',
-    desc: 'Klik "Atur budget" di tab Dashboard untuk tentukan batas pengeluaran per kategori, biar keuanganmu tetap terkontrol.',
-    hint: null,
+    desc: 'Klik "Atur budget" di kartu Budget Expense untuk tentukan batas pengeluaran per kategori, biar keuanganmu tetap terkontrol.',
     color: '#F5C95D',
-    position: 'center',
-    popupAlign: 'center',
+    target: null,
   },
   {
     emoji: '🎯',
     title: 'Baca laporan bulanan',
-    desc: 'Buka tab Laporan ini buat lihat pie chart dan tren 6 bulan keuangan kamu — enak dipantau tiap akhir bulan.',
-    hint: null,
+    desc: 'Klik tab Laporan ini buat lihat pie chart dan tren 6 bulan keuangan kamu — enak dipantau tiap akhir bulan.',
     color: '#6FB7E8',
-    position: 'top-left',
-    popupAlign: 'below-tab',
+    target: 'reportsTab', // ref ke tab Laporan, otomatis pindah tab
   },
 ];
 
@@ -153,6 +141,11 @@ export default function Dashboard({ user, onLogout }) {
 
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
+  const [spotlightRect, setSpotlightRect] = useState(null); // posisi presisi elemen target, dihitung langsung dari DOM
+  const settingsBtnRef = useRef(null);
+  const fabRef = useRef(null);
+  const reportsTabRef = useRef(null);
+  const targetRefs = { settings: settingsBtnRef, fab: fabRef, reportsTab: reportsTabRef };
 
   const [form, setForm] = useState({ type: 'expense', amount: '', categoryId: null, note: '', date: todayStr() });
   const [catEditType, setCatEditType] = useState('expense');
@@ -383,6 +376,41 @@ export default function Dashboard({ user, onLogout }) {
     if (onboardingStep > 0) setOnboardingStep((s) => s - 1);
   }
 
+  // Hitung posisi presisi elemen target (spotlight) langsung dari DOM,
+  // supaya pop-up onboarding selalu tepat menunjuk ke tombol yang dimaksud
+  // di ukuran layar apa pun (mobile/desktop), bukan angka pixel tebakan.
+  useLayoutEffect(() => {
+    if (!showOnboarding) { setSpotlightRect(null); return; }
+    const step = ONBOARDING_STEPS[onboardingStep];
+
+    // Step "Laporan" otomatis pindah tab supaya kontennya terlihat di belakang pop-up
+    if (step.target === 'reportsTab' && tab !== 'reports') {
+      setTab('reports');
+    }
+
+    function measure() {
+      if (!step.target) { setSpotlightRect(null); return; }
+      const el = targetRefs[step.target]?.current;
+      if (el) {
+        const r = el.getBoundingClientRect();
+        setSpotlightRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+      } else {
+        setSpotlightRect(null);
+      }
+    }
+
+    // Beri sedikit delay 1 frame supaya tab sempat berpindah/render dulu sebelum diukur
+    const raf = requestAnimationFrame(measure);
+    window.addEventListener('resize', measure);
+    window.addEventListener('scroll', measure, true);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('scroll', measure, true);
+    };
+  }, [showOnboarding, onboardingStep, tab]);
+
+
   if (!loaded) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg-base)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -511,9 +539,9 @@ export default function Dashboard({ user, onLogout }) {
           { id: 'transactions', label: 'Transaksi' },
           { id: 'reports', label: 'Laporan' },
         ].map((t) => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{ ...styles.tabBtn, ...(tab === t.id ? styles.tabBtnActive : {}) }}>{t.label}</button>
+          <button key={t.id} ref={t.id === 'reports' ? reportsTabRef : null} onClick={() => setTab(t.id)} style={{ ...styles.tabBtn, ...(tab === t.id ? styles.tabBtnActive : {}) }}>{t.label}</button>
         ))}
-        <button onClick={() => setShowCategoryModal(true)} style={styles.settingsBtn} aria-label="Kelola kategori"><Settings size={16} color="#9CA89F" /></button>
+        <button ref={settingsBtnRef} onClick={() => setShowCategoryModal(true)} style={styles.settingsBtn} aria-label="Kelola kategori"><Settings size={16} color="#9CA89F" /></button>
       </div>
 
       <div className="dompet-content">
@@ -861,7 +889,7 @@ export default function Dashboard({ user, onLogout }) {
       </div>
 
       {/* FAB */}
-      <button onClick={() => setShowAddModal(true)} className="dompet-fab" aria-label="Tambah transaksi"><Plus size={24} color="#0F1410" /></button>
+      <button ref={fabRef} onClick={() => setShowAddModal(true)} className="dompet-fab" aria-label="Tambah transaksi"><Plus size={24} color="#0F1410" /></button>
 
       {/* ====== ONBOARDING OVERLAY ====== */}
       {showOnboarding && (() => {
@@ -869,31 +897,54 @@ export default function Dashboard({ user, onLogout }) {
         const isLast = onboardingStep === ONBOARDING_STEPS.length - 1;
         const isFirst = onboardingStep === 0;
 
-        // Posisi pop-up dan spotlight berdasarkan step
-        const spotlightMap = {
-          'top-right':    { top: 140, right: 20, width: 40, height: 40, label: '⬆️', labelPos: { top: 190, right: 14 } },
-          'bottom-right': { bottom: 80, right: 20, width: 58, height: 58, label: '⬇️', labelPos: { bottom: 148, right: 26 } },
-          'top-left':     { top: 162, left: 20, width: 80, height: 36, label: '⬆️', labelPos: { top: 206, left: 28 } },
-          'center':       null,
-        };
-        const spotlight = spotlightMap[step.position];
+        const PAD = 8;   // jarak ring spotlight dari tepi elemen asli
+        const GAP = 14;  // jarak pop-up dari spotlight
+        const POPUP_W = 260;
 
-        // Pop-up kecil di pojok atau tengah
-        const popupStyleMap = {
-          'above-fab':      { position: 'fixed', bottom: 148, right: 16, width: 240 },
-          'below-settings': { position: 'fixed', top: 190, right: 12, width: 240 },
-          'below-tab':      { position: 'fixed', top: 200, left: 16, width: 240 },
-          'center':         { position: 'fixed', bottom: '40%', left: '50%', transform: 'translateX(-50%)', width: 280 },
-        };
-        const popupStyle = popupStyleMap[step.popupAlign || 'center'];
+        let spotlight = null;
+        let popupStyle;
+        let arrowStyle = null;
 
-        // Panah kecil penunjuk arah dari pop-up ke elemen yang dituju (spotlight)
-        const arrowMap = {
-          'below-settings': { top: -7, right: 28, borderWidth: '0 7px 8px 7px', borderColor: `transparent transparent ${step.color} transparent` },
-          'above-fab':      { bottom: -7, right: 30, borderWidth: '8px 7px 0 7px', borderColor: `${step.color} transparent transparent transparent` },
-          'below-tab':      { top: -7, left: 28, borderWidth: '0 7px 8px 7px', borderColor: `transparent transparent ${step.color} transparent` },
-        };
-        const arrow = arrowMap[step.popupAlign];
+        if (spotlightRect) {
+          // Spotlight persis mengikuti posisi & ukuran elemen asli (diukur dari DOM)
+          spotlight = {
+            top: spotlightRect.top - PAD,
+            left: spotlightRect.left - PAD,
+            width: spotlightRect.width + PAD * 2,
+            height: spotlightRect.height + PAD * 2,
+          };
+
+          const vh = window.innerHeight;
+          const vw = window.innerWidth;
+          const rectCenterX = spotlightRect.left + spotlightRect.width / 2;
+          const placeBelow = spotlightRect.top < vh / 2; // elemen di atas layar -> pop-up di bawahnya, dst.
+          const alignRight = rectCenterX > vw / 2;
+
+          popupStyle = {
+            position: 'fixed',
+            width: POPUP_W,
+            maxWidth: 'calc(100vw - 24px)',
+            ...(placeBelow
+              ? { top: spotlightRect.top + spotlightRect.height + GAP }
+              : { bottom: vh - spotlightRect.top + GAP }),
+            ...(alignRight
+              ? { right: Math.max(12, vw - spotlightRect.right) }
+              : { left: Math.max(12, spotlightRect.left) }),
+          };
+
+          // Panah nempel di sisi pop-up yang menghadap ke elemen target, mengarah tepat ke rect
+          arrowStyle = {
+            position: 'absolute',
+            width: 0, height: 0,
+            borderStyle: 'solid',
+            ...(placeBelow
+              ? { top: -7, borderWidth: '0 7px 8px 7px', borderColor: `transparent transparent ${step.color} transparent` }
+              : { bottom: -7, borderWidth: '8px 7px 0 7px', borderColor: `${step.color} transparent transparent transparent` }),
+            ...(alignRight ? { right: 20 } : { left: 20 }),
+          };
+        } else {
+          popupStyle = { position: 'fixed', bottom: '40%', left: '50%', transform: 'translateX(-50%)', width: 280 };
+        }
 
         return (
           <div style={{ position: 'fixed', inset: 0, zIndex: 100, pointerEvents: 'none' }}>
@@ -904,44 +955,22 @@ export default function Dashboard({ user, onLogout }) {
               .ob-ring { animation: obPulseRing 1.8s ease-in-out infinite; }
             `}</style>
 
-            {/* Overlay gelap dengan "lubang" spotlight */}
+            {/* Overlay gelap dengan "lubang" spotlight persis di elemen target */}
             {spotlight && (
               <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none' }}>
                 {/* Overlay atas */}
-                <div style={{ position: 'absolute', top: 0, left: 0, right: 0,
-                  height: spotlight.top ?? (spotlight.bottom ? `calc(100vh - ${spotlight.bottom + spotlight.height + 20}px)` : 0),
-                  background: 'rgba(0,0,0,0.72)' }} />
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: Math.max(0, spotlight.top), background: 'rgba(0,0,0,0.72)' }} />
                 {/* Overlay bawah */}
-                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0,
-                  height: spotlight.bottom ?? 0,
-                  background: 'rgba(0,0,0,0.72)' }} />
+                <div style={{ position: 'absolute', top: spotlight.top + spotlight.height, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.72)' }} />
                 {/* Kiri dari spotlight */}
-                <div style={{
-                  position: 'absolute',
-                  top: spotlight.top ?? `calc(100vh - ${(spotlight.bottom || 0) + spotlight.height + 20}px)`,
-                  left: 0,
-                  width: spotlight.left ?? (spotlight.right ? `calc(100vw - ${spotlight.right + spotlight.width + 8}px)` : 0),
-                  height: spotlight.height + 16,
-                  background: 'rgba(0,0,0,0.72)',
-                }} />
+                <div style={{ position: 'absolute', top: spotlight.top, left: 0, width: Math.max(0, spotlight.left), height: spotlight.height, background: 'rgba(0,0,0,0.72)' }} />
                 {/* Kanan dari spotlight */}
-                <div style={{
-                  position: 'absolute',
-                  top: spotlight.top ?? `calc(100vh - ${(spotlight.bottom || 0) + spotlight.height + 20}px)`,
-                  right: 0,
-                  width: spotlight.right ?? 0,
-                  height: spotlight.height + 16,
-                  background: 'rgba(0,0,0,0.72)',
-                }} />
-                {/* Ring pulsing di sekitar spotlight */}
+                <div style={{ position: 'absolute', top: spotlight.top, left: spotlight.left + spotlight.width, right: 0, height: spotlight.height, background: 'rgba(0,0,0,0.72)' }} />
+                {/* Ring pulsing tepat di sekeliling elemen target */}
                 <div className="ob-ring" style={{
                   position: 'absolute',
-                  top: (spotlight.top != null ? spotlight.top - 4 : undefined),
-                  bottom: (spotlight.bottom != null ? spotlight.bottom - 4 : undefined),
-                  left: (spotlight.left != null ? spotlight.left - 4 : undefined),
-                  right: (spotlight.right != null ? spotlight.right - 4 : undefined),
-                  width: spotlight.width + 8,
-                  height: spotlight.height + 8,
+                  top: spotlight.top, left: spotlight.left,
+                  width: spotlight.width, height: spotlight.height,
                   borderRadius: 12,
                   border: `2px solid ${step.color}`,
                 }} />
@@ -964,17 +993,7 @@ export default function Dashboard({ user, onLogout }) {
               border: `1px solid ${step.color}44`,
             }}>
               {/* Panah penunjuk arah ke elemen yang dituju */}
-              {arrow && (
-                <div style={{
-                  position: 'absolute',
-                  width: 0, height: 0,
-                  top: arrow.top, bottom: arrow.bottom,
-                  left: arrow.left, right: arrow.right,
-                  borderStyle: 'solid',
-                  borderWidth: arrow.borderWidth,
-                  borderColor: arrow.borderColor,
-                }} />
-              )}
+              {arrowStyle && <div style={arrowStyle} />}
               {/* Header: emoji + dots + skip */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                 <span style={{ fontSize: 28 }}>{step.emoji}</span>
