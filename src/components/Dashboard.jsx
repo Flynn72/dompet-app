@@ -93,7 +93,7 @@ const ONBOARDING_STEPS = [
   {
     emoji: '👋',
     title: 'Selamat datang!',
-    desc: 'Mulai setup keuangan kamu dalam 4 langkah singkat.',
+    desc: 'Yuk kenalan dulu sama Dompet — aplikasi buat catat keuangan kamu sehari-hari. Cuma butuh 4 langkah singkat untuk mulai.',
     hint: null,
     color: '#7FE8A4',
     // posisi pop-up: center (tidak ada spotlight)
@@ -102,7 +102,7 @@ const ONBOARDING_STEPS = [
   {
     emoji: '⚙️',
     title: 'Buat kategori dulu',
-    desc: 'Klik ikon pengaturan di pojok kanan atas untuk tambah kategori Expense & Saving.',
+    desc: 'Klik ikon pengaturan di pojok kanan atas ini untuk bikin kategori Expense (pengeluaran) & Saving (tabungan) sesuai kebutuhan kamu.',
     hint: null,
     color: '#C99FE8',
     // spotlight di pojok kanan atas (settings button)
@@ -112,8 +112,8 @@ const ONBOARDING_STEPS = [
   },
   {
     emoji: '💰',
-    title: 'Catat transaksi',
-    desc: 'Tekan tombol + di pojok kanan bawah untuk catat Income, Expense, atau Saving.',
+    title: 'Catat Income pertama',
+    desc: 'Tekan tombol + di pojok kanan bawah ini untuk catat pemasukan (Income) pertama kamu — atau pengeluaran & tabungan kapan saja.',
     hint: null,
     color: '#7FE8A4',
     position: 'bottom-right',
@@ -122,7 +122,7 @@ const ONBOARDING_STEPS = [
   {
     emoji: '📊',
     title: 'Atur budget',
-    desc: 'Klik "Atur budget" di tab Dashboard untuk tentukan batas pengeluaran per kategori.',
+    desc: 'Klik "Atur budget" di tab Dashboard untuk tentukan batas pengeluaran per kategori, biar keuanganmu tetap terkontrol.',
     hint: null,
     color: '#F5C95D',
     position: 'center',
@@ -130,8 +130,8 @@ const ONBOARDING_STEPS = [
   },
   {
     emoji: '🎯',
-    title: 'Cek laporan',
-    desc: 'Buka tab Laporan untuk lihat pie chart dan tren 6 bulan keuangan kamu.',
+    title: 'Baca laporan bulanan',
+    desc: 'Buka tab Laporan ini buat lihat pie chart dan tren 6 bulan keuangan kamu — enak dipantau tiap akhir bulan.',
     hint: null,
     color: '#6FB7E8',
     position: 'top-left',
@@ -162,6 +162,7 @@ export default function Dashboard({ user, onLogout }) {
   const [editingCatLabel, setEditingCatLabel] = useState('');
   const [editingCatIcon, setEditingCatIcon] = useState('dollar');
   const [showIconPicker, setShowIconPicker] = useState(false); // untuk tambah
+  const [previewIconLabel, setPreviewIconLabel] = useState(null); // nama ikon yang sedang disentuh/hover di grid (mobile & desktop)
   const [showEditIconPicker, setShowEditIconPicker] = useState(false); // untuk edit
 
   // Navigasi bulan: dropdown selalu 12 bulan tahun aktif
@@ -886,6 +887,14 @@ export default function Dashboard({ user, onLogout }) {
         };
         const popupStyle = popupStyleMap[step.popupAlign || 'center'];
 
+        // Panah kecil penunjuk arah dari pop-up ke elemen yang dituju (spotlight)
+        const arrowMap = {
+          'below-settings': { top: -7, right: 28, borderWidth: '0 7px 8px 7px', borderColor: `transparent transparent ${step.color} transparent` },
+          'above-fab':      { bottom: -7, right: 30, borderWidth: '8px 7px 0 7px', borderColor: `${step.color} transparent transparent transparent` },
+          'below-tab':      { top: -7, left: 28, borderWidth: '0 7px 8px 7px', borderColor: `transparent transparent ${step.color} transparent` },
+        };
+        const arrow = arrowMap[step.popupAlign];
+
         return (
           <div style={{ position: 'fixed', inset: 0, zIndex: 100, pointerEvents: 'none' }}>
             <style>{`
@@ -954,6 +963,18 @@ export default function Dashboard({ user, onLogout }) {
               boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px ${step.color}33`,
               border: `1px solid ${step.color}44`,
             }}>
+              {/* Panah penunjuk arah ke elemen yang dituju */}
+              {arrow && (
+                <div style={{
+                  position: 'absolute',
+                  width: 0, height: 0,
+                  top: arrow.top, bottom: arrow.bottom,
+                  left: arrow.left, right: arrow.right,
+                  borderStyle: 'solid',
+                  borderWidth: arrow.borderWidth,
+                  borderColor: arrow.borderColor,
+                }} />
+              )}
               {/* Header: emoji + dots + skip */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                 <span style={{ fontSize: 28 }}>{step.emoji}</span>
@@ -1127,20 +1148,28 @@ export default function Dashboard({ user, onLogout }) {
                           <button onClick={() => setShowEditIconPicker(!showEditIconPicker)} style={{ width: 34, height: 34, borderRadius: 8, background: c.color + '25', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
                             {React.createElement(getIconComponent(editingCatIcon), { size: 16, color: c.color })}
                           </button>
+                          <span style={styles.iconNameTag}>{ICON_LIST.find((i) => i.id === editingCatIcon)?.label || 'Ikon'}</span>
                           <input type="text" value={editingCatLabel} onChange={(e) => setEditingCatLabel(e.target.value)} style={{ ...styles.input, marginBottom: 0, flex: 1 }} autoFocus />
                           <button onClick={saveEditCategory} style={styles.smallIconBtn}><Check size={15} color="#7FE8A4" /></button>
                           <button onClick={() => { setEditingCatId(null); setShowEditIconPicker(false); }} style={styles.smallIconBtn}><X size={15} color="#9CA89F" /></button>
                         </div>
                         {showEditIconPicker && (
-                          <div style={styles.iconGrid}>
-                            {ICON_LIST.map((ic) => (
-                              <button key={ic.id} onClick={() => { setEditingCatIcon(ic.id); setShowEditIconPicker(false); }}
-                                style={{ ...styles.iconChip, borderColor: editingCatIcon === ic.id ? '#7FE8A4' : '#2A332C', background: editingCatIcon === ic.id ? '#7FE8A422' : 'transparent' }}
-                                title={ic.label}>
-                                <ic.Icon size={16} color={editingCatIcon === ic.id ? '#7FE8A4' : 'var(--text-muted)'} />
-                              </button>
-                            ))}
-                          </div>
+                          <>
+                            <div style={styles.iconPreviewBar}>{previewIconLabel || 'Sentuh ikon untuk lihat namanya'}</div>
+                            <div style={styles.iconGrid}>
+                              {ICON_LIST.map((ic) => (
+                                <button key={ic.id}
+                                  onClick={() => { setEditingCatIcon(ic.id); setShowEditIconPicker(false); setPreviewIconLabel(null); }}
+                                  onMouseEnter={() => setPreviewIconLabel(ic.label)}
+                                  onMouseLeave={() => setPreviewIconLabel(null)}
+                                  onTouchStart={() => setPreviewIconLabel(ic.label)}
+                                  style={{ ...styles.iconChip, borderColor: editingCatIcon === ic.id ? '#7FE8A4' : '#2A332C', background: editingCatIcon === ic.id ? '#7FE8A422' : 'transparent' }}
+                                  title={ic.label}>
+                                  <ic.Icon size={16} color={editingCatIcon === ic.id ? '#7FE8A4' : 'var(--text-muted)'} />
+                                </button>
+                              ))}
+                            </div>
+                          </>
                         )}
                       </>
                     ) : (
@@ -1171,19 +1200,27 @@ export default function Dashboard({ user, onLogout }) {
                 title="Pilih ikon">
                 {React.createElement(getIconComponent(newCatIcon), { size: 18, color: 'var(--text-secondary)' })}
               </button>
+              <span style={styles.iconNameTag}>{ICON_LIST.find((i) => i.id === newCatIcon)?.label || 'Pilih ikon'}</span>
               <input type="text" placeholder={catEditType === 'saving' ? 'Contoh: Emergency Fund' : 'Contoh: Belanja Bulanan'} value={newCatLabel} onChange={(e) => setNewCatLabel(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addCategory(); }} style={{ ...styles.input, marginBottom: 0, flex: 1 }} />
               <button onClick={addCategory} style={{ ...styles.smallIconBtn, width: 38, height: 38, background: '#7FE8A4', flexShrink: 0 }}><Plus size={18} color="#0F1410" /></button>
             </div>
             {showIconPicker && (
-              <div style={styles.iconGrid}>
-                {ICON_LIST.map((ic) => (
-                  <button key={ic.id} onClick={() => { setNewCatIcon(ic.id); setShowIconPicker(false); }}
-                    style={{ ...styles.iconChip, borderColor: newCatIcon === ic.id ? '#7FE8A4' : '#2A332C', background: newCatIcon === ic.id ? '#7FE8A422' : 'transparent' }}
-                    title={ic.label}>
-                    <ic.Icon size={16} color={newCatIcon === ic.id ? '#7FE8A4' : 'var(--text-muted)'} />
-                  </button>
-                ))}
-              </div>
+              <>
+                <div style={styles.iconPreviewBar}>{previewIconLabel || 'Sentuh ikon untuk lihat namanya'}</div>
+                <div style={styles.iconGrid}>
+                  {ICON_LIST.map((ic) => (
+                    <button key={ic.id}
+                      onClick={() => { setNewCatIcon(ic.id); setShowIconPicker(false); setPreviewIconLabel(null); }}
+                      onMouseEnter={() => setPreviewIconLabel(ic.label)}
+                      onMouseLeave={() => setPreviewIconLabel(null)}
+                      onTouchStart={() => setPreviewIconLabel(ic.label)}
+                      style={{ ...styles.iconChip, borderColor: newCatIcon === ic.id ? '#7FE8A4' : '#2A332C', background: newCatIcon === ic.id ? '#7FE8A422' : 'transparent' }}
+                      title={ic.label}>
+                      <ic.Icon size={16} color={newCatIcon === ic.id ? '#7FE8A4' : 'var(--text-muted)'} />
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
 
             <button onClick={() => { setShowCategoryModal(false); setEditingCatId(null); setNewCatLabel(''); setShowIconPicker(false); setShowEditIconPicker(false); }} style={styles.submitBtn}><Check size={16} color="#0F1410" />Selesai</button>
@@ -1272,4 +1309,6 @@ const styles = {
   smallIconBtn: { background: 'transparent', border: 'none', cursor: 'pointer', padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6, flexShrink: 0 },
   iconGrid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, padding: '10px 0', marginBottom: 8, maxHeight: 220, overflowY: 'auto' },
   iconChip: { width: 36, height: 36, borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
+  iconNameTag: { fontSize: 11, color: 'var(--text-secondary)', flexShrink: 0, maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  iconPreviewBar: { fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center', padding: '6px 0', marginTop: 4, minHeight: 18 },
 };
