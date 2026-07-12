@@ -187,9 +187,9 @@ export default function Dashboard({ user, onLogout }) {
   const loadAll = useCallback(async () => {
     try {
       const [{ data: cats, error: catErr }, { data: txs, error: txErr }, { data: bgs, error: bgErr }] = await Promise.all([
-        supabase.from('categories').select('*').order('sort_order'),
-        supabase.from('transactions').select('*').order('tx_date', { ascending: false }),
-        supabase.from('budgets').select('*'),
+        supabase.from('categories').select('*').eq('user_id', user.id).order('sort_order'),
+        supabase.from('transactions').select('*').eq('user_id', user.id).order('tx_date', { ascending: false }),
+        supabase.from('budgets').select('*').eq('user_id', user.id),
       ]);
       if (catErr || txErr || bgErr) { setSaveError(true); }
       else {
