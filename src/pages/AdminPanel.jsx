@@ -226,7 +226,7 @@ useEffect(() => {
             <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Dompet App</div>
           </div>
         </div>
-        <button onClick={onLogout} style={s.logoutBtn}><LogOut size={15} color="var(--text-secondary)" /></button>
+        <button onClick={async () => { await supabase.auth.signOut(); onLogout(); }} style={s.logoutBtn}><LogOut size={15} color="var(--text-secondary)" /></button>
       </div>
 
       <div style={s.content}>
