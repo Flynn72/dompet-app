@@ -72,8 +72,8 @@ if (!session) {
 }
 
 if (isAdmin) {
-  return <AdminPanel user={session.user} onLogout={() => setSession(null)} />;
+  return <AdminPanel user={session.user} onLogout={async () => { await supabase.auth.signOut(); setSession(null); }} />;
 }
 
-return <Dashboard user={session.user} onLogout={() => setSession(null)} />;
+return <Dashboard user={session.user} onLogout={async () => { await supabase.auth.signOut(); setSession(null); }} />;
 };
