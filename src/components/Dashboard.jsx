@@ -116,7 +116,7 @@ const ONBOARDING_STEPS = [
     title: 'Atur budget',
     desc: 'Klik "Atur budget" di kartu Budget Expense untuk tentukan batas pengeluaran per kategori, biar keuanganmu tetap terkontrol.',
     color: '#F5C95D',
-    target: null,
+    target: 'budgetLink',
   },
   {
     emoji: '🎯',
@@ -145,7 +145,8 @@ export default function Dashboard({ user, onLogout }) {
   const settingsBtnRef = useRef(null);
   const fabRef = useRef(null);
   const reportsTabRef = useRef(null);
-  const targetRefs = { settings: settingsBtnRef, fab: fabRef, reportsTab: reportsTabRef };
+  const budgetLinkRef = useRef(null);
+  const targetRefs = { settings: settingsBtnRef, fab: fabRef, reportsTab: reportsTabRef, budgetLink: budgetLinkRef };
 
   const [form, setForm] = useState({ type: 'expense', amount: '', categoryId: null, note: '', date: todayStr() });
   const [catEditType, setCatEditType] = useState('expense');
@@ -388,23 +389,35 @@ export default function Dashboard({ user, onLogout }) {
       setTab('reports');
     }
 
+    if (!step.target) { setSpotlightRect(null); return; }
+    setSpotlightRect(null); // reset dulu biar tidak ada ring "nyasar" dari step sebelumnya sesaat
+
     function measure() {
-      if (!step.target) { setSpotlightRect(null); return; }
       const el = targetRefs[step.target]?.current;
       if (el) {
         const r = el.getBoundingClientRect();
-        setSpotlightRect({ top: r.top, left: r.left, width: r.width, height: r.height });
-      } else {
-        setSpotlightRect(null);
+        // Kalau elemen belum ke-render sempurna (ukuran 0), jangan dipakai — biar retry berikutnya yang menangkap
+        if (r.width > 0 && r.height > 0) {
+          setSpotlightRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+        }
       }
     }
 
-    // Beri sedikit delay 1 frame supaya tab sempat berpindah/render dulu sebelum diukur
-    const raf = requestAnimationFrame(measure);
+    // Ukur berkali-kali di beberapa titik waktu berbeda, supaya tetap presisi
+    // meskipun ada delay render/transisi tab/animasi pop-up sebelumnya.
+    const raf1 = requestAnimationFrame(() => {
+      measure();
+      requestAnimationFrame(measure); // rAF kedua, jaga-jaga layout belum settle di frame pertama
+    });
+    const t1 = setTimeout(measure, 80);
+    const t2 = setTimeout(measure, 250);
+
     window.addEventListener('resize', measure);
     window.addEventListener('scroll', measure, true);
     return () => {
-      cancelAnimationFrame(raf);
+      cancelAnimationFrame(raf1);
+      clearTimeout(t1);
+      clearTimeout(t2);
       window.removeEventListener('resize', measure);
       window.removeEventListener('scroll', measure, true);
     };
@@ -580,7 +593,7 @@ export default function Dashboard({ user, onLogout }) {
               {/* Kartu budget expense per kategori + sub-transaksi */}
               <div style={{ ...styles.sectionHeader, marginTop: 24 }}>
                 <span style={styles.sectionTitle}>Budget expense</span>
-                <button onClick={() => setShowBudgetModal(true)} style={styles.linkBtn}>Atur budget</button>
+                <button ref={budgetLinkRef} onClick={() => setShowBudgetModal(true)} style={styles.linkBtn}>Atur budget</button>
               </div>
               {expenseCategories.length === 0 ? (
                 <div style={styles.emptyCard}>
