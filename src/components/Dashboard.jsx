@@ -932,28 +932,43 @@ export default function Dashboard({ user, onLogout }) {
           const rectCenterX = spotlightRect.left + spotlightRect.width / 2;
           const placeBelow = spotlightRect.top < vh / 2; // elemen di atas layar -> pop-up di bawahnya, dst.
           const alignRight = rectCenterX > vw / 2;
+          const MARGIN = 12;
+
+          // Selalu hitung posisi lewat 'left' (bukan 'right') supaya tidak ada celah CSS positioning.
+          // Kalau target di sisi kanan, sejajarkan tepi KANAN pop-up dengan tepi kanan target.
+          // Kalau target di sisi kiri, sejajarkan tepi KIRI pop-up dengan tepi kiri target.
+          let popupLeft = alignRight
+            ? (spotlightRect.left + spotlightRect.width) - POPUP_W
+            : spotlightRect.left;
+          // Jangan sampai keluar layar di kanan maupun kiri
+          popupLeft = Math.min(popupLeft, vw - POPUP_W - MARGIN);
+          popupLeft = Math.max(popupLeft, MARGIN);
 
           popupStyle = {
             position: 'fixed',
             width: POPUP_W,
             maxWidth: 'calc(100vw - 24px)',
+            left: popupLeft,
             ...(placeBelow
               ? { top: spotlightRect.top + spotlightRect.height + GAP }
               : { bottom: vh - spotlightRect.top + GAP }),
-            ...(alignRight
-              ? { right: Math.max(12, vw - spotlightRect.right) }
-              : { left: Math.max(12, spotlightRect.left) }),
           };
 
-          // Panah nempel di sisi pop-up yang menghadap ke elemen target, mengarah tepat ke rect
+          // Panah mengikuti titik tengah horizontal target ASLI, relatif terhadap posisi kiri pop-up
+          // (bukan angka tetap), supaya selalu presisi menunjuk ke tombolnya berapa pun lebar pop-up.
+          const arrowLeft = Math.min(
+            Math.max(rectCenterX - popupLeft - 7, 16),
+            POPUP_W - 16 - 14
+          );
+
           arrowStyle = {
             position: 'absolute',
             width: 0, height: 0,
             borderStyle: 'solid',
+            left: arrowLeft,
             ...(placeBelow
               ? { top: -7, borderWidth: '0 7px 8px 7px', borderColor: `transparent transparent ${step.color} transparent` }
               : { bottom: -7, borderWidth: '8px 7px 0 7px', borderColor: `${step.color} transparent transparent transparent` }),
-            ...(alignRight ? { right: 20 } : { left: 20 }),
           };
         } else {
           popupStyle = { position: 'fixed', bottom: '40%', left: '50%', transform: 'translateX(-50%)', width: 280 };
