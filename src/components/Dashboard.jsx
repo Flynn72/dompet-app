@@ -90,6 +90,10 @@ function todayStr() {
 function monthKey(dateStr) {
   return dateStr.slice(0, 7);
 }
+function lastDayOfMonth(year, month /* 1-12 */) {
+  return new Date(year, month, 0).getDate();
+}
+function pad2(n) { return String(n).padStart(2, '0'); }
 
 const ONBOARDING_STEPS = [
   {
@@ -139,6 +143,10 @@ export default function Dashboard({ user, onLogout }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showRecurringModal, setShowRecurringModal] = useState(false);
+  const [recurringList, setRecurringList] = useState([]);
+  const [recurringForm, setRecurringForm] = useState({ type: 'expense', categoryId: null, amount: '', note: '', dayOfMonth: '1' });
+  const [savingRecurring, setSavingRecurring] = useState(false);
   const [tab, setTab] = useState('overview');
 
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -194,24 +202,73 @@ export default function Dashboard({ user, onLogout }) {
   const expenseCategories = useMemo(() => categories.filter((c) => c.type === 'expense'), [categories]);
   const savingCategories = useMemo(() => categories.filter((c) => c.type === 'saving'), [categories]);
 
+  // Cek semua aturan transaksi berulang yang aktif; kalau sudah lewat/sama dengan tanggal jatuh temponya
+  // di bulan KALENDER SAAT INI (bukan bulan yang sedang dilihat di Dashboard) dan belum pernah dibuat
+  // transaksinya bulan ini, buatkan otomatis. Tanggal di-clamp ke tanggal terakhir bulan itu kalau perlu
+  // (mis. aturan tanggal 31 tapi bulan berjalan cuma 30/28/29 hari).
+  async function generateDueRecurringTransactions(rules, existingTx) {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = today.getMonth() + 1; // 1-12
+    const currentMonthKey = `${y}-${pad2(m)}`;
+    const todayDay = today.getDate();
+
+    const toCreate = [];
+    for (const rule of rules) {
+      if (!rule.is_active) continue;
+      const clampedDay = Math.min(rule.day_of_month, lastDayOfMonth(y, m));
+      if (todayDay < clampedDay) continue; // belum jatuh tempo bulan ini
+
+      const alreadyGenerated = existingTx.some((t) => t.recurringId === rule.id && monthKey(t.date) === currentMonthKey);
+      if (alreadyGenerated) continue;
+
+      toCreate.push({
+        user_id: user.id,
+        type: rule.type,
+        category_id: rule.category_id,
+        amount: rule.amount,
+        note: rule.note || '',
+        tx_date: `${currentMonthKey}-${pad2(clampedDay)}`,
+        recurring_id: rule.id,
+      });
+    }
+
+    if (toCreate.length === 0) return;
+
+    const { data, error } = await supabase.from('transactions').insert(toCreate).select();
+    if (!error && data) {
+      setTransactions((prev) => [
+        ...data.map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date, recurringId: t.recurring_id })),
+        ...prev,
+      ].sort((a, b) => new Date(b.date) - new Date(a.date)));
+    }
+  }
+
   const loadAll = useCallback(async () => {
     try {
-      const [{ data: cats, error: catErr }, { data: txs, error: txErr }, { data: bgs, error: bgErr }] = await Promise.all([
+      const [{ data: cats, error: catErr }, { data: txs, error: txErr }, { data: bgs, error: bgErr }, { data: recs, error: recErr }] = await Promise.all([
         supabase.from('categories').select('*').eq('user_id', user.id).order('sort_order'),
         supabase.from('transactions').select('*').eq('user_id', user.id).order('tx_date', { ascending: false }),
         supabase.from('budgets').select('*').eq('user_id', user.id),
+        supabase.from('recurring_transactions').select('*').eq('user_id', user.id).order('created_at'),
       ]);
-      if (catErr || txErr || bgErr) { setSaveError(true); }
+      if (catErr || txErr || bgErr || recErr) { setSaveError(true); }
       else {
         setCategories(cats || []);
-        setTransactions((txs || []).map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date })));
+        const txList = (txs || []).map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date, recurringId: t.recurring_id }));
+        setTransactions(txList);
         setBudgets(bgs || []);
+        setRecurringList(recs || []);
         setSaveError(false);
         // Tampilkan onboarding hanya untuk user baru (belum punya kategori sama sekali)
         if ((cats || []).length === 0) {
           const doneKey = `onboarding_done_${user.id}`;
           const alreadyDone = localStorage.getItem(doneKey);
           if (!alreadyDone) setShowOnboarding(true);
+        }
+        // Cek & generate transaksi berulang yang sudah jatuh tempo bulan ini
+        if (recs && recs.length > 0) {
+          generateDueRecurringTransactions(recs, txList);
         }
       }
     } catch (e) { setSaveError(true); }
@@ -429,6 +486,42 @@ export default function Dashboard({ user, onLogout }) {
     const { error } = await supabase.from('categories').delete().eq('id', catId);
     if (error) { setSaveError(true); return; }
     setCategories((prev) => prev.filter((c) => c.id !== catId));
+  }
+
+  async function addRecurring() {
+    const amount = Number(recurringForm.amount);
+    const day = Number(recurringForm.dayOfMonth);
+    if (!amount || amount <= 0) return;
+    if (!day || day < 1 || day > 31) return;
+    if (recurringForm.type !== 'income' && !recurringForm.categoryId) return;
+
+    setSavingRecurring(true);
+    const { data, error } = await supabase.from('recurring_transactions').insert({
+      user_id: user.id,
+      type: recurringForm.type,
+      category_id: recurringForm.type === 'income' ? null : recurringForm.categoryId,
+      amount,
+      note: recurringForm.note.trim(),
+      day_of_month: day,
+      is_active: true,
+    }).select().single();
+    setSavingRecurring(false);
+
+    if (error) { setSaveError(true); return; }
+    setRecurringList((prev) => [...prev, data]);
+    setRecurringForm({ type: 'expense', categoryId: null, amount: '', note: '', dayOfMonth: '1' });
+  }
+
+  async function toggleRecurringActive(id, current) {
+    const { error } = await supabase.from('recurring_transactions').update({ is_active: !current }).eq('id', id);
+    if (error) { setSaveError(true); return; }
+    setRecurringList((prev) => prev.map((r) => (r.id === id ? { ...r, is_active: !current } : r)));
+  }
+
+  async function deleteRecurring(id) {
+    const { error } = await supabase.from('recurring_transactions').delete().eq('id', id);
+    if (error) { setSaveError(true); return; }
+    setRecurringList((prev) => prev.filter((r) => r.id !== id));
   }
 
   const monthTx = useMemo(() => transactions.filter((t) => monthKey(t.date) === activeMonth), [transactions, activeMonth]);
@@ -858,11 +951,41 @@ export default function Dashboard({ user, onLogout }) {
                   })}
                 </div>
               )}
+
+              {/* Ringkasan transaksi berulang */}
+              <div style={{ ...styles.sectionHeader, marginTop: 24 }}>
+                <span style={styles.sectionTitle}>Transaksi berulang</span>
+                <button onClick={() => setShowRecurringModal(true)} style={styles.linkBtn}>Kelola</button>
+              </div>
+              {recurringList.length === 0 ? (
+                <div style={styles.emptyCard}>
+                  <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Belum ada transaksi berulang (gaji, tagihan, cicilan, dst).</span>
+                  <button onClick={() => setShowRecurringModal(true)} style={{ ...styles.linkBtn, marginTop: 8, display: 'block' }}>+ Tambah transaksi berulang</button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {recurringList.slice(0, 4).map((r) => {
+                    const cat = r.category_id ? catLookup(r.category_id) : null;
+                    return (
+                      <div key={r.id} style={{ ...styles.budgetCard, opacity: r.is_active ? 1 : 0.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {r.note || cat?.label || (r.type === 'income' ? 'Income' : '-')}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Tiap tanggal {r.day_of_month} · {formatRupiah(r.amount)}</div>
+                        </div>
+                        {!r.is_active && <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>Nonaktif</span>}
+                      </div>
+                    );
+                  })}
+                  {recurringList.length > 4 && (
+                    <button onClick={() => setShowRecurringModal(true)} style={{ ...styles.linkBtn, textAlign: 'left' }}>+{recurringList.length - 4} lainnya</button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
-
-        {/* ====== TAB TRANSAKSI ====== */}
         {tab === 'transactions' && (
           <div style={styles.txList}>
             {/* Export & Import Excel */}
@@ -1392,6 +1515,89 @@ export default function Dashboard({ user, onLogout }) {
               })}
             </div>
             <button onClick={() => setShowBudgetModal(false)} style={styles.submitBtn}><Check size={16} color="#0F1410" />Selesai</button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: kelola transaksi berulang */}
+      {showRecurringModal && (
+        <div style={styles.modalOverlay} onClick={() => setShowRecurringModal(false)}>
+          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <span style={styles.modalTitle}>Transaksi berulang</span>
+              <button onClick={() => setShowRecurringModal(false)} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
+            </div>
+
+            <div style={{ maxHeight: 420, overflowY: 'auto', paddingRight: 4 }}>
+              {/* Daftar aturan yang sudah ada */}
+              {recurringList.length === 0 && <div style={styles.emptyHint}>Belum ada transaksi berulang.</div>}
+              {recurringList.map((r) => {
+                const cat = r.category_id ? catLookup(r.category_id) : null;
+                return (
+                  <div key={r.id} style={{ ...styles.budgetInputRow, opacity: r.is_active ? 1 : 0.5 }}>
+                    <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                      <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {r.note || cat?.label || (r.type === 'income' ? 'Income' : '-')}
+                      </span>
+                      <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                        {r.type === 'income' ? 'Income' : `${r.type === 'expense' ? 'Expense' : 'Saving'} · ${cat?.label || '-'}`} · Tgl {r.day_of_month} · {formatRupiah(r.amount)}
+                      </span>
+                    </span>
+                    <button onClick={() => toggleRecurringActive(r.id, r.is_active)} style={{ ...styles.linkBtn, whiteSpace: 'nowrap' }}>
+                      {r.is_active ? 'Nonaktifkan' : 'Aktifkan'}
+                    </button>
+                    <button onClick={() => deleteRecurring(r.id)} style={styles.deleteBtn}><Trash2 size={12} color="#6B7568" /></button>
+                  </div>
+                );
+              })}
+
+              {/* Form tambah aturan baru */}
+              <div style={{ ...styles.budgetGroupLabel, marginTop: 16 }}>Tambah transaksi berulang</div>
+              <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                {['expense', 'income', 'saving'].map((t) => (
+                  <button key={t} onClick={() => setRecurringForm((f) => ({ ...f, type: t, categoryId: null }))}
+                    style={{
+                      flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 12, cursor: 'pointer',
+                      border: `1px solid ${recurringForm.type === t ? 'var(--accent)' : 'var(--border)'}`,
+                      background: recurringForm.type === t ? 'var(--accent)' : 'transparent',
+                      color: recurringForm.type === t ? 'var(--accent-text)' : 'var(--text-secondary)',
+                      fontWeight: recurringForm.type === t ? 700 : 500,
+                    }}>
+                    {t === 'expense' ? 'Expense' : t === 'income' ? 'Income' : 'Saving'}
+                  </button>
+                ))}
+              </div>
+
+              {recurringForm.type !== 'income' && (
+                <select
+                  value={recurringForm.categoryId || ''}
+                  onChange={(e) => setRecurringForm((f) => ({ ...f, categoryId: e.target.value }))}
+                  style={{ ...styles.input }}
+                >
+                  <option value="">Pilih kategori...</option>
+                  {(recurringForm.type === 'saving' ? savingCategories : expenseCategories).map((c) => (
+                    <option key={c.id} value={c.id}>{c.label}</option>
+                  ))}
+                </select>
+              )}
+
+              <input type="text" placeholder="Catatan (mis. Gaji Bulanan, Tagihan Wifi)" value={recurringForm.note}
+                onChange={(e) => setRecurringForm((f) => ({ ...f, note: e.target.value }))} style={styles.input} />
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <input type="number" inputMode="numeric" placeholder="Nominal" value={recurringForm.amount}
+                  onChange={(e) => setRecurringForm((f) => ({ ...f, amount: e.target.value }))} style={{ ...styles.input, flex: 1 }} />
+                <input type="number" inputMode="numeric" min="1" max="31" placeholder="Tgl (1-31)" value={recurringForm.dayOfMonth}
+                  onChange={(e) => setRecurringForm((f) => ({ ...f, dayOfMonth: e.target.value }))} style={{ ...styles.input, width: 110 }} />
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -6, marginBottom: 12 }}>
+                Kalau bulan tidak punya tanggal itu (mis. tanggal 31 di bulan 30 hari), otomatis dipakai tanggal terakhir bulan itu.
+              </div>
+
+              <button onClick={addRecurring} disabled={savingRecurring} style={{ ...styles.submitBtn, opacity: savingRecurring ? 0.6 : 1 }}>
+                <Check size={16} color="#0F1410" />{savingRecurring ? 'Menyimpan...' : 'Tambah'}
+              </button>
+            </div>
           </div>
         </div>
       )}
