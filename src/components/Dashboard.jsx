@@ -11,7 +11,7 @@ import {
   Vault, BadgeDollarSign, WalletCards, Building2, HandCoins, BadgePercent,
   Coins, PiggyBank as PiggyBankIcon, Clock, Globe, Umbrella, Lock,
   QrCode, Nfc, BarChart2, TrendingDown as TrendingDownIcon, Package,
-  Download, Upload, Sun, Moon
+  Download, Upload, Sun, Moon, Target
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -196,6 +196,9 @@ export default function Dashboard({ user, onLogout }) {
   const [showIconPicker, setShowIconPicker] = useState(false); // untuk tambah
   const [previewIconLabel, setPreviewIconLabel] = useState(null); // nama ikon yang sedang disentuh/hover di grid (mobile & desktop)
   const [showEditIconPicker, setShowEditIconPicker] = useState(false); // untuk edit
+  const [goalEditingCatId, setGoalEditingCatId] = useState(null); // id kategori saving yang sedang diatur goal-nya
+  const [goalForm, setGoalForm] = useState({ amount: '', date: '' });
+  const [savingGoal, setSavingGoal] = useState(false);
 
   // Navigasi bulan: dropdown selalu 12 bulan tahun aktif
   const activeYear = parseInt(activeMonth.slice(0, 4));
@@ -607,6 +610,76 @@ export default function Dashboard({ user, onLogout }) {
   const expenseSpend = useMemo(() => spendByCat('expense'), [spendByCat]);
   const savingSpend = useMemo(() => spendByCat('saving'), [spendByCat]);
 
+  // Total akumulasi saving SEPANJANG WAKTU per kategori (bukan cuma bulan aktif) — dipakai untuk goal tracking.
+  // Juga hitung tanggal transaksi saving paling awal per kategori, untuk estimasi kecepatan menabung rata-rata.
+  const savingGoalStats = useMemo(() => {
+    const stats = {}; // { [categoryId]: { cumulative, firstDate } }
+    transactions.filter((t) => t.type === 'saving').forEach((t) => {
+      if (!stats[t.category]) stats[t.category] = { cumulative: 0, firstDate: t.date };
+      stats[t.category].cumulative += t.amount;
+      if (t.date < stats[t.category].firstDate) stats[t.category].firstDate = t.date;
+    });
+    return stats;
+  }, [transactions]);
+
+  // Hitung proyeksi: kapan target tercapai kalau pace menabung rata-rata tetap sama,
+  // dan apakah masih sesuai jadwal kalau ada target tanggal.
+  function computeGoalProjection(cat) {
+    const stat = savingGoalStats[cat.id];
+    const cumulative = stat?.cumulative || 0;
+    const goalAmount = Number(cat.goal_amount) || 0;
+    if (!goalAmount) return null;
+
+    const remaining = Math.max(0, goalAmount - cumulative);
+    const pct = Math.min(100, (cumulative / goalAmount) * 100);
+
+    if (remaining <= 0) {
+      return { cumulative, goalAmount, remaining: 0, pct: 100, achieved: true };
+    }
+
+    let monthsElapsed = 1;
+    if (stat?.firstDate) {
+      const first = new Date(stat.firstDate + 'T00:00:00');
+      const now = new Date();
+      monthsElapsed = Math.max(1, (now.getFullYear() - first.getFullYear()) * 12 + (now.getMonth() - first.getMonth()) + 1);
+    }
+    const monthlyPace = cumulative / monthsElapsed;
+    const monthsToFinish = monthlyPace > 0 ? Math.ceil(remaining / monthlyPace) : null;
+
+    let projectedDateLabel = null;
+    if (monthsToFinish != null) {
+      const d = new Date();
+      d.setMonth(d.getMonth() + monthsToFinish);
+      projectedDateLabel = d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+    }
+
+    let onTrack = null;
+    let neededPerMonth = null;
+    if (cat.goal_date) {
+      const deadline = new Date(cat.goal_date + 'T00:00:00');
+      const now = new Date();
+      const monthsLeft = Math.max(1, (deadline.getFullYear() - now.getFullYear()) * 12 + (deadline.getMonth() - now.getMonth()));
+      neededPerMonth = remaining / monthsLeft;
+      onTrack = monthlyPace >= neededPerMonth;
+    }
+
+    return { cumulative, goalAmount, remaining, pct, achieved: false, monthlyPace, projectedDateLabel, onTrack, neededPerMonth };
+  }
+
+  async function saveCategoryGoal() {
+    if (!goalEditingCatId) return;
+    setSavingGoal(true);
+    const amount = goalForm.amount ? Number(goalForm.amount) : null;
+    const { error } = await supabase.from('categories').update({
+      goal_amount: amount,
+      goal_date: goalForm.date || null,
+    }).eq('id', goalEditingCatId);
+    setSavingGoal(false);
+    if (error) { setSaveError(true); return; }
+    setCategories((prev) => prev.map((c) => (c.id === goalEditingCatId ? { ...c, goal_amount: amount, goal_date: goalForm.date || null } : c)));
+    setGoalEditingCatId(null);
+  }
+
   // Transaksi per kategori (sub-kategori untuk dashboard)
   const txByCat = useCallback((catId) => {
     return monthTx.filter((t) => t.category === catId).sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -996,9 +1069,10 @@ export default function Dashboard({ user, onLogout }) {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {savingCategories.map((c) => {
-                    const spent = savingSpend[c.id] || 0;
-                    const target = getBudgetAmount(c.id, activeMonth);
+                    const spent = savingSpend[c.id] || 0; // bulan aktif (tetap dipakai untuk sub-transaksi bulan ini)
+                    const target = getBudgetAmount(c.id, activeMonth); // target bulanan lama (kalau masih dipakai)
                     const pct = target > 0 ? Math.min(100, (spent / target) * 100) : 0;
+                    const goal = computeGoalProjection(c); // goal kumulatif jangka panjang (fitur baru)
                     const CatIcon = getIconComponent(c.icon);
                     const subTx = txByCat(c.id);
                     return (
@@ -1010,18 +1084,50 @@ export default function Dashboard({ user, onLogout }) {
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{c.label}</div>
                             <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                              {formatRupiah(spent)}{target > 0 ? ` / ${formatRupiah(target)}` : ''}
+                              {goal
+                                ? `${formatRupiah(goal.cumulative)} / ${formatRupiah(goal.goalAmount)} (total)`
+                                : `${formatRupiah(spent)}${target > 0 ? ` / ${formatRupiah(target)}` : ''}`}
                             </div>
                           </div>
-                          <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 13, color: '#6FB7E8', flexShrink: 0 }}>
-                            {formatRupiah(spent)}
-                          </span>
+                          <button
+                            onClick={() => {
+                              setGoalEditingCatId(c.id);
+                              setGoalForm({ amount: c.goal_amount ? String(c.goal_amount) : '', date: c.goal_date || '' });
+                            }}
+                            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: 4, flexShrink: 0 }}
+                            title="Atur goal"
+                          ><Target size={15} /></button>
                         </div>
-                        {target > 0 && (
+
+                        {/* Progress bar: pakai goal kumulatif kalau ada, kalau tidak fallback ke target bulanan lama */}
+                        {goal ? (
+                          <div style={styles.barTrack}>
+                            <div style={{ ...styles.barFill, width: goal.pct + '%', background: goal.achieved ? '#7FE8A4' : '#6FB7E8' }} />
+                          </div>
+                        ) : target > 0 && (
                           <div style={styles.barTrack}>
                             <div style={{ ...styles.barFill, width: pct + '%', background: '#6FB7E8' }} />
                           </div>
                         )}
+
+                        {/* Info goal: sisa, proyeksi tanggal tercapai, status on-track */}
+                        {goal && !goal.achieved && (
+                          <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span>Sisa {formatRupiah(goal.remaining)} lagi ({goal.pct.toFixed(0)}%)</span>
+                            {goal.projectedDateLabel && <span>Estimasi tercapai: <b style={{ color: 'var(--text-primary)' }}>{goal.projectedDateLabel}</b> (pace saat ini)</span>}
+                            {goal.onTrack !== null && (
+                              <span style={{ color: goal.onTrack ? '#7FE8A4' : '#FF9466' }}>
+                                {goal.onTrack
+                                  ? '✓ Sesuai target tanggal'
+                                  : `⚠ Perlu nabung ${formatRupiah(goal.neededPerMonth)}/bulan biar sesuai target tanggal`}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {goal && goal.achieved && (
+                          <div style={{ marginTop: 8, fontSize: 11.5, color: '#7FE8A4', fontWeight: 600 }}>🎉 Target tercapai!</div>
+                        )}
+
                         {subTx.length > 0 && (
                           <div style={{ marginTop: 10, borderTop: '1px solid #22291F', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
                             {subTx.map((t) => (
@@ -1603,6 +1709,34 @@ export default function Dashboard({ user, onLogout }) {
               })}
             </div>
             <button onClick={() => setShowBudgetModal(false)} style={styles.submitBtn}><Check size={16} color="#0F1410" />Selesai</button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: atur goal kategori saving */}
+      {goalEditingCatId && (
+        <div style={styles.modalOverlay} onClick={() => setGoalEditingCatId(null)}>
+          <div style={{ ...styles.modalCard, maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <span style={styles.modalTitle}>Atur goal — {catLookup(goalEditingCatId)?.label}</span>
+              <button onClick={() => setGoalEditingCatId(null)} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
+            </div>
+
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>
+              Progress dihitung dari total semua transaksi saving di kategori ini sepanjang waktu (bukan cuma bulan ini).
+            </div>
+
+            <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Target total (kosongkan untuk hapus goal)</label>
+            <input type="number" inputMode="numeric" placeholder="Contoh: 15000000" value={goalForm.amount}
+              onChange={(e) => setGoalForm((f) => ({ ...f, amount: e.target.value }))} style={styles.input} />
+
+            <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Target tanggal tercapai (opsional)</label>
+            <input type="date" value={goalForm.date}
+              onChange={(e) => setGoalForm((f) => ({ ...f, date: e.target.value }))} style={styles.input} />
+
+            <button onClick={saveCategoryGoal} disabled={savingGoal} style={{ ...styles.submitBtn, opacity: savingGoal ? 0.6 : 1 }}>
+              <Check size={16} color="#0F1410" />{savingGoal ? 'Menyimpan...' : 'Simpan'}
+            </button>
           </div>
         </div>
       )}
