@@ -350,7 +350,6 @@ export default function Dashboard({ user, onLogout }) {
   async function addTransaction() {
     const amt = parseFloat(form.amount);
     if (!amt || amt <= 0) return;
-    if (form.type !== 'income' && !form.categoryId) return;
     const payload = { user_id: user.id, type: form.type, category_id: form.type === 'income' ? null : form.categoryId, amount: amt, note: form.note.trim(), tx_date: form.date };
     const { data, error } = await supabase.from('transactions').insert(payload).select().single();
     if (error) { setSaveError(true); return; }
@@ -685,7 +684,19 @@ export default function Dashboard({ user, onLogout }) {
     return monthTx.filter((t) => t.category === catId).sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [monthTx]);
 
-  const pieData = useMemo(() => expenseCategories.filter((c) => expenseSpend[c.id] > 0).map((c) => ({ name: c.label, value: expenseSpend[c.id] || 0, color: c.color })), [expenseSpend, expenseCategories]);
+  const pieData = useMemo(() => {
+    const list = expenseCategories.filter((c) => expenseSpend[c.id] > 0).map((c) => ({ name: c.label, value: expenseSpend[c.id] || 0, color: c.color }));
+    const uncategorized = monthTx.filter((t) => t.type === 'expense' && !t.category).reduce((s, t) => s + t.amount, 0);
+    if (uncategorized > 0) list.push({ name: 'Tanpa kategori', value: uncategorized, color: '#8A8A8A' });
+    return list;
+  }, [expenseSpend, expenseCategories, monthTx]);
+
+  const savingPieData = useMemo(() => {
+    const list = savingCategories.filter((c) => savingSpend[c.id] > 0).map((c) => ({ name: c.label, value: savingSpend[c.id], color: c.color }));
+    const uncategorized = monthTx.filter((t) => t.type === 'saving' && !t.category).reduce((s, t) => s + t.amount, 0);
+    if (uncategorized > 0) list.push({ name: 'Tanpa kategori', value: uncategorized, color: '#8A8A8A' });
+    return list;
+  }, [savingSpend, savingCategories, monthTx]);
 
   const trendData = useMemo(() => {
     const [yr, mo] = activeMonth.split('-').map(Number);
@@ -1290,7 +1301,7 @@ export default function Dashboard({ user, onLogout }) {
               {[
                 { label: 'Income', color: '#7FE8A4', total: totalIncome, data: totalIncome > 0 ? [{ name: 'Income', value: totalIncome, color: '#7FE8A4' }] : [] },
                 { label: 'Expense', color: '#FF9466', total: totalExpense, data: pieData },
-                { label: 'Saving', color: '#6FB7E8', total: totalSaving, data: savingCategories.filter((c) => savingSpend[c.id] > 0).map((c) => ({ name: c.label, value: savingSpend[c.id], color: c.color })) },
+                { label: 'Saving', color: '#6FB7E8', total: totalSaving, data: savingPieData },
               ].map((section) => (
                 <div key={section.label} style={{ background: chartTheme.bg, border: "1px solid var(--border)", borderRadius: 14, padding: '20px 18px' }}>
                   <div style={styles.sectionHeader}>
@@ -1645,7 +1656,7 @@ export default function Dashboard({ user, onLogout }) {
             <input type="number" inputMode="numeric" placeholder="50000" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} style={styles.input} autoFocus />
             {(form.type === 'expense' || form.type === 'saving') && (
               <>
-                <label style={styles.formLabel}>Kategori</label>
+                <label style={styles.formLabel}>Kategori (opsional)</label>
                 {(form.type === 'expense' ? expenseCategories : savingCategories).length === 0 ? (
                   <div style={styles.emptyHint}>
                     Belum ada kategori {form.type === 'expense' ? 'expense' : 'saving'}.
@@ -1656,6 +1667,9 @@ export default function Dashboard({ user, onLogout }) {
                   </div>
                 ) : (
                   <div style={styles.catGrid}>
+                    <button onClick={() => setForm({ ...form, categoryId: null })} style={{ ...styles.catChip, borderColor: !form.categoryId ? 'var(--text-muted)' : '#2A332C', background: !form.categoryId ? 'var(--bg-card2)' : 'transparent' }}>
+                      Tanpa kategori
+                    </button>
                     {(form.type === 'expense' ? expenseCategories : savingCategories).map((c) => {
                       const CatIcon = getIconComponent(c.icon);
                       return (
