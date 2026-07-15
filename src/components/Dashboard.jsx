@@ -859,10 +859,12 @@ export default function Dashboard({ user, onLogout }) {
         ].map((t) => (
           <button key={t.id} ref={t.id === 'reports' ? reportsTabRef : null} onClick={() => setTab(t.id)} style={{ ...styles.tabBtn, ...(tab === t.id ? styles.tabBtnActive : {}) }}>{t.label}</button>
         ))}
-        <button onClick={cycleTheme} style={styles.settingsBtn} aria-label="Ganti tema" title={themeMode === 'system' ? 'Tema: Ikuti sistem' : themeMode === 'dark' ? 'Tema: Gelap' : 'Tema: Terang'}>
-          {themeMode === 'system' ? <Monitor size={16} color="#9CA89F" /> : themeMode === 'dark' ? <Moon size={16} color="#9CA89F" /> : <Sun size={16} color="#9CA89F" />}
-        </button>
-        <button ref={settingsBtnRef} onClick={() => setShowCategoryModal(true)} style={styles.settingsBtn} aria-label="Kelola kategori"><Settings size={16} color="#9CA89F" /></button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+          <button onClick={cycleTheme} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Ganti tema" title={themeMode === 'system' ? 'Tema: Ikuti sistem' : themeMode === 'dark' ? 'Tema: Gelap' : 'Tema: Terang'}>
+            {themeMode === 'system' ? <Monitor size={16} color="#9CA89F" /> : themeMode === 'dark' ? <Moon size={16} color="#9CA89F" /> : <Sun size={16} color="#9CA89F" />}
+          </button>
+          <button ref={settingsBtnRef} onClick={() => setShowCategoryModal(true)} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Kelola kategori"><Settings size={16} color="#9CA89F" /></button>
+        </div>
       </div>
 
       <div className="dompet-content">
