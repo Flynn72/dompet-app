@@ -95,6 +95,18 @@ function lastDayOfMonth(year, month /* 1-12 */) {
 }
 function pad2(n) { return String(n).padStart(2, '0'); }
 
+// Gaya "aktif" untuk card ringkasan yang berfungsi sebagai shortcut filter (Income/Expense/Saving).
+// Tidak mengubah desain dasar card — hanya menambahkan border/background/shadow saat filter tsb aktif.
+function summaryCardActiveStyle(isActive, color) {
+  return {
+    cursor: 'pointer',
+    transition: 'border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease',
+    border: isActive ? `1.5px solid ${color}` : '1.5px solid transparent',
+    background: isActive ? `linear-gradient(0deg, ${color}14, ${color}14), var(--bg-card)` : 'var(--bg-card)',
+    boxShadow: isActive ? `0 6px 20px ${color}33` : 'none',
+  };
+}
+
 const ONBOARDING_STEPS = [
   {
     emoji: '👋',
@@ -736,6 +748,8 @@ export default function Dashboard({ user, onLogout }) {
         .dompet-col-left { width: 100%; }
         .dompet-col-right { width: 100%; }
         .dompet-fab { position: fixed; bottom: 24px; right: 24px; width: 54px; height: 54px; border-radius: 16px; background: var(--accent); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 20px rgba(127,232,164,0.30); z-index: 40; }
+        .dompet-filter-card:hover { filter: brightness(1.08); transform: translateY(-2px); }
+        .dompet-filter-card:active { transform: translateY(0); filter: brightness(0.97); }
 
         @media (min-width: 900px) {
           .dompet-page { max-width: 100%; padding-bottom: 40px; }
@@ -805,7 +819,11 @@ export default function Dashboard({ user, onLogout }) {
                   <span style={{ ...styles.balanceNumber, color: balance >= 0 ? '#7FE8A4' : '#FF9466' }}>{formatRupiah(balance)}</span>
                   <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Income dikurangi expense dan saving/investasi</span>
                 </div>
-                <div style={styles.summaryCard}>
+                <div
+                  onClick={() => { setTxTypeFilter('income'); setTab('transactions'); }}
+                  className="dompet-filter-card"
+                  style={{ ...styles.summaryCard, ...summaryCardActiveStyle(txTypeFilter === 'income', '#7FE8A4') }}
+                >
                   <div style={styles.summaryIconRow}><TrendingUp size={14} color="#7FE8A4" /><span style={styles.summaryLabel}>Income</span></div>
                   <span style={{ ...styles.summaryNumber, color: '#7FE8A4' }}>{formatRupiah(totalIncome)}</span>
                 </div>
@@ -814,11 +832,19 @@ export default function Dashboard({ user, onLogout }) {
                   <span style={{ ...styles.summaryNumber, color: 'var(--text-primary)' }}>{formatRupiah(totalUsed)}</span>
                   <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Expense + saving</span>
                 </div>
-                <div style={styles.summaryCard}>
+                <div
+                  onClick={() => { setTxTypeFilter('expense'); setTab('transactions'); }}
+                  className="dompet-filter-card"
+                  style={{ ...styles.summaryCard, ...summaryCardActiveStyle(txTypeFilter === 'expense', '#FF9466') }}
+                >
                   <div style={styles.summaryIconRow}><TrendingDown size={14} color="#FF9466" /><span style={styles.summaryLabel}>Expense</span></div>
                   <span style={{ ...styles.summaryNumber, color: '#FF9466' }}>{formatRupiah(totalExpense)}</span>
                 </div>
-                <div style={styles.summaryCard}>
+                <div
+                  onClick={() => { setTxTypeFilter('saving'); setTab('transactions'); }}
+                  className="dompet-filter-card"
+                  style={{ ...styles.summaryCard, ...summaryCardActiveStyle(txTypeFilter === 'saving', '#6FB7E8') }}
+                >
                   <div style={styles.summaryIconRow}><PiggyBank size={14} color="#6FB7E8" /><span style={styles.summaryLabel}>Saving</span></div>
                   <span style={{ ...styles.summaryNumber, color: '#6FB7E8' }}>{formatRupiah(totalSaving)}</span>
                 </div>
