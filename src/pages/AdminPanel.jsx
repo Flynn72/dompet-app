@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { LogOut, Trash2, Shield, Users, Clock, AlertTriangle, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { LogOut, Trash2, Shield, Users, Clock, AlertTriangle, RefreshCw, ChevronDown, ChevronUp, UserPlus, Activity, BarChart3, Trophy } from 'lucide-react';
 
 function timeAgo(dateStr) {
   if (!dateStr) return 'Tidak diketahui';
@@ -168,6 +168,16 @@ useEffect(() => {
 
   const inactiveCount = users.filter((u) => new Date(u.last_login).getTime() < inactiveThreshold).length;
 
+  // ===== Widget statistik cepat (dihitung dari data yang sudah ada, tidak perlu query baru) =====
+  const now = Date.now();
+  const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+  const newUsersThisWeek = users.filter((u) => new Date(u.created_at).getTime() >= sevenDaysAgo).length;
+  const totalTransactionsAll = users.reduce((sum, u) => sum + (Number(u.total_transactions) || 0), 0);
+  const avgTxPerUser = users.length > 0 ? (totalTransactionsAll / users.length) : 0;
+  const mostActiveUser = users.reduce((top, u) => (
+    (Number(u.total_transactions) || 0) > (Number(top?.total_transactions) || 0) ? u : top
+  ), null);
+
   const SortIcon = ({ col }) => sortBy === col
     ? (sortDir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />)
     : null;
@@ -247,7 +257,31 @@ useEffect(() => {
             <div style={{ ...s.statVal, color: '#C99FE8' }}>{users.filter((u) => u.is_admin).length}</div>
             <div style={s.statLabel}>Admin</div>
           </div>
+          <div style={s.statCard}>
+            <UserPlus size={20} color="#6FB7E8" />
+            <div style={{ ...s.statVal, color: '#6FB7E8' }}>{newUsersThisWeek}</div>
+            <div style={s.statLabel}>User baru minggu ini</div>
+          </div>
+          <div style={s.statCard}>
+            <Activity size={20} color="var(--accent)" />
+            <div style={s.statVal}>{totalTransactionsAll}</div>
+            <div style={s.statLabel}>Total transaksi semua user</div>
+          </div>
+          <div style={s.statCard}>
+            <BarChart3 size={20} color="#F5C95D" />
+            <div style={{ ...s.statVal, color: '#F5C95D' }}>{avgTxPerUser.toFixed(1)}</div>
+            <div style={s.statLabel}>Rata-rata transaksi/user</div>
+          </div>
         </div>
+
+        {mostActiveUser && mostActiveUser.total_transactions > 0 && (
+          <div style={{ ...s.statCard, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 24, marginTop: -8 }}>
+            <Trophy size={18} color="#F5C95D" style={{ flexShrink: 0 }} />
+            <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
+              User paling aktif: <b style={{ color: 'var(--text-primary)' }}>{mostActiveUser.username}</b> ({mostActiveUser.total_transactions} transaksi)
+            </div>
+          </div>
+        )}
 
         {/* Alerts */}
         {error && (
