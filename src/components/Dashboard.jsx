@@ -289,6 +289,24 @@ export default function Dashboard({ user, onLogout }) {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
+  // Realtime: begitu ada transaksi/kategori/budget yang berubah (insert/update/delete) —
+  // baik dari tab/device lain maupun dari sesi ini sendiri — Dashboard otomatis reload
+  // datanya sendiri, tidak perlu refresh manual.
+  useEffect(() => {
+    const channel = supabase
+      .channel(`dashboard-sync-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` }, () => loadAll())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories', filter: `user_id=eq.${user.id}` }, () => loadAll())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'budgets', filter: `user_id=eq.${user.id}` }, () => loadAll())
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error('[Dashboard] Gagal subscribe realtime:', status, '— cek Database > Publications di Supabase, pastikan tabel transactions/categories/budgets sudah dicentang.');
+        }
+      });
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user.id, loadAll]);
+
   useEffect(() => {
     if (categories.length > 0 && !form.categoryId) {
       const defaultCat = form.type === 'saving' ? savingCategories[0] : expenseCategories[0];
@@ -822,7 +840,7 @@ export default function Dashboard({ user, onLogout }) {
                 <div
                   onClick={() => { setTxTypeFilter('income'); setTab('transactions'); }}
                   className="dompet-filter-card"
-                  style={{ ...styles.summaryCard, ...summaryCardActiveStyle(txTypeFilter === 'income', '#7FE8A4') }}
+                  style={{ ...styles.summaryCard, ...summaryCardActiveStyle(tab === 'transactions' && txTypeFilter === 'income', '#7FE8A4') }}
                 >
                   <div style={styles.summaryIconRow}><TrendingUp size={14} color="#7FE8A4" /><span style={styles.summaryLabel}>Income</span></div>
                   <span style={{ ...styles.summaryNumber, color: '#7FE8A4' }}>{formatRupiah(totalIncome)}</span>
@@ -835,7 +853,7 @@ export default function Dashboard({ user, onLogout }) {
                 <div
                   onClick={() => { setTxTypeFilter('expense'); setTab('transactions'); }}
                   className="dompet-filter-card"
-                  style={{ ...styles.summaryCard, ...summaryCardActiveStyle(txTypeFilter === 'expense', '#FF9466') }}
+                  style={{ ...styles.summaryCard, ...summaryCardActiveStyle(tab === 'transactions' && txTypeFilter === 'expense', '#FF9466') }}
                 >
                   <div style={styles.summaryIconRow}><TrendingDown size={14} color="#FF9466" /><span style={styles.summaryLabel}>Expense</span></div>
                   <span style={{ ...styles.summaryNumber, color: '#FF9466' }}>{formatRupiah(totalExpense)}</span>
@@ -843,7 +861,7 @@ export default function Dashboard({ user, onLogout }) {
                 <div
                   onClick={() => { setTxTypeFilter('saving'); setTab('transactions'); }}
                   className="dompet-filter-card"
-                  style={{ ...styles.summaryCard, ...summaryCardActiveStyle(txTypeFilter === 'saving', '#6FB7E8') }}
+                  style={{ ...styles.summaryCard, ...summaryCardActiveStyle(tab === 'transactions' && txTypeFilter === 'saving', '#6FB7E8') }}
                 >
                   <div style={styles.summaryIconRow}><PiggyBank size={14} color="#6FB7E8" /><span style={styles.summaryLabel}>Saving</span></div>
                   <span style={{ ...styles.summaryNumber, color: '#6FB7E8' }}>{formatRupiah(totalSaving)}</span>
