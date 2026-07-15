@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
+import * as XLSX from 'xlsx';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend, Dot } from 'recharts';
 import {
   Plus, Trash2, TrendingUp, TrendingDown, PiggyBank, Wallet, X, Check,
@@ -9,7 +10,8 @@ import {
   Banknote, ArrowLeftRight, ShieldCheck, Smartphone, Receipt, Calculator,
   Vault, BadgeDollarSign, WalletCards, Building2, HandCoins, BadgePercent,
   Coins, PiggyBank as PiggyBankIcon, Clock, Globe, Umbrella, Lock,
-  QrCode, Nfc, BarChart2, TrendingDown as TrendingDownIcon, Package
+  QrCode, Nfc, BarChart2, TrendingDown as TrendingDownIcon, Package,
+  Download, Upload
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -140,6 +142,13 @@ export default function Dashboard({ user, onLogout }) {
   const [tab, setTab] = useState('overview');
 
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [txSearch, setTxSearch] = useState('');
+  const [txTypeFilter, setTxTypeFilter] = useState('all'); // all | income | expense | saving
+  const [pendingDelete, setPendingDelete] = useState(null); // { tx, timeoutId } — untuk fitur undo hapus
+  const undoTimeoutRef = useRef(null);
+  const [importing, setImporting] = useState(false);
+  const [importSummary, setImportSummary] = useState(null); // { success, failed, errors: [] }
+  const importFileRef = useRef(null);
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [spotlightRect, setSpotlightRect] = useState(null); // posisi presisi elemen target, dihitung langsung dari DOM
   const settingsBtnRef = useRef(null);
@@ -237,11 +246,129 @@ export default function Dashboard({ user, onLogout }) {
     setShowAddModal(false);
   }
 
-  async function deleteTransaction(id) {
-    const prev = transactions;
+  function deleteTransaction(id) {
+    const tx = transactions.find((t) => t.id === id);
+    if (!tx) return;
+
+    // Hapus dari tampilan dulu (optimistik)
     setTransactions((p) => p.filter((t) => t.id !== id));
-    const { error } = await supabase.from('transactions').delete().eq('id', id);
-    if (error) { setSaveError(true); setTransactions(prev); }
+
+    // Kalau sebelumnya ada undo yang masih menunggu, eksekusi dulu hapus permanennya sebelum lanjut
+    if (pendingDelete) {
+      clearTimeout(undoTimeoutRef.current);
+      supabase.from('transactions').delete().eq('id', pendingDelete.tx.id);
+    }
+
+    const timeoutId = setTimeout(async () => {
+      const { error } = await supabase.from('transactions').delete().eq('id', id);
+      if (error) {
+        // Gagal hapus di server -> kembalikan lagi ke tampilan
+        setTransactions((prev) => [tx, ...prev]);
+        setSaveError(true);
+      }
+      setPendingDelete((cur) => (cur && cur.tx.id === id ? null : cur));
+    }, 5000);
+
+    undoTimeoutRef.current = timeoutId;
+    setPendingDelete({ tx, timeoutId });
+  }
+
+  function undoDeleteTransaction() {
+    if (!pendingDelete) return;
+    clearTimeout(pendingDelete.timeoutId);
+    setTransactions((prev) => [pendingDelete.tx, ...prev].sort((a, b) => new Date(b.date) - new Date(a.date)));
+    setPendingDelete(null);
+  }
+
+  function exportTransactionsExcel() {
+    const rows = transactions.map((t) => ({
+      Tanggal: t.date,
+      Tipe: t.type,
+      Kategori: t.type === 'income' ? '' : (catLookup(t.category)?.label || ''),
+      Catatan: t.note || '',
+      Nominal: t.amount,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 30 }, { wch: 14 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Transaksi');
+    XLSX.writeFile(wb, `dompet-transaksi-${todayStr()}.xlsx`);
+  }
+
+  async function handleImportExcel(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+
+    setImporting(true);
+    setImportSummary(null);
+
+    let json;
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      json = XLSX.utils.sheet_to_json(ws, { raw: false, defval: '' });
+    } catch (err) {
+      setImportSummary({ success: 0, failed: 0, errors: ['File tidak bisa dibaca. Pastikan formatnya .xlsx yang valid.'] });
+      setImporting(false);
+      return;
+    }
+
+    if (!json || json.length === 0) {
+      setImportSummary({ success: 0, failed: 0, errors: ['File kosong atau tidak ada baris data.'] });
+      setImporting(false);
+      return;
+    }
+
+    // Normalisasi nama kolom (case-insensitive, jaga-jaga kalau user ubah huruf besar/kecil)
+    const norm = (row) => {
+      const out = {};
+      Object.keys(row).forEach((k) => { out[k.trim().toLowerCase()] = row[k]; });
+      return out;
+    };
+
+    const toInsert = [];
+    const errors = [];
+    json.forEach((rawRow, i) => {
+      const lineNo = i + 2; // baris 1 = header
+      const r = norm(rawRow);
+      const date = String(r['tanggal'] ?? '').trim();
+      const type = String(r['tipe'] ?? '').trim().toLowerCase();
+      const catLabel = String(r['kategori'] ?? '').trim();
+      const note = String(r['catatan'] ?? '').trim();
+      const amount = Number(String(r['nominal'] ?? '').replace(/[^\d.-]/g, ''));
+
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { errors.push(`Baris ${lineNo}: format tanggal harus YYYY-MM-DD.`); return; }
+      if (!['income', 'expense', 'saving'].includes(type)) { errors.push(`Baris ${lineNo}: tipe harus income/expense/saving.`); return; }
+      if (!amount || amount <= 0) { errors.push(`Baris ${lineNo}: nominal tidak valid.`); return; }
+
+      let categoryId = null;
+      if (type !== 'income') {
+        const cat = categories.find((c) => c.label.toLowerCase() === catLabel.toLowerCase() && c.type === type);
+        if (!cat) { errors.push(`Baris ${lineNo}: kategori "${catLabel}" (${type}) tidak ditemukan — buat dulu kategorinya sebelum import.`); return; }
+        categoryId = cat.id;
+      }
+
+      toInsert.push({ user_id: user.id, type, category_id: categoryId, amount, note, tx_date: date });
+    });
+
+    let successCount = 0;
+    if (toInsert.length > 0) {
+      const { data, error } = await supabase.from('transactions').insert(toInsert).select();
+      if (error) {
+        errors.push(`Gagal menyimpan ke server: ${error.message}`);
+      } else {
+        successCount = data.length;
+        setTransactions((prev) => [
+          ...data.map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date })),
+          ...prev,
+        ].sort((a, b) => new Date(b.date) - new Date(a.date)));
+      }
+    }
+
+    setImportSummary({ success: successCount, failed: errors.length, errors });
+    setImporting(false);
   }
 
   function getBudgetAmount(categoryId, mk) {
@@ -305,6 +432,20 @@ export default function Dashboard({ user, onLogout }) {
   }
 
   const monthTx = useMemo(() => transactions.filter((t) => monthKey(t.date) === activeMonth), [transactions, activeMonth]);
+
+  const filteredMonthTx = useMemo(() => {
+    let list = monthTx;
+    if (txTypeFilter !== 'all') list = list.filter((t) => t.type === txTypeFilter);
+    const q = txSearch.trim().toLowerCase();
+    if (q) {
+      list = list.filter((t) => {
+        const cat = catLookup(t.category);
+        const haystack = `${t.note || ''} ${cat ? cat.label : ''} ${t.type}`.toLowerCase();
+        return haystack.includes(q);
+      });
+    }
+    return list;
+  }, [monthTx, txTypeFilter, txSearch, categories]);
   const totalIncome = useMemo(() => monthTx.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0), [monthTx]);
   const totalExpense = useMemo(() => monthTx.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0), [monthTx]);
   const totalSaving = useMemo(() => monthTx.filter((t) => t.type === 'saving').reduce((s, t) => s + t.amount, 0), [monthTx]);
@@ -724,8 +865,76 @@ export default function Dashboard({ user, onLogout }) {
         {/* ====== TAB TRANSAKSI ====== */}
         {tab === 'transactions' && (
           <div style={styles.txList}>
-            {monthTx.length === 0 && <div style={styles.emptyHint}>Belum ada transaksi bulan ini.</div>}
-            {monthTx.map((t) => (<TxRow key={t.id} t={t} onDelete={deleteTransaction} catLookup={catLookup} />))}
+            {/* Export & Import Excel */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+              <button onClick={exportTransactionsExcel} style={styles.csvBtn}>
+                <Download size={13} /> Export Excel
+              </button>
+              <button onClick={() => importFileRef.current?.click()} disabled={importing} style={{ ...styles.csvBtn, opacity: importing ? 0.6 : 1 }}>
+                <Upload size={13} /> {importing ? 'Mengimpor...' : 'Import Excel'}
+              </button>
+              <input ref={importFileRef} type="file" accept=".xlsx,.xls" onChange={handleImportExcel} style={{ display: 'none' }} />
+            </div>
+
+            {importSummary && (
+              <div style={{
+                ...styles.errorBox, marginBottom: 12,
+                background: importSummary.failed > 0 ? '#3A2418' : '#0D2A1A',
+                color: importSummary.failed > 0 ? '#FF9466' : '#7FE8A4',
+                flexDirection: 'column', alignItems: 'flex-start', gap: 4,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+                  <span style={{ flex: 1 }}>
+                    Import selesai: <b>{importSummary.success}</b> berhasil, <b>{importSummary.failed}</b> gagal.
+                  </span>
+                  <button onClick={() => setImportSummary(null)} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer' }}><X size={14} /></button>
+                </div>
+                {importSummary.errors.length > 0 && (
+                  <ul style={{ margin: 0, paddingLeft: 18, fontSize: 11.5 }}>
+                    {importSummary.errors.slice(0, 8).map((e, i) => <li key={i}>{e}</li>)}
+                    {importSummary.errors.length > 8 && <li>...dan {importSummary.errors.length - 8} error lainnya.</li>}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {/* Search & filter tipe transaksi */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+              <input
+                type="text"
+                value={txSearch}
+                onChange={(e) => setTxSearch(e.target.value)}
+                placeholder="Cari catatan atau kategori..."
+                style={{ ...styles.input, marginBottom: 0, flex: '1 1 180px' }}
+              />
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {[
+                  { id: 'all', label: 'Semua' },
+                  { id: 'income', label: 'Income' },
+                  { id: 'expense', label: 'Expense' },
+                  { id: 'saving', label: 'Saving' },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => setTxTypeFilter(f.id)}
+                    style={{
+                      padding: '7px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer',
+                      border: `1px solid ${txTypeFilter === f.id ? 'var(--accent)' : 'var(--border)'}`,
+                      background: txTypeFilter === f.id ? 'var(--accent)' : 'transparent',
+                      color: txTypeFilter === f.id ? 'var(--accent-text, #0F1410)' : 'var(--text-secondary)',
+                      fontWeight: txTypeFilter === f.id ? 700 : 500,
+                    }}
+                  >{f.label}</button>
+                ))}
+              </div>
+            </div>
+
+            {filteredMonthTx.length === 0 && (
+              <div style={styles.emptyHint}>
+                {monthTx.length === 0 ? 'Belum ada transaksi bulan ini.' : 'Tidak ada transaksi yang cocok dengan pencarian.'}
+              </div>
+            )}
+            {filteredMonthTx.map((t) => (<TxRow key={t.id} t={t} onDelete={deleteTransaction} catLookup={catLookup} />))}
           </div>
         )}
 
@@ -903,6 +1112,24 @@ export default function Dashboard({ user, onLogout }) {
 
       {/* FAB */}
       <button ref={fabRef} onClick={() => setShowAddModal(true)} className="dompet-fab" aria-label="Tambah transaksi"><Plus size={24} color="#0F1410" /></button>
+
+      {/* ====== SNACKBAR UNDO HAPUS TRANSAKSI ====== */}
+      {pendingDelete && (
+        <div style={{
+          position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)',
+          background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12,
+          padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.35)', zIndex: 60, maxWidth: 'calc(100vw - 32px)',
+        }}>
+          <span style={{ fontSize: 13, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            Transaksi dihapus
+          </span>
+          <button onClick={undoDeleteTransaction} style={{
+            background: 'transparent', border: 'none', color: 'var(--accent)', fontWeight: 700,
+            fontSize: 13, cursor: 'pointer', flexShrink: 0, padding: '4px 6px',
+          }}>Undo</button>
+        </div>
+      )}
 
       {/* ====== ONBOARDING OVERLAY ====== */}
       {showOnboarding && (() => {
@@ -1308,6 +1535,8 @@ function TxRow({ t, onDelete, catLookup }) {
 
 const styles = {
   errorBanner: { background: '#3A1A18', color: '#FF9466', fontSize: 12, padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 6 },
+  errorBox: { display: 'flex', gap: 8, fontSize: 12.5, padding: '10px 12px', borderRadius: 8 },
+  csvBtn: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
   logoMark: { width: 30, height: 30, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   logoText: { fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 17, letterSpacing: '-0.02em', color: 'var(--text-primary)' },
   monthBtn: { width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
