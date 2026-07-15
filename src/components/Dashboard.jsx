@@ -161,7 +161,7 @@ export default function Dashboard({ user, onLogout }) {
   const [saveError, setSaveError] = useState(false);
   const [activeMonth, setActiveMonth] = useState(monthKey(todayStr()));
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showBudgetModal, setShowBudgetModal] = useState(false);
+  const [showBudgetModal, setShowBudgetModal] = useState(null); // null | 'expense' | 'saving'
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showRecurringModal, setShowRecurringModal] = useState(false);
   const [recurringList, setRecurringList] = useState([]);
@@ -988,7 +988,7 @@ export default function Dashboard({ user, onLogout }) {
               {/* Kartu budget expense per kategori + sub-transaksi */}
               <div style={{ ...styles.sectionHeader, marginTop: 24 }}>
                 <span style={styles.sectionTitle}>Budget expense</span>
-                <button ref={budgetLinkRef} onClick={() => setShowBudgetModal(true)} style={styles.linkBtn}>Atur budget</button>
+                <button ref={budgetLinkRef} onClick={() => setShowBudgetModal('expense')} style={styles.linkBtn}>Atur budget</button>
               </div>
               {expenseCategories.length === 0 ? (
                 <div style={styles.emptyCard}>
@@ -1059,7 +1059,7 @@ export default function Dashboard({ user, onLogout }) {
             <div className="dompet-col-right">
               <div style={{ ...styles.sectionHeader, marginTop: 24 }}>
                 <span style={styles.sectionTitle}>Target saving & investasi</span>
-                <button onClick={() => setShowBudgetModal(true)} style={styles.linkBtn}>Atur target</button>
+                <button onClick={() => setShowBudgetModal('saving')} style={styles.linkBtn}>Atur target</button>
               </div>
               {savingCategories.length === 0 ? (
                 <div style={styles.emptyCard}>
@@ -1674,41 +1674,48 @@ export default function Dashboard({ user, onLogout }) {
 
       {/* Modal: atur budget */}
       {showBudgetModal && (
-        <div style={styles.modalOverlay} onClick={() => setShowBudgetModal(false)}>
+        <div style={styles.modalOverlay} onClick={() => setShowBudgetModal(null)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <span style={styles.modalTitle}>Atur budget — {monthLabel(activeMonth)}</span>
-              <button onClick={() => setShowBudgetModal(false)} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
+              <span style={styles.modalTitle}>
+                {showBudgetModal === 'expense' ? 'Atur budget expense' : 'Atur target saving'} — {monthLabel(activeMonth)}
+              </span>
+              <button onClick={() => setShowBudgetModal(null)} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
             </div>
             <div style={{ maxHeight: 420, overflowY: 'auto', paddingRight: 4 }}>
-              <div style={styles.budgetGroupLabel}>Expense</div>
-              {expenseCategories.length === 0 && <div style={styles.emptyHint}>Belum ada kategori expense.</div>}
-              {expenseCategories.map((c) => {
-                const CatIcon = getIconComponent(c.icon);
-                return (
-                  <div key={c.id} style={styles.budgetInputRow}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-primary)', minWidth: 150 }}>
-                      <CatIcon size={14} color={c.color} />{c.label}
-                    </span>
-                    <input type="number" inputMode="numeric" placeholder="0" defaultValue={getBudgetAmount(c.id, activeMonth) || ''} onBlur={(e) => setBudgetAmount(c.id, e.target.value)} style={{ ...styles.input, marginBottom: 0 }} />
-                  </div>
-                );
-              })}
-              <div style={{ ...styles.budgetGroupLabel, marginTop: 16 }}>Saving & investasi</div>
-              {savingCategories.length === 0 && <div style={styles.emptyHint}>Belum ada kategori saving.</div>}
-              {savingCategories.map((c) => {
-                const CatIcon = getIconComponent(c.icon);
-                return (
-                  <div key={c.id} style={styles.budgetInputRow}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-primary)', minWidth: 150 }}>
-                      <CatIcon size={14} color={c.color} />{c.label}
-                    </span>
-                    <input type="number" inputMode="numeric" placeholder="0" defaultValue={getBudgetAmount(c.id, activeMonth) || ''} onBlur={(e) => setBudgetAmount(c.id, e.target.value)} style={{ ...styles.input, marginBottom: 0 }} />
-                  </div>
-                );
-              })}
+              {showBudgetModal === 'expense' ? (
+                <>
+                  {expenseCategories.length === 0 && <div style={styles.emptyHint}>Belum ada kategori expense.</div>}
+                  {expenseCategories.map((c) => {
+                    const CatIcon = getIconComponent(c.icon);
+                    return (
+                      <div key={c.id} style={styles.budgetInputRow}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-primary)', minWidth: 150 }}>
+                          <CatIcon size={14} color={c.color} />{c.label}
+                        </span>
+                        <input type="number" inputMode="numeric" placeholder="0" defaultValue={getBudgetAmount(c.id, activeMonth) || ''} onBlur={(e) => setBudgetAmount(c.id, e.target.value)} style={{ ...styles.input, marginBottom: 0 }} />
+                      </div>
+                    );
+                  })}
+                </>
+              ) : (
+                <>
+                  {savingCategories.length === 0 && <div style={styles.emptyHint}>Belum ada kategori saving.</div>}
+                  {savingCategories.map((c) => {
+                    const CatIcon = getIconComponent(c.icon);
+                    return (
+                      <div key={c.id} style={styles.budgetInputRow}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-primary)', minWidth: 150 }}>
+                          <CatIcon size={14} color={c.color} />{c.label}
+                        </span>
+                        <input type="number" inputMode="numeric" placeholder="0" defaultValue={getBudgetAmount(c.id, activeMonth) || ''} onBlur={(e) => setBudgetAmount(c.id, e.target.value)} style={{ ...styles.input, marginBottom: 0 }} />
+                      </div>
+                    );
+                  })}
+                </>
+              )}
             </div>
-            <button onClick={() => setShowBudgetModal(false)} style={styles.submitBtn}><Check size={16} color="#0F1410" />Selesai</button>
+            <button onClick={() => setShowBudgetModal(null)} style={styles.submitBtn}><Check size={16} color="#0F1410" />Selesai</button>
           </div>
         </div>
       )}
