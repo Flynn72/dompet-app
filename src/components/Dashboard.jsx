@@ -1647,7 +1647,13 @@ export default function Dashboard({ user, onLogout }) {
               <>
                 <label style={styles.formLabel}>Kategori</label>
                 {(form.type === 'expense' ? expenseCategories : savingCategories).length === 0 ? (
-                  <div style={styles.emptyHint}>Belum ada kategori. Tambahkan lewat ikon pengaturan di atas.</div>
+                  <div style={styles.emptyHint}>
+                    Belum ada kategori {form.type === 'expense' ? 'expense' : 'saving'}.
+                    <button
+                      onClick={() => { setShowAddModal(false); setCatEditType(form.type); setShowCategoryModal(true); }}
+                      style={{ ...styles.linkBtn, display: 'block', marginTop: 6 }}
+                    >+ Buat kategori sekarang</button>
+                  </div>
                 ) : (
                   <div style={styles.catGrid}>
                     {(form.type === 'expense' ? expenseCategories : savingCategories).map((c) => {
