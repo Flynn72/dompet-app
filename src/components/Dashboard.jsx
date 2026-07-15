@@ -11,7 +11,7 @@ import {
   Vault, BadgeDollarSign, WalletCards, Building2, HandCoins, BadgePercent,
   Coins, PiggyBank as PiggyBankIcon, Clock, Globe, Umbrella, Lock,
   QrCode, Nfc, BarChart2, TrendingDown as TrendingDownIcon, Package,
-  Download, Upload
+  Download, Upload, Sun, Moon
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -80,9 +80,17 @@ function getIconComponent(iconId) {
   return found ? found.Icon : DollarSign;
 }
 
+const rupiahNumberFormatter = new Intl.NumberFormat('id-ID', {
+  style: 'decimal',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
 function formatRupiah(n) {
   const v = Math.round(Number(n) || 0);
-  return 'Rp' + v.toLocaleString('id-ID');
+  // Pakai Intl.NumberFormat (locale-aware, id-ID) untuk grouping ribuan yang benar,
+  // lalu taruh "Rp" sebelum tanda minus supaya tampilannya sama seperti sebelumnya (mis. "Rp-5.830.740"),
+  // tanpa spasi aneh yang muncul kalau pakai style:'currency' bawaan Intl.
+  return 'Rp' + (v < 0 ? '-' : '') + rupiahNumberFormatter.format(Math.abs(v));
 }
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -159,6 +167,7 @@ export default function Dashboard({ user, onLogout }) {
   const [recurringList, setRecurringList] = useState([]);
   const [recurringForm, setRecurringForm] = useState({ type: 'expense', categoryId: null, amount: '', note: '', dayOfMonth: '1' });
   const [savingRecurring, setSavingRecurring] = useState(false);
+  const [themeMode, setThemeMode] = useState(() => localStorage.getItem('dompet_theme') || 'system'); // system | dark | light
   const [tab, setTab] = useState('overview');
 
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -288,6 +297,20 @@ export default function Dashboard({ user, onLogout }) {
   }, [user.id]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+
+  // Terapkan pilihan tema (system/dark/light) ke elemen <html> supaya bisa override
+  // prefers-color-scheme sistem. Disimpan di localStorage per-device.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.remove('theme-dark', 'theme-light');
+    if (themeMode === 'dark') root.classList.add('theme-dark');
+    else if (themeMode === 'light') root.classList.add('theme-light');
+    localStorage.setItem('dompet_theme', themeMode);
+  }, [themeMode]);
+
+  function cycleTheme() {
+    setThemeMode((m) => (m === 'system' ? 'dark' : m === 'dark' ? 'light' : 'system'));
+  }
 
   // Realtime: begitu ada transaksi/kategori/budget yang berubah (insert/update/delete) —
   // baik dari tab/device lain maupun dari sesi ini sendiri — Dashboard otomatis reload
@@ -752,6 +775,22 @@ export default function Dashboard({ user, onLogout }) {
           }
         }
 
+        /* ===== OVERRIDE TEMA MANUAL — menang atas prefers-color-scheme sistem ===== */
+        :root.theme-dark {
+          --bg-base: #0B0F1A; --bg-card: #131929; --bg-card2: #1A2238; --bg-input: #0B0F1A;
+          --border: #1E2D4A; --border2: #2A3B5C; --text-primary: #E8EDF8; --text-secondary: #7A90B8;
+          --text-muted: #4A5A7A; --accent: #7FE8A4; --accent-text: #0B0F1A; --scrollbar: #1E2D4A;
+          --chart-bg: #131929; --chart-grid: #24314D; --chart-tooltip: #182238;
+          --chart-text: #E8EDF8; --chart-subtext: #9CB2D8;
+        }
+        :root.theme-light {
+          --bg-base: #EEF2FA; --bg-card: #FFFFFF; --bg-card2: #F0F4FF; --bg-input: #F5F7FF;
+          --border: #C8D4EC; --border2: #A8BCDC; --text-primary: #0D1B3E; --text-secondary: #3D5A8A;
+          --text-muted: #7A90B8; --accent: #1A6B4A; --accent-text: #FFFFFF; --scrollbar: #C8D4EC;
+          --chart-bg: #FFFFFF; --chart-grid: #D6E1F5; --chart-tooltip: #FFFFFF;
+          --chart-text: #10254F; --chart-subtext: #6079A3;
+        }
+
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 3px; }
         body { font-family: 'Inter', sans-serif; background: var(--bg-base); margin: 0; color: var(--text-primary); }
@@ -820,6 +859,9 @@ export default function Dashboard({ user, onLogout }) {
         ].map((t) => (
           <button key={t.id} ref={t.id === 'reports' ? reportsTabRef : null} onClick={() => setTab(t.id)} style={{ ...styles.tabBtn, ...(tab === t.id ? styles.tabBtnActive : {}) }}>{t.label}</button>
         ))}
+        <button onClick={cycleTheme} style={styles.settingsBtn} aria-label="Ganti tema" title={themeMode === 'system' ? 'Tema: Ikuti sistem' : themeMode === 'dark' ? 'Tema: Gelap' : 'Tema: Terang'}>
+          {themeMode === 'system' ? <Monitor size={16} color="#9CA89F" /> : themeMode === 'dark' ? <Moon size={16} color="#9CA89F" /> : <Sun size={16} color="#9CA89F" />}
+        </button>
         <button ref={settingsBtnRef} onClick={() => setShowCategoryModal(true)} style={styles.settingsBtn} aria-label="Kelola kategori"><Settings size={16} color="#9CA89F" /></button>
       </div>
 
