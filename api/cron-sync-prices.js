@@ -2,15 +2,19 @@ import { createClient } from '@supabase/supabase-js';
 
 // ============================================================
 // Serverless Function (dipicu Vercel Cron 1x sehari) untuk sinkronisasi
-// harga Emas Antam & NAV Reksadana Insight Money Syariah ke Supabase.
+// harga Emas Antam ke Supabase.
+//
+// CATATAN: sinkronisasi NAV Reksadana lewat scraping Bareksa SUDAH DIHAPUS —
+// fitur reksadana sekarang pakai rate tetap 5,3%/tahun yang dihitung
+// langsung di frontend (Dashboard.jsx), tidak butuh data harian.
 //
 // ENV VARS yang wajib diisi di Vercel (Project Settings > Environment Variables):
 // - SUPABASE_URL                -> URL project Supabase (sama seperti di supabaseClient.js)
 // - SUPABASE_SERVICE_ROLE_KEY   -> "service_role" secret key (BUKAN anon key!),
 //                                  ambil dari Supabase > Project Settings > API.
 //                                  Ini WAJIB rahasia, jangan pernah dipakai di kode frontend.
-// - CRON_SECRET                 -> otomatis di-generate & di-set oleh Vercel begitu
-//                                  ada entri "crons" di vercel.json, tidak perlu diisi manual.
+// - CRON_SECRET                 -> harus Anda buat & set sendiri (string acak),
+//                                  dipakai untuk verifikasi request ini benar dari Vercel Cron.
 // ============================================================
 
 export default async function handler(req, res) {
@@ -27,9 +31,9 @@ export default async function handler(req, res) {
 
   const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-  const results = { gold: null, reksadana: null, errors: [] };
+  const results = { gold: null, errors: [] };
 
-  // ===== 1. Harga Emas Antam — lewat logam-mulia-api (komunitas, scraping logammulia.com) =====
+  // ===== Harga Emas Antam — lewat logam-mulia-api (komunitas, scraping resmi logammulia.com) =====
   try {
     const goldRes = await fetch('https://logam-mulia-api.iamutaki.workers.dev/api/prices/logammulia');
     if (!goldRes.ok) throw new Error(`HTTP ${goldRes.status} dari logam-mulia-api`);
@@ -52,57 +56,6 @@ export default async function handler(req, res) {
     results.errors.push(`Emas: ${err.message}`);
   }
 
-  // ===== 2. NAV Reksadana Insight Money Syariah — scraping halaman Bareksa =====
-  // CATATAN: ini scraping HTML (bukan API resmi), jadi lebih rapuh — kalau Bareksa
-  // mengubah struktur halamannya, regex di bawah bisa gagal dan perlu diperbarui.
-  try {
-    const pageRes = await fetch('https://www.bareksa.com/id/data/reksadana/2024/insight-money-syariah', {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml',
-      },
-    });
-    if (!pageRes.ok) throw new Error(`HTTP ${pageRes.status} dari Bareksa`);
-    const html = await pageRes.text();
-    console.log('[cron-sync-prices] Panjang HTML Bareksa diterima:', html.length, 'karakter');
-
-    // Coba beberapa pola sekaligus, dari yang paling spesifik ke paling umum,
-    // karena kita tidak selalu tahu persis struktur HTML asli (beda dari versi "dirender" browser).
-    const patterns = [
-      /Nilai Aktiva Bersih\/Unit[\s\S]{0,200}?([\d]{1,3}(?:\.\d{3})*,\d{2})\s*IDR/i, // label lengkap + IDR
-      /Insight Money Syariah[\s\S]{0,200}?([\d]{1,3}(?:\.\d{3})*,\d{2})\s*IDR/i,     // nama produk + IDR
-      /([\d]{1,3}(?:\.\d{3})*,\d{2})IDR/,                                          // angka nempel langsung ke "IDR" tanpa spasi
-    ];
-    let navStr = null;
-    for (const p of patterns) {
-      const m = html.match(p);
-      if (m) { navStr = m[1]; break; }
-    }
-    if (!navStr) {
-      console.error('[cron-sync-prices] Tidak ada pola yang cocok. Cuplikan HTML (2000 karakter pertama):', html.slice(0, 2000));
-      throw new Error('Pola NAB tidak ditemukan di halaman — kemungkinan halaman butuh JavaScript untuk render datanya (bukan cuma HTML statis), atau struktur halaman Bareksa sudah berubah.');
-    }
-
-    const navValue = parseFloat(navStr.replace(/\./g, '').replace(',', '.'));
-    if (!navValue || isNaN(navValue)) throw new Error(`Gagal parse angka NAB dari teks: "${navStr}"`);
-    console.log('[cron-sync-prices] NAV reksadana ditemukan:', navValue);
-
-    const { error } = await supabaseAdmin.from('asset_prices').insert({
-      asset_name: 'reksadana_insight_money_syariah',
-      price: navValue,
-      source: 'bareksa-scrape',
-      raw: { matchedText: navStr },
-    });
-    if (error) throw error;
-    results.reksadana = { success: true, price: navValue };
-  } catch (err) {
-    console.error('[cron-sync-prices] Reksadana gagal:', err.message);
-    results.reksadana = { success: false, error: err.message };
-    results.errors.push(`Reksadana: ${err.message}`);
-  }
-
-  // 200 kalau semua berhasil, 207 (partial) kalau salah satu gagal —
-  // supaya bisa dipantau lewat log Vercel tanpa satu kegagalan menutupi yang lain.
   const statusCode = results.errors.length === 0 ? 200 : 207;
   return res.status(statusCode).json(results);
 }
