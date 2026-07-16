@@ -11,7 +11,7 @@ import {
   Vault, BadgeDollarSign, WalletCards, Building2, HandCoins, BadgePercent,
   Coins, PiggyBank as PiggyBankIcon, Clock, Globe, Umbrella, Lock,
   QrCode, Nfc, BarChart2, TrendingDown as TrendingDownIcon, Package,
-  Download, Upload, Sun, Moon, Target
+  Download, Upload, Sun, Moon, Target, HelpCircle
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -119,9 +119,10 @@ const ONBOARDING_STEPS = [
   {
     emoji: '👋',
     title: 'Selamat datang!',
-    desc: 'Yuk kenalan dulu sama Dompet — aplikasi buat catat keuangan kamu sehari-hari. Cuma butuh 4 langkah singkat untuk mulai.',
+    desc: 'Yuk kenalan dulu sama Dompet — aplikasi buat catat keuangan kamu sehari-hari. Cuma butuh beberapa langkah singkat untuk mulai.',
     color: '#7FE8A4',
     target: null, // tidak ada spotlight, pop-up di tengah
+    tab: 'overview',
   },
   {
     emoji: '⚙️',
@@ -129,20 +130,47 @@ const ONBOARDING_STEPS = [
     desc: 'Klik ikon pengaturan ini untuk bikin kategori Expense (pengeluaran) & Saving (tabungan) sesuai kebutuhan kamu.',
     color: '#C99FE8',
     target: 'settings', // ref ke tombol kelola kategori
+    tab: 'overview',
   },
   {
     emoji: '💰',
-    title: 'Catat Income pertama',
-    desc: 'Tekan tombol + ini untuk catat pemasukan (Income) pertama kamu — atau pengeluaran & tabungan kapan saja.',
+    title: 'Catat transaksi pertama',
+    desc: 'Tekan tombol + ini untuk catat Income, Expense, atau Saving. Kategori sekarang opsional — bisa langsung simpan walau belum pilih kategori.',
     color: '#7FE8A4',
     target: 'fab', // ref ke tombol tambah transaksi
+    tab: 'overview',
+  },
+  {
+    emoji: '🔎',
+    title: 'Klik kartu buat filter cepat',
+    desc: 'Klik kartu Expense ini buat langsung lihat semua transaksi Expense di tab Transaksi — jadi shortcut, nggak perlu atur filter manual.',
+    color: '#FF9466',
+    target: 'expenseCard',
+    tab: 'overview',
+  },
+  {
+    emoji: '🔍',
+    title: 'Cari, filter & export/import',
+    desc: 'Di tab Transaksi ini, kamu bisa cari transaksi, filter per tipe, dan export/import data ke Excel — enak buat backup atau input transaksi banyak sekaligus.',
+    color: '#6FB7E8',
+    target: 'txSearch',
+    tab: 'transactions', // otomatis pindah ke tab Transaksi
   },
   {
     emoji: '📊',
-    title: 'Atur budget',
-    desc: 'Klik "Atur budget" di kartu Budget Expense untuk tentukan batas pengeluaran per kategori, biar keuanganmu tetap terkontrol.',
+    title: 'Atur budget & target saving',
+    desc: 'Klik "Atur budget" di kartu Budget Expense untuk tentukan batas pengeluaran per kategori. Ada juga "Atur target" buat goal saving jangka panjang (misal beli motor) lengkap dengan estimasi tercapainya.',
     color: '#F5C95D',
     target: 'budgetLink',
+    tab: 'overview', // pindah balik ke Dashboard setelah step sebelumnya sempat ke tab Transaksi
+  },
+  {
+    emoji: '🔁',
+    title: 'Transaksi berulang',
+    desc: 'Punya tagihan rutin kayak gaji, wifi, atau cicilan? Klik "Kelola" di sini buat atur transaksi yang otomatis tercatat sendiri tiap bulan.',
+    color: '#C99FE8',
+    target: 'recurringKelola',
+    tab: 'overview',
   },
   {
     emoji: '🎯',
@@ -150,6 +178,7 @@ const ONBOARDING_STEPS = [
     desc: 'Klik tab Laporan ini buat lihat pie chart dan tren 6 bulan keuangan kamu — enak dipantau tiap akhir bulan.',
     color: '#6FB7E8',
     target: 'reportsTab', // ref ke tab Laporan, otomatis pindah tab
+    tab: 'reports',
   },
 ];
 
@@ -184,7 +213,13 @@ export default function Dashboard({ user, onLogout }) {
   const fabRef = useRef(null);
   const reportsTabRef = useRef(null);
   const budgetLinkRef = useRef(null);
-  const targetRefs = { settings: settingsBtnRef, fab: fabRef, reportsTab: reportsTabRef, budgetLink: budgetLinkRef };
+  const expenseCardRef = useRef(null);
+  const txSearchRef = useRef(null);
+  const recurringKelolaRef = useRef(null);
+  const targetRefs = {
+    settings: settingsBtnRef, fab: fabRef, reportsTab: reportsTabRef, budgetLink: budgetLinkRef,
+    expenseCard: expenseCardRef, txSearch: txSearchRef, recurringKelola: recurringKelolaRef,
+  };
 
   const [form, setForm] = useState({ type: 'expense', amount: '', categoryId: null, note: '', date: todayStr() });
   const [catEditType, setCatEditType] = useState('expense');
@@ -501,6 +536,20 @@ export default function Dashboard({ user, onLogout }) {
     }
   }
 
+  // Budget expense GLOBAL — sekali diisi, berlaku terus di semua bulan (disimpan di categories.budget_amount,
+  // bukan per-bulan seperti budgets table). Beda dari getBudgetAmount/setBudgetAmount di atas yang masih
+  // dipakai untuk target saving bulanan lama (fallback kalau kategori saving belum punya goal_amount).
+  function getExpenseBudget(categoryId) {
+    return Number(categories.find((c) => c.id === categoryId)?.budget_amount) || 0;
+  }
+
+  async function setExpenseBudget(categoryId, value) {
+    const amt = value === '' ? null : (parseFloat(value) || 0);
+    setCategories((prev) => prev.map((c) => (c.id === categoryId ? { ...c, budget_amount: amt } : c)));
+    const { error } = await supabase.from('categories').update({ budget_amount: amt }).eq('id', categoryId);
+    if (error) setSaveError(true);
+  }
+
   async function addCategory() {
     const label = newCatLabel.trim();
     if (!label) return;
@@ -736,6 +785,13 @@ export default function Dashboard({ user, onLogout }) {
     setOnboardingStep(0);
   }
 
+  // Bisa dibuka ulang kapan saja lewat tombol "?", baik oleh user baru maupun user lama —
+  // tidak bergantung pada localStorage flag atau jumlah kategori.
+  function openOnboardingTour() {
+    setOnboardingStep(0);
+    setShowOnboarding(true);
+  }
+
   function nextStep() {
     if (onboardingStep < ONBOARDING_STEPS.length - 1) {
       setOnboardingStep((s) => s + 1);
@@ -755,9 +811,9 @@ export default function Dashboard({ user, onLogout }) {
     if (!showOnboarding) { setSpotlightRect(null); return; }
     const step = ONBOARDING_STEPS[onboardingStep];
 
-    // Step "Laporan" otomatis pindah tab supaya kontennya terlihat di belakang pop-up
-    if (step.target === 'reportsTab' && tab !== 'reports') {
-      setTab('reports');
+    // Otomatis pindah tab sesuai kebutuhan step ini (eksplisit per step, bukan asumsi urutan sebelumnya)
+    if (step.tab && tab !== step.tab) {
+      setTab(step.tab);
     }
 
     if (!step.target) { setSpotlightRect(null); return; }
@@ -944,6 +1000,9 @@ export default function Dashboard({ user, onLogout }) {
           <button key={t.id} ref={t.id === 'reports' ? reportsTabRef : null} onClick={() => setTab(t.id)} style={{ ...styles.tabBtn, ...(tab === t.id ? styles.tabBtnActive : {}) }}>{t.label}</button>
         ))}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+          <button onClick={openOnboardingTour} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Panduan fitur" title="Buka panduan fitur">
+            <HelpCircle size={16} color="#9CA89F" />
+          </button>
           <button onClick={cycleTheme} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Ganti tema" title={themeMode === 'system' ? 'Tema: Ikuti sistem' : themeMode === 'dark' ? 'Tema: Gelap' : 'Tema: Terang'}>
             {themeMode === 'system' ? <Monitor size={16} color="#9CA89F" /> : themeMode === 'dark' ? <Moon size={16} color="#9CA89F" /> : <Sun size={16} color="#9CA89F" />}
           </button>
@@ -979,6 +1038,7 @@ export default function Dashboard({ user, onLogout }) {
                   <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Expense + saving</span>
                 </div>
                 <div
+                  ref={expenseCardRef}
                   onClick={() => { setTxTypeFilter('expense'); setTab('transactions'); }}
                   className="dompet-filter-card"
                   style={{ ...styles.summaryCard, ...summaryCardActiveStyle(tab === 'transactions' && txTypeFilter === 'expense', '#FF9466') }}
@@ -1010,7 +1070,7 @@ export default function Dashboard({ user, onLogout }) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {expenseCategories.map((c) => {
                     const spent = expenseSpend[c.id] || 0;
-                    const budget = getBudgetAmount(c.id, activeMonth);
+                    const budget = getExpenseBudget(c.id);
                     const pct = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
                     const over = budget > 0 && spent > budget;
                     let barColor = '#7FE8A4';
@@ -1160,7 +1220,7 @@ export default function Dashboard({ user, onLogout }) {
               {/* Ringkasan transaksi berulang */}
               <div style={{ ...styles.sectionHeader, marginTop: 24 }}>
                 <span style={styles.sectionTitle}>Transaksi berulang</span>
-                <button onClick={() => setShowRecurringModal(true)} style={styles.linkBtn}>Kelola</button>
+                <button ref={recurringKelolaRef} onClick={() => setShowRecurringModal(true)} style={styles.linkBtn}>Kelola</button>
               </div>
               {recurringList.length === 0 ? (
                 <div style={styles.emptyCard}>
@@ -1229,6 +1289,7 @@ export default function Dashboard({ user, onLogout }) {
             {/* Search & filter tipe transaksi */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
               <input
+                ref={txSearchRef}
                 type="text"
                 value={txSearch}
                 onChange={(e) => setTxSearch(e.target.value)}
@@ -1698,7 +1759,7 @@ export default function Dashboard({ user, onLogout }) {
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <span style={styles.modalTitle}>
-                {showBudgetModal === 'expense' ? 'Atur budget expense' : 'Atur target saving'} — {monthLabel(activeMonth)}
+                {showBudgetModal === 'expense' ? 'Atur budget expense (berlaku semua bulan)' : `Atur target saving — ${monthLabel(activeMonth)}`}
               </span>
               <button onClick={() => setShowBudgetModal(null)} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
             </div>
@@ -1706,6 +1767,9 @@ export default function Dashboard({ user, onLogout }) {
               {showBudgetModal === 'expense' ? (
                 <>
                   {expenseCategories.length === 0 && <div style={styles.emptyHint}>Belum ada kategori expense.</div>}
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>
+                    Budget di sini berlaku terus tiap bulan sampai Anda ubah lagi — tidak perlu diisi ulang tiap ganti bulan.
+                  </div>
                   {expenseCategories.map((c) => {
                     const CatIcon = getIconComponent(c.icon);
                     return (
@@ -1713,7 +1777,7 @@ export default function Dashboard({ user, onLogout }) {
                         <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-primary)', minWidth: 150 }}>
                           <CatIcon size={14} color={c.color} />{c.label}
                         </span>
-                        <input type="number" inputMode="numeric" placeholder="0" defaultValue={getBudgetAmount(c.id, activeMonth) || ''} onBlur={(e) => setBudgetAmount(c.id, e.target.value)} style={{ ...styles.input, marginBottom: 0 }} />
+                        <input type="number" inputMode="numeric" placeholder="0" defaultValue={getExpenseBudget(c.id) || ''} onBlur={(e) => setExpenseBudget(c.id, e.target.value)} style={{ ...styles.input, marginBottom: 0 }} />
                       </div>
                     );
                   })}
