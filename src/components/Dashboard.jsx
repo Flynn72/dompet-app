@@ -1759,7 +1759,7 @@ export default function Dashboard({ user, onLogout }) {
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <span style={styles.modalTitle}>
-                {showBudgetModal === 'expense' ? 'Atur budget expense (berlaku semua bulan)' : `Atur target saving — ${monthLabel(activeMonth)}`}
+                {showBudgetModal === 'expense' ? 'Atur budget expense' : `Atur target saving — ${monthLabel(activeMonth)}`}
               </span>
               <button onClick={() => setShowBudgetModal(null)} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
             </div>
