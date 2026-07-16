@@ -194,6 +194,7 @@ export default function Dashboard({ user, onLogout }) {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showRecurringModal, setShowRecurringModal] = useState(false);
   const [recurringList, setRecurringList] = useState([]);
+  const [latestGoldPrice, setLatestGoldPrice] = useState(null); // harga emas per gram terbaru, dari asset_prices via RPC
   const [recurringForm, setRecurringForm] = useState({ type: 'expense', categoryId: null, amount: '', note: '', dayOfMonth: '1' });
   const [savingRecurring, setSavingRecurring] = useState(false);
   const [themeMode, setThemeMode] = useState(() => localStorage.getItem('dompet_theme') || 'system'); // system | dark | light
@@ -225,9 +226,11 @@ export default function Dashboard({ user, onLogout }) {
   const [catEditType, setCatEditType] = useState('expense');
   const [newCatLabel, setNewCatLabel] = useState('');
   const [newCatIcon, setNewCatIcon] = useState('dollar');
+  const [newCatAssetType, setNewCatAssetType] = useState(null); // null | 'gold' | 'reksadana_syariah'
   const [editingCatId, setEditingCatId] = useState(null);
   const [editingCatLabel, setEditingCatLabel] = useState('');
   const [editingCatIcon, setEditingCatIcon] = useState('dollar');
+  const [editingCatAssetType, setEditingCatAssetType] = useState(null);
   const [showIconPicker, setShowIconPicker] = useState(false); // untuk tambah
   const [previewIconLabel, setPreviewIconLabel] = useState(null); // nama ikon yang sedang disentuh/hover di grid (mobile & desktop)
   const [showEditIconPicker, setShowEditIconPicker] = useState(false); // untuk edit
@@ -305,19 +308,24 @@ export default function Dashboard({ user, onLogout }) {
 
   const loadAll = useCallback(async () => {
     try {
-      const [{ data: cats, error: catErr }, { data: txs, error: txErr }, { data: bgs, error: bgErr }, { data: recs, error: recErr }] = await Promise.all([
+      const [{ data: cats, error: catErr }, { data: txs, error: txErr }, { data: bgs, error: bgErr }, { data: recs, error: recErr }, { data: prices, error: priceErr }] = await Promise.all([
         supabase.from('categories').select('*').eq('user_id', user.id).order('sort_order'),
         supabase.from('transactions').select('*').eq('user_id', user.id).order('tx_date', { ascending: false }),
         supabase.from('budgets').select('*').eq('user_id', user.id),
         supabase.from('recurring_transactions').select('*').eq('user_id', user.id).order('created_at'),
+        supabase.rpc('get_latest_prices'),
       ]);
       if (catErr || txErr || bgErr || recErr) { setSaveError(true); }
       else {
         setCategories(cats || []);
-        const txList = (txs || []).map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date, recurringId: t.recurring_id }));
+        const txList = (txs || []).map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date, recurringId: t.recurring_id, assetPriceAtTx: t.asset_price_at_tx ? Number(t.asset_price_at_tx) : null }));
         setTransactions(txList);
         setBudgets(bgs || []);
         setRecurringList(recs || []);
+        if (!priceErr && prices) {
+          const gold = prices.find((p) => p.asset_name === 'gold_antam');
+          if (gold) setLatestGoldPrice(Number(gold.price));
+        }
         setSaveError(false);
         // Tampilkan onboarding hanya untuk user baru (belum punya kategori sama sekali)
         if ((cats || []).length === 0) {
@@ -385,10 +393,19 @@ export default function Dashboard({ user, onLogout }) {
   async function addTransaction() {
     const amt = parseFloat(form.amount);
     if (!amt || amt <= 0) return;
-    const payload = { user_id: user.id, type: form.type, category_id: form.type === 'income' ? null : form.categoryId, amount: amt, note: form.note.trim(), tx_date: form.date };
+
+    // Kalau kategori tujuannya ditandai sebagai "Emas", catat harga emas per gram saat ini
+    // (dari cache harian di Supabase, bukan panggil API langsung tiap transaksi).
+    const selectedCat = form.type !== 'income' ? categories.find((c) => c.id === form.categoryId) : null;
+    const assetPriceAtTx = (selectedCat?.asset_type === 'gold' && latestGoldPrice) ? latestGoldPrice : null;
+
+    const payload = {
+      user_id: user.id, type: form.type, category_id: form.type === 'income' ? null : form.categoryId,
+      amount: amt, note: form.note.trim(), tx_date: form.date, asset_price_at_tx: assetPriceAtTx,
+    };
     const { data, error } = await supabase.from('transactions').insert(payload).select().single();
     if (error) { setSaveError(true); return; }
-    setTransactions((prev) => [{ id: data.id, type: data.type, amount: Number(data.amount), category: data.category_id, note: data.note || '', date: data.tx_date }, ...prev]);
+    setTransactions((prev) => [{ id: data.id, type: data.type, amount: Number(data.amount), category: data.category_id, note: data.note || '', date: data.tx_date, assetPriceAtTx: data.asset_price_at_tx ? Number(data.asset_price_at_tx) : null }, ...prev]);
     setForm({ type: 'expense', amount: '', categoryId: expenseCategories[0] ? expenseCategories[0].id : null, note: '', date: todayStr() });
     setShowAddModal(false);
   }
@@ -555,11 +572,15 @@ export default function Dashboard({ user, onLogout }) {
     if (!label) return;
     const list = catEditType === 'saving' ? savingCategories : expenseCategories;
     const color = COLOR_PALETTE[list.length % COLOR_PALETTE.length];
-    const { data, error } = await supabase.from('categories').insert({ user_id: user.id, type: catEditType, label, color, icon: newCatIcon, sort_order: list.length + 1 }).select().single();
+    const { data, error } = await supabase.from('categories').insert({
+      user_id: user.id, type: catEditType, label, color, icon: newCatIcon, sort_order: list.length + 1,
+      asset_type: catEditType === 'saving' ? newCatAssetType : null,
+    }).select().single();
     if (error) { setSaveError(true); return; }
     setCategories((prev) => [...prev, data]);
     setNewCatLabel('');
     setNewCatIcon('dollar');
+    setNewCatAssetType(null);
     setShowIconPicker(false);
   }
 
@@ -567,15 +588,16 @@ export default function Dashboard({ user, onLogout }) {
     setEditingCatId(c.id);
     setEditingCatLabel(c.label);
     setEditingCatIcon(c.icon || 'dollar');
+    setEditingCatAssetType(c.asset_type || null);
     setShowEditIconPicker(false);
   }
 
   async function saveEditCategory() {
     const label = editingCatLabel.trim();
     if (!label) return;
-    const { error } = await supabase.from('categories').update({ label, icon: editingCatIcon }).eq('id', editingCatId);
+    const { error } = await supabase.from('categories').update({ label, icon: editingCatIcon, asset_type: editingCatAssetType }).eq('id', editingCatId);
     if (error) { setSaveError(true); } else {
-      setCategories((prev) => prev.map((c) => (c.id === editingCatId ? { ...c, label, icon: editingCatIcon } : c)));
+      setCategories((prev) => prev.map((c) => (c.id === editingCatId ? { ...c, label, icon: editingCatIcon, asset_type: editingCatAssetType } : c)));
     }
     setEditingCatId(null);
     setShowEditIconPicker(false);
@@ -657,6 +679,45 @@ export default function Dashboard({ user, onLogout }) {
 
   const expenseSpend = useMemo(() => spendByCat('expense'), [spendByCat]);
   const savingSpend = useMemo(() => spendByCat('saving'), [spendByCat]);
+
+  const REKSADANA_ANNUAL_RATE = 0.053; // 5,3%/tahun, sesuai permintaan — bisa dijadikan setting kalau nanti mau diubah
+
+  // Hitung nilai investasi sekarang & untung/rugi untuk kategori saving yang ditandai
+  // sebagai "Emas" atau "Reksadana Syariah". Emas: pakai harga per gram saat tiap transaksi
+  // dibuat vs harga terbaru. Reksadana: pakai rate tetap 5,3%/tahun (bunga majemuk) dari tiap
+  // transaksi berdasarkan lama waktu berjalan sejak tanggal transaksi itu.
+  function computeInvestmentStats(cat) {
+    if (!cat.asset_type) return null;
+    const catTx = transactions.filter((t) => t.type === 'saving' && t.category === cat.id);
+    if (catTx.length === 0) return null;
+
+    let totalInvested = 0;
+    let currentValue = 0;
+    const today = new Date();
+
+    if (cat.asset_type === 'gold') {
+      if (!latestGoldPrice) return null; // harga terbaru belum ke-load
+      let totalGram = 0;
+      catTx.forEach((t) => {
+        totalInvested += t.amount;
+        if (t.assetPriceAtTx) totalGram += t.amount / t.assetPriceAtTx;
+      });
+      currentValue = totalGram * latestGoldPrice;
+    } else if (cat.asset_type === 'reksadana_syariah') {
+      catTx.forEach((t) => {
+        totalInvested += t.amount;
+        const txDate = new Date(t.date + 'T00:00:00');
+        const years = Math.max(0, (today - txDate) / (365.25 * 24 * 60 * 60 * 1000));
+        currentValue += t.amount * Math.pow(1 + REKSADANA_ANNUAL_RATE, years);
+      });
+    } else {
+      return null;
+    }
+
+    const gain = currentValue - totalInvested;
+    const gainPct = totalInvested > 0 ? (gain / totalInvested) * 100 : 0;
+    return { totalInvested, currentValue, gain, gainPct };
+  }
 
   // Total akumulasi saving SEPANJANG WAKTU per kategori (bukan cuma bulan aktif) — dipakai untuk goal tracking.
   // Juga hitung tanggal transaksi saving paling awal per kategori, untuk estimasi kecepatan menabung rata-rata.
@@ -1181,6 +1242,7 @@ export default function Dashboard({ user, onLogout }) {
                     const target = getBudgetAmount(c.id, activeMonth); // target bulanan lama (kalau masih dipakai)
                     const pct = target > 0 ? Math.min(100, (spent / target) * 100) : 0;
                     const goal = computeGoalProjection(c); // goal kumulatif jangka panjang (fitur baru)
+                    const invest = computeInvestmentStats(c); // pelacakan emas/reksadana (fitur baru)
                     const CatIcon = getIconComponent(c.icon);
                     const subTx = txByCat(c.id);
                     return (
@@ -1190,7 +1252,11 @@ export default function Dashboard({ user, onLogout }) {
                             <CatIcon size={16} color={c.color} />
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{c.label}</div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                              {c.label}
+                              {c.asset_type === 'gold' && <span style={{ marginLeft: 6, fontSize: 10, color: '#F5C95D' }}>🥇 Emas</span>}
+                              {c.asset_type === 'reksadana_syariah' && <span style={{ marginLeft: 6, fontSize: 10, color: '#6FB7E8' }}>📈 Reksadana</span>}
+                            </div>
                             <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
                               {goal
                                 ? `${formatRupiah(goal.cumulative)} / ${formatRupiah(goal.goalAmount)} (total)`
@@ -1234,6 +1300,34 @@ export default function Dashboard({ user, onLogout }) {
                         )}
                         {goal && goal.achieved && (
                           <div style={{ marginTop: 8, fontSize: 11.5, color: '#7FE8A4', fontWeight: 600 }}>🎉 Target tercapai!</div>
+                        )}
+
+                        {/* Nilai investasi sekarang + untung/rugi, khusus kategori Emas/Reksadana Syariah */}
+                        {invest && (
+                          <div style={{
+                            marginTop: 10, padding: '10px 12px', borderRadius: 10,
+                            background: invest.gain >= 0 ? '#0D2A1A' : '#2A1010',
+                            border: `1px solid ${invest.gain >= 0 ? '#1A5A3A' : '#5A2020'}`,
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                              <span>Modal: {formatRupiah(invest.totalInvested)}</span>
+                              <span>Nilai sekarang: <b style={{ color: 'var(--text-primary)' }}>{formatRupiah(invest.currentValue)}</b></span>
+                            </div>
+                            <div style={{ fontSize: 12.5, fontWeight: 700, color: invest.gain >= 0 ? '#7FE8A4' : '#FF9466' }}>
+                              {invest.gain >= 0 ? '▲ Untung ' : '▼ Rugi '}
+                              {formatRupiah(Math.abs(invest.gain))} ({invest.gainPct >= 0 ? '+' : ''}{invest.gainPct.toFixed(1)}%)
+                            </div>
+                            {c.asset_type === 'gold' && (
+                              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
+                                Harga emas terkini: {formatRupiah(latestGoldPrice)}/gram
+                              </div>
+                            )}
+                            {c.asset_type === 'reksadana_syariah' && (
+                              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
+                                Estimasi return {(REKSADANA_ANNUAL_RATE * 100).toFixed(1)}%/tahun
+                              </div>
+                            )}
+                          </div>
                         )}
 
                         {subTx.length > 0 && (
@@ -2020,6 +2114,24 @@ export default function Dashboard({ user, onLogout }) {
                           <button onClick={saveEditCategory} style={styles.smallIconBtn}><Check size={15} color="#7FE8A4" /></button>
                           <button onClick={() => { setEditingCatId(null); setShowEditIconPicker(false); }} style={styles.smallIconBtn}><X size={15} color="#9CA89F" /></button>
                         </div>
+                        {catEditType === 'saving' && (
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            {[
+                              { id: null, label: 'Tidak ada' },
+                              { id: 'gold', label: '🥇 Emas' },
+                              { id: 'reksadana_syariah', label: '📈 Reksadana Syariah' },
+                            ].map((opt) => (
+                              <button key={opt.label} onClick={() => setEditingCatAssetType(opt.id)}
+                                style={{
+                                  flex: 1, padding: '6px 4px', borderRadius: 8, fontSize: 11, cursor: 'pointer',
+                                  border: `1px solid ${editingCatAssetType === opt.id ? 'var(--accent)' : 'var(--border)'}`,
+                                  background: editingCatAssetType === opt.id ? 'var(--accent)' : 'transparent',
+                                  color: editingCatAssetType === opt.id ? 'var(--accent-text)' : 'var(--text-secondary)',
+                                  fontWeight: editingCatAssetType === opt.id ? 700 : 500,
+                                }}>{opt.label}</button>
+                            ))}
+                          </div>
+                        )}
                         {showEditIconPicker && (
                           <>
                             <div style={styles.iconPreviewBar}>{previewIconLabel || 'Sentuh ikon untuk lihat namanya'}</div>
@@ -2071,6 +2183,24 @@ export default function Dashboard({ user, onLogout }) {
               <input type="text" placeholder={catEditType === 'saving' ? 'Contoh: Emergency Fund' : 'Contoh: Belanja Bulanan'} value={newCatLabel} onChange={(e) => setNewCatLabel(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addCategory(); }} style={{ ...styles.input, marginBottom: 0, flex: 1 }} />
               <button onClick={addCategory} style={{ ...styles.smallIconBtn, width: 38, height: 38, background: '#7FE8A4', flexShrink: 0 }}><Plus size={18} color="#0F1410" /></button>
             </div>
+            {catEditType === 'saving' && (
+              <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                {[
+                  { id: null, label: 'Tidak ada' },
+                  { id: 'gold', label: '🥇 Emas' },
+                  { id: 'reksadana_syariah', label: '📈 Reksadana Syariah' },
+                ].map((opt) => (
+                  <button key={opt.label} onClick={() => setNewCatAssetType(opt.id)}
+                    style={{
+                      flex: 1, padding: '6px 4px', borderRadius: 8, fontSize: 11, cursor: 'pointer',
+                      border: `1px solid ${newCatAssetType === opt.id ? 'var(--accent)' : 'var(--border)'}`,
+                      background: newCatAssetType === opt.id ? 'var(--accent)' : 'transparent',
+                      color: newCatAssetType === opt.id ? 'var(--accent-text)' : 'var(--text-secondary)',
+                      fontWeight: newCatAssetType === opt.id ? 700 : 500,
+                    }}>{opt.label}</button>
+                ))}
+              </div>
+            )}
             {showIconPicker && (
               <>
                 <div style={styles.iconPreviewBar}>{previewIconLabel || 'Sentuh ikon untuk lihat namanya'}</div>
