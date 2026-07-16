@@ -44,8 +44,10 @@ export default async function handler(req, res) {
       raw: goldJson,
     });
     if (error) throw error;
+    console.log('[cron-sync-prices] Harga emas berhasil disimpan:', goldData.sellPrice);
     results.gold = { success: true, price: goldData.sellPrice };
   } catch (err) {
+    console.error('[cron-sync-prices] Emas gagal:', err.message);
     results.gold = { success: false, error: err.message };
     results.errors.push(`Emas: ${err.message}`);
   }
@@ -55,18 +57,35 @@ export default async function handler(req, res) {
   // mengubah struktur halamannya, regex di bawah bisa gagal dan perlu diperbarui.
   try {
     const pageRes = await fetch('https://www.bareksa.com/id/data/reksadana/2024/insight-money-syariah', {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DompetAppBot/1.0)' },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml',
+      },
     });
     if (!pageRes.ok) throw new Error(`HTTP ${pageRes.status} dari Bareksa`);
     const html = await pageRes.text();
+    console.log('[cron-sync-prices] Panjang HTML Bareksa diterima:', html.length, 'karakter');
 
-    // Cari pola "Nilai Aktiva Bersih/Unit" diikuti angka format Indonesia, mis. "1.772,41IDR"
-    const match = html.match(/Nilai Aktiva Bersih\/Unit[\s\S]{0,80}?([\d.,]+)\s*IDR/i);
-    if (!match) throw new Error('Pola NAB tidak ditemukan di halaman — kemungkinan struktur halaman Bareksa sudah berubah, perlu diperbarui regex-nya.');
+    // Coba beberapa pola sekaligus, dari yang paling spesifik ke paling umum,
+    // karena kita tidak selalu tahu persis struktur HTML asli (beda dari versi "dirender" browser).
+    const patterns = [
+      /Nilai Aktiva Bersih\/Unit[\s\S]{0,200}?([\d]{1,3}(?:\.\d{3})*,\d{2})\s*IDR/i, // label lengkap + IDR
+      /Insight Money Syariah[\s\S]{0,200}?([\d]{1,3}(?:\.\d{3})*,\d{2})\s*IDR/i,     // nama produk + IDR
+      /([\d]{1,3}(?:\.\d{3})*,\d{2})IDR/,                                          // angka nempel langsung ke "IDR" tanpa spasi
+    ];
+    let navStr = null;
+    for (const p of patterns) {
+      const m = html.match(p);
+      if (m) { navStr = m[1]; break; }
+    }
+    if (!navStr) {
+      console.error('[cron-sync-prices] Tidak ada pola yang cocok. Cuplikan HTML (2000 karakter pertama):', html.slice(0, 2000));
+      throw new Error('Pola NAB tidak ditemukan di halaman — kemungkinan halaman butuh JavaScript untuk render datanya (bukan cuma HTML statis), atau struktur halaman Bareksa sudah berubah.');
+    }
 
-    const navStr = match[1]; // contoh: "1.772,41"
     const navValue = parseFloat(navStr.replace(/\./g, '').replace(',', '.'));
     if (!navValue || isNaN(navValue)) throw new Error(`Gagal parse angka NAB dari teks: "${navStr}"`);
+    console.log('[cron-sync-prices] NAV reksadana ditemukan:', navValue);
 
     const { error } = await supabaseAdmin.from('asset_prices').insert({
       asset_name: 'reksadana_insight_money_syariah',
@@ -77,6 +96,7 @@ export default async function handler(req, res) {
     if (error) throw error;
     results.reksadana = { success: true, price: navValue };
   } catch (err) {
+    console.error('[cron-sync-prices] Reksadana gagal:', err.message);
     results.reksadana = { success: false, error: err.message };
     results.errors.push(`Reksadana: ${err.message}`);
   }
