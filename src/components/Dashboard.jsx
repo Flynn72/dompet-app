@@ -1122,6 +1122,43 @@ export default function Dashboard({ user, onLogout }) {
                       </div>
                     );
                   })}
+
+                  {/* Card khusus transaksi expense tanpa kategori */}
+                  {(() => {
+                    const uncatTx = monthTx.filter((t) => t.type === 'expense' && !t.category).sort((a, b) => new Date(b.date) - new Date(a.date));
+                    if (uncatTx.length === 0) return null;
+                    const uncatTotal = uncatTx.reduce((s, t) => s + t.amount, 0);
+                    return (
+                      <div style={styles.budgetCard}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                          <div style={{ width: 34, height: 34, borderRadius: 10, background: '#8A8A8A25', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <HelpCircle size={16} color="#8A8A8A" />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Tanpa kategori</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatRupiah(uncatTotal)}</div>
+                          </div>
+                          <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 13, color: 'var(--text-primary)', flexShrink: 0 }}>
+                            {formatRupiah(uncatTotal)}
+                          </span>
+                        </div>
+                        <div style={{ borderTop: '1px solid #22291F', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {uncatTx.map((t) => (
+                            <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                              <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {t.note || 'Lainnya'}
+                              </span>
+                              <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
+                                {new Date(t.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                              </span>
+                              <span style={{ fontSize: 12, fontWeight: 600, color: '#FF9466', flexShrink: 0 }}>-{formatRupiah(t.amount)}</span>
+                              <button onClick={() => deleteTransaction(t.id)} style={styles.deleteBtn}><Trash2 size={12} color="#6B7568" /></button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -1214,6 +1251,43 @@ export default function Dashboard({ user, onLogout }) {
                       </div>
                     );
                   })}
+
+                  {/* Card khusus transaksi saving tanpa kategori */}
+                  {(() => {
+                    const uncatTx = monthTx.filter((t) => t.type === 'saving' && !t.category).sort((a, b) => new Date(b.date) - new Date(a.date));
+                    if (uncatTx.length === 0) return null;
+                    const uncatTotal = uncatTx.reduce((s, t) => s + t.amount, 0);
+                    return (
+                      <div style={styles.budgetCard}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                          <div style={{ width: 34, height: 34, borderRadius: 10, background: '#8A8A8A25', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <HelpCircle size={16} color="#8A8A8A" />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Tanpa kategori</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatRupiah(uncatTotal)}</div>
+                          </div>
+                          <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 13, color: '#6FB7E8', flexShrink: 0 }}>
+                            {formatRupiah(uncatTotal)}
+                          </span>
+                        </div>
+                        <div style={{ borderTop: '1px solid #22291F', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {uncatTx.map((t) => (
+                            <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                              <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {t.note || 'Lainnya'}
+                              </span>
+                              <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
+                                {new Date(t.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                              </span>
+                              <span style={{ fontSize: 12, fontWeight: 600, color: '#6FB7E8', flexShrink: 0 }}>-{formatRupiah(t.amount)}</span>
+                              <button onClick={() => deleteTransaction(t.id)} style={styles.deleteBtn}><Trash2 size={12} color="#6B7568" /></button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
@@ -1759,7 +1833,7 @@ export default function Dashboard({ user, onLogout }) {
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <span style={styles.modalTitle}>
-                {showBudgetModal === 'expense' ? 'Atur budget expense' : `Atur target saving — ${monthLabel(activeMonth)}`}
+                {showBudgetModal === 'expense' ? 'Atur budget expense (berlaku semua bulan)' : `Atur target saving — ${monthLabel(activeMonth)}`}
               </span>
               <button onClick={() => setShowBudgetModal(null)} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
             </div>
