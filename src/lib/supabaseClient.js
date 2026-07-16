@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-
 // ============================================================
 // PENTING: Ganti dua nilai di bawah ini dengan milik project
 // Supabase Anda sendiri. Cara mendapatkannya:
@@ -9,16 +8,24 @@ import { createClient } from '@supabase/supabase-js';
 // 4. Copy "Project URL" -> tempel ke SUPABASE_URL
 // 5. Copy "anon public" key -> tempel ke SUPABASE_ANON_KEY
 // ============================================================
-
 const SUPABASE_URL = 'https://bmbudqkqlhiwvjxibgpj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_uhUdjLNqRRCoXd7eKFpBQg_0hKwnC9v';
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    // Simpan sesi login di localStorage browser, supaya user tidak perlu login ulang
+    // tiap buka app lagi — cuma perlu login ulang kalau benar-benar klik logout,
+    // atau data browser-nya dihapus manual.
+    persistSession: true,
+    // Perpanjang otomatis token login sebelum kadaluarsa, selama app/tab dibuka.
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+  },
+});
 
 // Domain palsu untuk memetakan username -> email secara internal.
 // User tidak akan pernah melihat ini; mereka hanya mengetik username.
 export const USERNAME_DOMAIN = '@dompetapp.local';
-
 export function usernameToEmail(username) {
   return username.trim().toLowerCase().replace(/\s+/g, '') + USERNAME_DOMAIN;
 }
