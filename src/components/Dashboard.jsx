@@ -238,6 +238,9 @@ export default function Dashboard({ user, onLogout }) {
   const [savingGoal, setSavingGoal] = useState(false);
   const [editingPriceTxId, setEditingPriceTxId] = useState(null); // id transaksi yang sedang diisi harga historisnya
   const [editingPriceValue, setEditingPriceValue] = useState('');
+  const [sellingCatId, setSellingCatId] = useState(null); // id kategori yang sedang dijual asetnya
+  const [sellForm, setSellForm] = useState({ amount: '', date: todayStr(), note: '' });
+  const [savingSell, setSavingSell] = useState(false);
 
   // Navigasi bulan: dropdown selalu 12 bulan tahun aktif
   const activeYear = parseInt(activeMonth.slice(0, 4));
@@ -319,7 +322,7 @@ export default function Dashboard({ user, onLogout }) {
       if (catErr || txErr || bgErr || recErr) { setSaveError(true); }
       else {
         setCategories(cats || []);
-        const txList = (txs || []).map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date, recurringId: t.recurring_id, assetPriceAtTx: t.asset_price_at_tx ? Number(t.asset_price_at_tx) : null }));
+        const txList = (txs || []).map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date, recurringId: t.recurring_id, assetPriceAtTx: t.asset_price_at_tx ? Number(t.asset_price_at_tx) : null, assetAction: t.asset_action || 'buy' }));
         setTransactions(txList);
         setBudgets(bgs || []);
         setRecurringList(recs || []);
@@ -403,10 +406,11 @@ export default function Dashboard({ user, onLogout }) {
     const payload = {
       user_id: user.id, type: form.type, category_id: form.type === 'income' ? null : form.categoryId,
       amount: amt, note: form.note.trim(), tx_date: form.date, asset_price_at_tx: assetPriceAtTx,
+      asset_action: selectedCat?.asset_type ? 'buy' : null,
     };
     const { data, error } = await supabase.from('transactions').insert(payload).select().single();
     if (error) { setSaveError(true); return; }
-    setTransactions((prev) => [{ id: data.id, type: data.type, amount: Number(data.amount), category: data.category_id, note: data.note || '', date: data.tx_date, assetPriceAtTx: data.asset_price_at_tx ? Number(data.asset_price_at_tx) : null }, ...prev]);
+    setTransactions((prev) => [{ id: data.id, type: data.type, amount: Number(data.amount), category: data.category_id, note: data.note || '', date: data.tx_date, assetPriceAtTx: data.asset_price_at_tx ? Number(data.asset_price_at_tx) : null, assetAction: data.asset_action || 'buy' }, ...prev]);
     setForm({ type: 'expense', amount: '', categoryId: expenseCategories[0] ? expenseCategories[0].id : null, note: '', date: todayStr() });
     setShowAddModal(false);
   }
@@ -447,12 +451,12 @@ export default function Dashboard({ user, onLogout }) {
     // Insert ulang datanya (dapat id baru — transaksi lama sudah benar-benar terhapus permanen)
     const { data, error } = await supabase.from('transactions').insert({
       user_id: user.id, type: tx.type, category_id: tx.category, amount: tx.amount,
-      note: tx.note, tx_date: tx.date, asset_price_at_tx: tx.assetPriceAtTx,
+      note: tx.note, tx_date: tx.date, asset_price_at_tx: tx.assetPriceAtTx, asset_action: tx.assetAction || null,
     }).select().single();
     if (error) { setSaveError(true); return; }
 
     setTransactions((prev) => [
-      { id: data.id, type: data.type, amount: Number(data.amount), category: data.category_id, note: data.note || '', date: data.tx_date, assetPriceAtTx: data.asset_price_at_tx ? Number(data.asset_price_at_tx) : null },
+      { id: data.id, type: data.type, amount: Number(data.amount), category: data.category_id, note: data.note || '', date: data.tx_date, assetPriceAtTx: data.asset_price_at_tx ? Number(data.asset_price_at_tx) : null, assetAction: data.asset_action || 'buy' },
       ...prev,
     ].sort((a, b) => new Date(b.date) - new Date(a.date)));
   }
@@ -585,7 +589,7 @@ export default function Dashboard({ user, onLogout }) {
       } else {
         successCount = data.length;
         setTransactions((prev) => [
-          ...data.map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date, assetPriceAtTx: t.asset_price_at_tx ? Number(t.asset_price_at_tx) : null })),
+          ...data.map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date, assetPriceAtTx: t.asset_price_at_tx ? Number(t.asset_price_at_tx) : null, assetAction: t.asset_action || 'buy' })),
           ...prev,
         ].sort((a, b) => new Date(b.date) - new Date(a.date)));
       }
@@ -727,13 +731,18 @@ export default function Dashboard({ user, onLogout }) {
   }, [monthTx, txTypeFilter, txSearch, categories]);
   const totalIncome = useMemo(() => monthTx.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0), [monthTx]);
   const totalExpense = useMemo(() => monthTx.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0), [monthTx]);
-  const totalSaving = useMemo(() => monthTx.filter((t) => t.type === 'saving').reduce((s, t) => s + t.amount, 0), [monthTx]);
+  // Transaksi "jual aset" (assetAction='sell') MENGURANGI total saving (uang keluar dari tabungan/investasi),
+  // bukan menambah — beda dari transaksi saving biasa (beli/nabung) yang menambah.
+  const totalSaving = useMemo(() => monthTx.filter((t) => t.type === 'saving').reduce((s, t) => s + t.amount * (t.assetAction === 'sell' ? -1 : 1), 0), [monthTx]);
   const balance = totalIncome - totalExpense - totalSaving;
   const totalUsed = totalExpense + totalSaving;
 
   const spendByCat = useCallback((type) => {
     const map = {};
-    monthTx.filter((t) => t.type === type).forEach((t) => { map[t.category] = (map[t.category] || 0) + t.amount; });
+    monthTx.filter((t) => t.type === type).forEach((t) => {
+      const sign = t.assetAction === 'sell' ? -1 : 1;
+      map[t.category] = (map[t.category] || 0) + t.amount * sign;
+    });
     return map;
   }, [monthTx]);
 
@@ -746,44 +755,78 @@ export default function Dashboard({ user, onLogout }) {
   // sebagai "Emas" atau "Reksadana Syariah". Emas: pakai harga per gram saat tiap transaksi
   // dibuat vs harga terbaru. Reksadana: pakai rate tetap 5,3%/tahun (bunga majemuk) dari tiap
   // transaksi berdasarkan lama waktu berjalan sejak tanggal transaksi itu.
+  // Harga/unit sintetik untuk reksadana pada tanggal tertentu, berdasarkan rate tetap 5,3%/tahun
+  // dari titik acuan tetap. Ini menyatukan logika emas & reksadana dalam satu algoritma yang sama:
+  // "unit" = nominal / harga-saat-itu, baik untuk gram emas maupun unit reksadana sintetik.
+  function syntheticReksadanaPrice(dateStr) {
+    const epoch = new Date('2000-01-01T00:00:00');
+    const d = new Date(dateStr + 'T00:00:00');
+    const years = (d - epoch) / (365.25 * 24 * 60 * 60 * 1000);
+    return Math.pow(1 + REKSADANA_ANNUAL_RATE, years);
+  }
+
+  // Hitung nilai investasi sekarang, REALIZED gain/loss (dari transaksi jual), dan FLOATING
+  // gain/loss (dari aset yang masih dipegang) — pakai metode rata-rata biaya (weighted average
+  // cost), diproses berurutan sesuai tanggal transaksi (penting untuk akurasi rata-rata beli).
   function computeInvestmentStats(cat) {
     if (!cat.asset_type) return null;
-    const catTx = transactions.filter((t) => t.type === 'saving' && t.category === cat.id);
+    if (cat.asset_type === 'gold' && !latestGoldPrice) return null; // harga terbaru belum ke-load
+
+    const catTx = transactions
+      .filter((t) => t.type === 'saving' && t.category === cat.id)
+      .slice()
+      .sort((a, b) => new Date(a.date) - new Date(b.date)); // urutan kronologis wajib untuk avg cost yang benar
     if (catTx.length === 0) return null;
 
-    let totalInvested = 0;
-    let currentValue = 0;
-    let unpricedAmount = 0; // total transaksi emas yang belum ada harga historisnya (belum ikut dihitung)
-    const today = new Date();
+    let heldUnits = 0;      // gram (emas) atau unit sintetik (reksadana) yang masih dipegang
+    let heldCostBasis = 0;  // modal aktif yang masih tertanam (setelah dikurangi yang sudah dijual)
+    let realizedGain = 0;   // untung/rugi dari transaksi JUAL yang sudah terjadi, sudah final
+    let unpricedAmount = 0; // transaksi emas lama yang belum ada harga historisnya, belum ikut dihitung
 
-    if (cat.asset_type === 'gold') {
-      if (!latestGoldPrice) return null; // harga terbaru belum ke-load
-      let totalGram = 0;
-      catTx.forEach((t) => {
-        if (!t.assetPriceAtTx) { unpricedAmount += t.amount; return; } // belum ada data harga -> jangan ikut dihitung dulu
-        totalInvested += t.amount;
-        totalGram += t.amount / t.assetPriceAtTx;
-      });
-      currentValue = totalGram * latestGoldPrice;
-    } else if (cat.asset_type === 'reksadana_syariah') {
-      catTx.forEach((t) => {
-        totalInvested += t.amount;
-        const txDate = new Date(t.date + 'T00:00:00');
-        const years = Math.max(0, (today - txDate) / (365.25 * 24 * 60 * 60 * 1000));
-        currentValue += t.amount * Math.pow(1 + REKSADANA_ANNUAL_RATE, years);
-      });
-    } else {
-      return null;
-    }
+    catTx.forEach((t) => {
+      const priceAtTx = cat.asset_type === 'gold' ? t.assetPriceAtTx : syntheticReksadanaPrice(t.date);
+      if (cat.asset_type === 'gold' && !priceAtTx) {
+        if (t.assetAction !== 'sell') unpricedAmount += t.amount;
+        return; // transaksi emas tanpa harga historis dilewati dulu sampai diisi manual
+      }
+      const units = t.amount / priceAtTx;
 
-    if (totalInvested === 0 && unpricedAmount > 0) {
-      // Semua transaksi belum ada harga historisnya sama sekali -> belum bisa dihitung apa-apa
+      if (t.assetAction === 'sell') {
+        const avgCost = heldUnits > 0 ? heldCostBasis / heldUnits : 0;
+        const unitsSold = Math.min(units, heldUnits); // tidak bisa jual lebih dari yang benar-benar dipegang
+        const costBasisSold = unitsSold * avgCost;
+        realizedGain += t.amount - costBasisSold;
+        heldUnits -= unitsSold;
+        heldCostBasis -= costBasisSold;
+      } else {
+        heldUnits += units;
+        heldCostBasis += t.amount;
+      }
+    });
+
+    const currentPrice = cat.asset_type === 'gold' ? latestGoldPrice : syntheticReksadanaPrice(todayStr());
+    const currentValue = heldUnits * currentPrice;
+    const floatingGain = currentValue - heldCostBasis;
+    const totalGain = realizedGain + floatingGain;
+    const avgBuyPrice = heldUnits > 0 ? heldCostBasis / heldUnits : 0;
+
+    if (heldCostBasis <= 0 && heldUnits <= 0 && realizedGain === 0 && unpricedAmount > 0) {
       return { totalInvested: 0, currentValue: 0, gain: 0, gainPct: 0, unpricedAmount, noDataYet: true };
     }
 
-    const gain = currentValue - totalInvested;
-    const gainPct = totalInvested > 0 ? (gain / totalInvested) * 100 : 0;
-    return { totalInvested, currentValue, gain, gainPct, unpricedAmount };
+    const gainPct = heldCostBasis > 0 ? (floatingGain / heldCostBasis) * 100 : 0;
+
+    return {
+      totalInvested: heldCostBasis, // "modal aktif" — sudah dikurangi porsi yang sudah dijual
+      currentValue,
+      gain: floatingGain,           // floating gain/loss (aset yang masih dipegang)
+      gainPct,
+      unpricedAmount,
+      heldUnits,
+      avgBuyPrice,
+      realizedGain,
+      totalGain,
+    };
   }
 
   // Total akumulasi saving SEPANJANG WAKTU per kategori (bukan cuma bulan aktif) — dipakai untuk goal tracking.
@@ -792,7 +835,7 @@ export default function Dashboard({ user, onLogout }) {
     const stats = {}; // { [categoryId]: { cumulative, firstDate } }
     transactions.filter((t) => t.type === 'saving').forEach((t) => {
       if (!stats[t.category]) stats[t.category] = { cumulative: 0, firstDate: t.date };
-      stats[t.category].cumulative += t.amount;
+      stats[t.category].cumulative += t.amount * (t.assetAction === 'sell' ? -1 : 1);
       if (t.date < stats[t.category].firstDate) stats[t.category].firstDate = t.date;
     });
     return stats;
@@ -866,6 +909,35 @@ export default function Dashboard({ user, onLogout }) {
     setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...t, assetPriceAtTx: price } : t)));
     setEditingPriceTxId(null);
     setEditingPriceValue('');
+  }
+
+  // Catat penjualan aset (emas/reksadana) — dicatat sebagai transaksi saving dengan
+  // asset_action='sell', supaya ikut dihitung sebagai pengurang modal aktif (bukan nambah),
+  // dan menghasilkan realized gain/loss lewat computeInvestmentStats.
+  async function sellAsset() {
+    if (!sellingCatId) return;
+    const cat = categories.find((c) => c.id === sellingCatId);
+    if (!cat) return;
+    const amt = parseFloat(sellForm.amount);
+    if (!amt || amt <= 0) return;
+
+    setSavingSell(true);
+    const priceAtSell = cat.asset_type === 'gold' ? latestGoldPrice : null;
+    const { data, error } = await supabase.from('transactions').insert({
+      user_id: user.id, type: 'saving', category_id: cat.id, amount: amt,
+      note: sellForm.note.trim() || 'Jual aset', tx_date: sellForm.date,
+      asset_price_at_tx: priceAtSell, asset_action: 'sell',
+    }).select().single();
+    setSavingSell(false);
+    if (error) { setSaveError(true); return; }
+
+    setTransactions((prev) => [
+      { id: data.id, type: data.type, amount: Number(data.amount), category: data.category_id, note: data.note || '', date: data.tx_date, assetPriceAtTx: data.asset_price_at_tx ? Number(data.asset_price_at_tx) : null, assetAction: data.asset_action },
+      ...prev,
+    ].sort((a, b) => new Date(b.date) - new Date(a.date)));
+
+    setSellingCatId(null);
+    setSellForm({ amount: '', date: todayStr(), note: '' });
   }
 
   // Transaksi per kategori (sub-kategori untuk dashboard)
@@ -1342,6 +1414,13 @@ export default function Dashboard({ user, onLogout }) {
                                 : `${formatRupiah(spent)}${target > 0 ? ` / ${formatRupiah(target)}` : ''}`}
                             </div>
                           </div>
+                          {c.asset_type && (
+                            <button
+                              onClick={() => { setSellingCatId(c.id); setSellForm({ amount: '', date: todayStr(), note: '' }); }}
+                              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#FF9466', display: 'flex', padding: 4, flexShrink: 0 }}
+                              title="Jual aset"
+                            ><TrendingDown size={15} /></button>
+                          )}
                           <button
                             onClick={() => {
                               setGoalEditingCatId(c.id);
@@ -1392,21 +1471,37 @@ export default function Dashboard({ user, onLogout }) {
                             background: invest.gain >= 0 ? '#0D2A1A' : '#2A1010',
                             border: `1px solid ${invest.gain >= 0 ? '#1A5A3A' : '#5A2020'}`,
                           }}>
+                            {c.asset_type === 'gold' && invest.heldUnits > 0 && (
+                              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                                🪙 {invest.heldUnits.toFixed(6)} gram · rata-rata beli {formatRupiah(invest.avgBuyPrice)}/gram
+                              </div>
+                            )}
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                              <span>Modal: {formatRupiah(invest.totalInvested)}</span>
+                              <span>Modal aktif: {formatRupiah(invest.totalInvested)}</span>
                               <span>Nilai sekarang: <b style={{ color: 'var(--text-primary)' }}>{formatRupiah(invest.currentValue)}</b></span>
                             </div>
                             <div style={{ fontSize: 12.5, fontWeight: 700, color: invest.gain >= 0 ? '#7FE8A4' : '#FF9466' }}>
-                              {invest.gain >= 0 ? '▲ Untung ' : '▼ Rugi '}
+                              {invest.gain >= 0 ? '▲ Floating Untung ' : '▼ Floating Rugi '}
                               {formatRupiah(Math.abs(invest.gain))} ({invest.gainPct >= 0 ? '+' : ''}{invest.gainPct.toFixed(1)}%)
                             </div>
+                            {invest.realizedGain !== 0 && (
+                              <div style={{ fontSize: 11.5, fontWeight: 600, color: invest.realizedGain >= 0 ? '#7FE8A4' : '#FF9466', marginTop: 2 }}>
+                                {invest.realizedGain >= 0 ? '✓ Realized Untung ' : '✓ Realized Rugi '}
+                                {formatRupiah(Math.abs(invest.realizedGain))} (dari penjualan)
+                              </div>
+                            )}
+                            {invest.realizedGain !== 0 && (
+                              <div style={{ fontSize: 11, fontWeight: 700, color: invest.totalGain >= 0 ? '#7FE8A4' : '#FF9466', marginTop: 4, borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 4 }}>
+                                Total {invest.totalGain >= 0 ? 'untung' : 'kerugian'} keseluruhan: {formatRupiah(Math.abs(invest.totalGain))}
+                              </div>
+                            )}
                             {c.asset_type === 'gold' && (
-                              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
+                              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
                                 Harga emas terkini: {formatRupiah(latestGoldPrice)}/gram
                               </div>
                             )}
                             {c.asset_type === 'reksadana_syariah' && (
-                              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
+                              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
                                 Estimasi return {(REKSADANA_ANNUAL_RATE * 100).toFixed(1)}%/tahun
                               </div>
                             )}
@@ -1425,9 +1520,14 @@ export default function Dashboard({ user, onLogout }) {
                               return (
                                 <div key={t.id}>
                                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                                    <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.note || c.label}</span>
+                                    <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                      {t.assetAction === 'sell' && <span style={{ color: '#FF9466' }}>🔻 Jual: </span>}
+                                      {t.note || c.label}
+                                    </span>
                                     <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{new Date(t.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
-                                    <span style={{ fontSize: 12, fontWeight: 600, color: '#6FB7E8', flexShrink: 0 }}>-{formatRupiah(t.amount)}</span>
+                                    <span style={{ fontSize: 12, fontWeight: 600, color: t.assetAction === 'sell' ? '#FF9466' : '#6FB7E8', flexShrink: 0 }}>
+                                      {t.assetAction === 'sell' ? '+' : '-'}{formatRupiah(t.amount)}
+                                    </span>
                                     <button onClick={() => deleteTransaction(t.id)} style={styles.deleteBtn}><Trash2 size={12} color="#6B7568" /></button>
                                   </div>
                                   {needsPrice && (
@@ -2114,6 +2214,53 @@ export default function Dashboard({ user, onLogout }) {
           </div>
         </div>
       )}
+
+      {/* Modal: jual aset (emas/reksadana) */}
+      {sellingCatId && (() => {
+        const cat = catLookup(sellingCatId);
+        const invest = cat ? computeInvestmentStats(cat) : null;
+        return (
+          <div style={styles.modalOverlay} onClick={() => setSellingCatId(null)}>
+            <div style={{ ...styles.modalCard, maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
+              <div style={styles.modalHeader}>
+                <span style={styles.modalTitle}>Jual aset — {cat?.label}</span>
+                <button onClick={() => setSellingCatId(null)} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
+              </div>
+
+              {invest && !invest.noDataYet && invest.heldUnits > 0 ? (
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 12, background: 'var(--bg-base)', padding: '8px 10px', borderRadius: 8 }}>
+                  {cat.asset_type === 'gold' && <>Dipegang saat ini: <b style={{ color: 'var(--text-primary)' }}>{invest.heldUnits.toFixed(6)} gram</b> (nilai ~{formatRupiah(invest.currentValue)})</>}
+                  {cat.asset_type === 'reksadana_syariah' && <>Nilai investasi saat ini: <b style={{ color: 'var(--text-primary)' }}>{formatRupiah(invest.currentValue)}</b></>}
+                </div>
+              ) : (
+                <div style={{ fontSize: 11, color: '#F5C95D', marginBottom: 12 }}>⚠️ Belum ada data kepemilikan yang bisa dihitung untuk kategori ini.</div>
+              )}
+
+              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Nominal hasil jual (Rupiah diterima)</label>
+              <input type="number" inputMode="numeric" placeholder="Contoh: 500000" value={sellForm.amount}
+                onChange={(e) => setSellForm((f) => ({ ...f, amount: e.target.value }))} style={styles.input} />
+
+              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Tanggal jual</label>
+              <input type="date" value={sellForm.date}
+                onChange={(e) => setSellForm((f) => ({ ...f, date: e.target.value }))} style={styles.input} />
+
+              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Catatan (opsional)</label>
+              <input type="text" placeholder="Contoh: Jual sebagian buat dana darurat" value={sellForm.note}
+                onChange={(e) => setSellForm((f) => ({ ...f, note: e.target.value }))} style={styles.input} />
+
+              <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: -6, marginBottom: 12 }}>
+                {cat?.asset_type === 'gold'
+                  ? 'Untung/rugi dihitung otomatis pakai harga rata-rata beli (weighted average cost) dibandingkan harga emas terkini saat ini.'
+                  : 'Untung/rugi dihitung otomatis berdasarkan estimasi pertumbuhan reksadana sejak tiap transaksi nabung dilakukan.'}
+              </div>
+
+              <button onClick={sellAsset} disabled={savingSell} style={{ ...styles.submitBtn, background: '#FF9466', opacity: savingSell ? 0.6 : 1 }}>
+                <TrendingDown size={16} color="#0F1410" />{savingSell ? 'Menyimpan...' : 'Catat Penjualan'}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Modal: kelola transaksi berulang */}
       {showRecurringModal && (
