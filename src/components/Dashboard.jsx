@@ -236,6 +236,8 @@ export default function Dashboard({ user, onLogout }) {
   const [goalEditingCatId, setGoalEditingCatId] = useState(null); // id kategori saving yang sedang diatur goal-nya
   const [goalForm, setGoalForm] = useState({ amount: '', date: '' });
   const [savingGoal, setSavingGoal] = useState(false);
+  const [editingPriceTxId, setEditingPriceTxId] = useState(null); // id transaksi yang sedang diisi harga historisnya
+  const [editingPriceValue, setEditingPriceValue] = useState('');
 
   // Navigasi bulan: dropdown selalu 12 bulan tahun aktif
   const activeYear = parseInt(activeMonth.slice(0, 4));
@@ -751,14 +753,16 @@ export default function Dashboard({ user, onLogout }) {
 
     let totalInvested = 0;
     let currentValue = 0;
+    let unpricedAmount = 0; // total transaksi emas yang belum ada harga historisnya (belum ikut dihitung)
     const today = new Date();
 
     if (cat.asset_type === 'gold') {
       if (!latestGoldPrice) return null; // harga terbaru belum ke-load
       let totalGram = 0;
       catTx.forEach((t) => {
+        if (!t.assetPriceAtTx) { unpricedAmount += t.amount; return; } // belum ada data harga -> jangan ikut dihitung dulu
         totalInvested += t.amount;
-        if (t.assetPriceAtTx) totalGram += t.amount / t.assetPriceAtTx;
+        totalGram += t.amount / t.assetPriceAtTx;
       });
       currentValue = totalGram * latestGoldPrice;
     } else if (cat.asset_type === 'reksadana_syariah') {
@@ -772,9 +776,14 @@ export default function Dashboard({ user, onLogout }) {
       return null;
     }
 
+    if (totalInvested === 0 && unpricedAmount > 0) {
+      // Semua transaksi belum ada harga historisnya sama sekali -> belum bisa dihitung apa-apa
+      return { totalInvested: 0, currentValue: 0, gain: 0, gainPct: 0, unpricedAmount, noDataYet: true };
+    }
+
     const gain = currentValue - totalInvested;
     const gainPct = totalInvested > 0 ? (gain / totalInvested) * 100 : 0;
-    return { totalInvested, currentValue, gain, gainPct };
+    return { totalInvested, currentValue, gain, gainPct, unpricedAmount };
   }
 
   // Total akumulasi saving SEPANJANG WAKTU per kategori (bukan cuma bulan aktif) — dipakai untuk goal tracking.
@@ -845,6 +854,18 @@ export default function Dashboard({ user, onLogout }) {
     if (error) { setSaveError(true); return; }
     setCategories((prev) => prev.map((c) => (c.id === goalEditingCatId ? { ...c, goal_amount: amount, goal_date: goalForm.date || null } : c)));
     setGoalEditingCatId(null);
+  }
+
+  // Isi harga emas per gram secara manual untuk transaksi LAMA yang dibuat sebelum
+  // fitur pelacakan emas ada (jadi belum otomatis tercatat harganya saat itu).
+  async function saveHistoricalAssetPrice(txId) {
+    const price = parseFloat(editingPriceValue);
+    if (!price || price <= 0) return;
+    const { error } = await supabase.from('transactions').update({ asset_price_at_tx: price }).eq('id', txId);
+    if (error) { setSaveError(true); return; }
+    setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...t, assetPriceAtTx: price } : t)));
+    setEditingPriceTxId(null);
+    setEditingPriceValue('');
   }
 
   // Transaksi per kategori (sub-kategori untuk dashboard)
@@ -1361,7 +1382,11 @@ export default function Dashboard({ user, onLogout }) {
                         )}
 
                         {/* Nilai investasi sekarang + untung/rugi, khusus kategori Emas/Reksadana Syariah */}
-                        {invest && (
+                        {invest && invest.noDataYet ? (
+                          <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 10, background: '#2A2410', border: '1px solid #5A4A20', fontSize: 11, color: '#F5C95D' }}>
+                            ⚠️ Semua transaksi di kategori ini belum ada data harga emas saat beli. Isi manual dulu di daftar transaksi bawah biar untung/ruginya bisa dihitung.
+                          </div>
+                        ) : invest && (
                           <div style={{
                             marginTop: 10, padding: '10px 12px', borderRadius: 10,
                             background: invest.gain >= 0 ? '#0D2A1A' : '#2A1010',
@@ -1385,19 +1410,50 @@ export default function Dashboard({ user, onLogout }) {
                                 Estimasi return {(REKSADANA_ANNUAL_RATE * 100).toFixed(1)}%/tahun
                               </div>
                             )}
+                            {invest.unpricedAmount > 0 && (
+                              <div style={{ fontSize: 10, color: '#F5C95D', marginTop: 4 }}>
+                                ⚠️ {formatRupiah(invest.unpricedAmount)} dari transaksi belum ada harga historis, belum ikut dihitung di atas — isi manual di daftar transaksi bawah.
+                              </div>
+                            )}
                           </div>
                         )}
 
                         {subTx.length > 0 && (
                           <div style={{ marginTop: 10, borderTop: '1px solid #22291F', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            {subTx.map((t) => (
-                              <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                                <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.note || c.label}</span>
-                                <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{new Date(t.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
-                                <span style={{ fontSize: 12, fontWeight: 600, color: '#6FB7E8', flexShrink: 0 }}>-{formatRupiah(t.amount)}</span>
-                                <button onClick={() => deleteTransaction(t.id)} style={styles.deleteBtn}><Trash2 size={12} color="#6B7568" /></button>
-                              </div>
-                            ))}
+                            {subTx.map((t) => {
+                              const needsPrice = c.asset_type === 'gold' && !t.assetPriceAtTx;
+                              return (
+                                <div key={t.id}>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                                    <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.note || c.label}</span>
+                                    <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{new Date(t.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
+                                    <span style={{ fontSize: 12, fontWeight: 600, color: '#6FB7E8', flexShrink: 0 }}>-{formatRupiah(t.amount)}</span>
+                                    <button onClick={() => deleteTransaction(t.id)} style={styles.deleteBtn}><Trash2 size={12} color="#6B7568" /></button>
+                                  </div>
+                                  {needsPrice && (
+                                    editingPriceTxId === t.id ? (
+                                      <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                                        <input
+                                          type="number" inputMode="numeric" autoFocus
+                                          placeholder="Harga emas/gram saat itu"
+                                          value={editingPriceValue}
+                                          onChange={(e) => setEditingPriceValue(e.target.value)}
+                                          onKeyDown={(e) => { if (e.key === 'Enter') saveHistoricalAssetPrice(t.id); }}
+                                          style={{ ...styles.input, marginBottom: 0, fontSize: 11, padding: '5px 8px', flex: 1 }}
+                                        />
+                                        <button onClick={() => saveHistoricalAssetPrice(t.id)} style={{ ...styles.smallIconBtn, background: '#7FE8A4' }}><Check size={13} color="#0F1410" /></button>
+                                        <button onClick={() => { setEditingPriceTxId(null); setEditingPriceValue(''); }} style={styles.smallIconBtn}><X size={13} color="#9CA89F" /></button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        onClick={() => { setEditingPriceTxId(t.id); setEditingPriceValue(''); }}
+                                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#FF9466', fontSize: 10.5, padding: '2px 0', display: 'flex', alignItems: 'center', gap: 3 }}
+                                      >⚠️ Belum ada harga saat beli — klik untuk isi manual</button>
+                                    )
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
