@@ -204,7 +204,6 @@ export default function Dashboard({ user, onLogout }) {
   const [txSearch, setTxSearch] = useState('');
   const [txTypeFilter, setTxTypeFilter] = useState('all'); // all | income | expense | saving
   const [pendingDelete, setPendingDelete] = useState(null); // { tx, timeoutId } — untuk fitur undo hapus
-  const undoTimeoutRef = useRef(null);
   const [importing, setImporting] = useState(false);
   const [importSummary, setImportSummary] = useState(null); // { success, failed, errors: [] }
   const importFileRef = useRef(null);
@@ -410,38 +409,50 @@ export default function Dashboard({ user, onLogout }) {
     setShowAddModal(false);
   }
 
-  function deleteTransaction(id) {
+  async function deleteTransaction(id) {
     const tx = transactions.find((t) => t.id === id);
     if (!tx) return;
 
     // Hapus dari tampilan dulu (optimistik)
     setTransactions((p) => p.filter((t) => t.id !== id));
 
-    // Kalau sebelumnya ada undo yang masih menunggu, eksekusi dulu hapus permanennya sebelum lanjut
-    if (pendingDelete) {
-      clearTimeout(undoTimeoutRef.current);
-      supabase.from('transactions').delete().eq('id', pendingDelete.tx.id);
+    // PENTING: hapus BENERAN dari database sekarang juga (bukan ditunda beberapa detik) —
+    // supaya kalau user refresh sebelum sempat klik Undo, datanya tetap kehapus permanen,
+    // tidak "balik lagi" cuma karena refresh membatalkan proses hapus yang tertunda.
+    const { error } = await supabase.from('transactions').delete().eq('id', id);
+    if (error) {
+      // Gagal hapus di server -> kembalikan lagi ke tampilan
+      setTransactions((prev) => [tx, ...prev]);
+      setSaveError(true);
+      return;
     }
 
-    const timeoutId = setTimeout(async () => {
-      const { error } = await supabase.from('transactions').delete().eq('id', id);
-      if (error) {
-        // Gagal hapus di server -> kembalikan lagi ke tampilan
-        setTransactions((prev) => [tx, ...prev]);
-        setSaveError(true);
-      }
+    // Snackbar Undo tetap ada 5 detik — kalau diklik, datanya di-INSERT ULANG (bukan
+    // membatalkan proses hapus, karena hapusnya sudah benar-benar selesai di atas).
+    if (pendingDelete) clearTimeout(pendingDelete.timeoutId);
+    const timeoutId = setTimeout(() => {
       setPendingDelete((cur) => (cur && cur.tx.id === id ? null : cur));
     }, 5000);
-
-    undoTimeoutRef.current = timeoutId;
     setPendingDelete({ tx, timeoutId });
   }
 
-  function undoDeleteTransaction() {
+  async function undoDeleteTransaction() {
     if (!pendingDelete) return;
     clearTimeout(pendingDelete.timeoutId);
-    setTransactions((prev) => [pendingDelete.tx, ...prev].sort((a, b) => new Date(b.date) - new Date(a.date)));
+    const tx = pendingDelete.tx;
     setPendingDelete(null);
+
+    // Insert ulang datanya (dapat id baru — transaksi lama sudah benar-benar terhapus permanen)
+    const { data, error } = await supabase.from('transactions').insert({
+      user_id: user.id, type: tx.type, category_id: tx.category, amount: tx.amount,
+      note: tx.note, tx_date: tx.date, asset_price_at_tx: tx.assetPriceAtTx,
+    }).select().single();
+    if (error) { setSaveError(true); return; }
+
+    setTransactions((prev) => [
+      { id: data.id, type: data.type, amount: Number(data.amount), category: data.category_id, note: data.note || '', date: data.tx_date, assetPriceAtTx: data.asset_price_at_tx ? Number(data.asset_price_at_tx) : null },
+      ...prev,
+    ].sort((a, b) => new Date(b.date) - new Date(a.date)));
   }
 
   function exportTransactionsExcel() {
@@ -474,13 +485,13 @@ export default function Dashboard({ user, onLogout }) {
       const ws = wb.Sheets[wb.SheetNames[0]];
       json = XLSX.utils.sheet_to_json(ws, { raw: false, defval: '' });
     } catch (err) {
-      setImportSummary({ success: 0, failed: 0, errors: ['File tidak bisa dibaca. Pastikan formatnya .xlsx yang valid.'] });
+      setImportSummary({ success: 0, failed: 0, skipped: 0, errors: ['File tidak bisa dibaca. Pastikan formatnya .xlsx yang valid.'] });
       setImporting(false);
       return;
     }
 
     if (!json || json.length === 0) {
-      setImportSummary({ success: 0, failed: 0, errors: ['File kosong atau tidak ada baris data.'] });
+      setImportSummary({ success: 0, failed: 0, skipped: 0, errors: ['File kosong atau tidak ada baris data.'] });
       setImporting(false);
       return;
     }
@@ -492,30 +503,77 @@ export default function Dashboard({ user, onLogout }) {
       return out;
     };
 
+    // Kunci unik untuk deteksi duplikat: tanggal + tipe + kategori + nominal + catatan.
+    // Dipakai untuk cek terhadap transaksi yang SUDAH ADA di akun, maupun antar baris
+    // dalam file yang sama, supaya tidak dobel kalau file yang sama di-import berkali-kali.
+    const txKey = (date, type, categoryId, amount, note) =>
+      `${date}|${type}|${categoryId || 'none'}|${amount}|${(note || '').trim().toLowerCase()}`;
+
+    const existingKeys = new Set(
+      transactions.map((t) => txKey(t.date, t.type, t.category, t.amount, t.note))
+    );
+
+    // Kategori yang baru dibuat selama proses import ini (supaya baris berikutnya dengan
+    // nama kategori sama tidak bikin kategori duplikat lagi, cukup dipakai ulang)
+    const newlyCreatedCategories = [];
+    async function findOrCreateCategory(catLabel, type) {
+      const existing = [...categories, ...newlyCreatedCategories].find(
+        (c) => c.label.toLowerCase() === catLabel.toLowerCase() && c.type === type
+      );
+      if (existing) return existing;
+
+      // Kategori belum ada -> buat otomatis, supaya import tetap fleksibel (tidak gagal
+      // cuma karena kategorinya belum sempat dibuat manual sebelumnya)
+      const list = type === 'saving' ? [...categories, ...newlyCreatedCategories].filter((c) => c.type === 'saving') : [...categories, ...newlyCreatedCategories].filter((c) => c.type === 'expense');
+      const color = COLOR_PALETTE[list.length % COLOR_PALETTE.length];
+      const { data, error } = await supabase.from('categories').insert({
+        user_id: user.id, type, label: catLabel, color, icon: 'dollar', sort_order: list.length + 1,
+      }).select().single();
+      if (error) return null;
+      newlyCreatedCategories.push(data);
+      return data;
+    }
+
     const toInsert = [];
     const errors = [];
-    json.forEach((rawRow, i) => {
+    let skippedDuplicates = 0;
+    const batchKeys = new Set(); // cegah duplikat ANTAR baris di file yang sama
+
+    for (let i = 0; i < json.length; i++) {
       const lineNo = i + 2; // baris 1 = header
-      const r = norm(rawRow);
+      const r = norm(json[i]);
       const date = String(r['tanggal'] ?? '').trim();
       const type = String(r['tipe'] ?? '').trim().toLowerCase();
       const catLabel = String(r['kategori'] ?? '').trim();
       const note = String(r['catatan'] ?? '').trim();
       const amount = Number(String(r['nominal'] ?? '').replace(/[^\d.-]/g, ''));
 
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { errors.push(`Baris ${lineNo}: format tanggal harus YYYY-MM-DD.`); return; }
-      if (!['income', 'expense', 'saving'].includes(type)) { errors.push(`Baris ${lineNo}: tipe harus income/expense/saving.`); return; }
-      if (!amount || amount <= 0) { errors.push(`Baris ${lineNo}: nominal tidak valid.`); return; }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { errors.push(`Baris ${lineNo}: format tanggal harus YYYY-MM-DD.`); continue; }
+      if (!['income', 'expense', 'saving'].includes(type)) { errors.push(`Baris ${lineNo}: tipe harus income/expense/saving.`); continue; }
+      if (!amount || amount <= 0) { errors.push(`Baris ${lineNo}: nominal tidak valid.`); continue; }
 
+      // Kategori sekarang OPSIONAL — kosongkan kolom Kategori untuk transaksi tanpa kategori.
+      // Kalau diisi tapi belum ada di akun, otomatis dibuatkan (tidak lagi gagal/ditolak).
       let categoryId = null;
-      if (type !== 'income') {
-        const cat = categories.find((c) => c.label.toLowerCase() === catLabel.toLowerCase() && c.type === type);
-        if (!cat) { errors.push(`Baris ${lineNo}: kategori "${catLabel}" (${type}) tidak ditemukan — buat dulu kategorinya sebelum import.`); return; }
+      if (type !== 'income' && catLabel) {
+        const cat = await findOrCreateCategory(catLabel, type);
+        if (!cat) { errors.push(`Baris ${lineNo}: gagal membuat kategori "${catLabel}".`); continue; }
         categoryId = cat.id;
       }
 
+      const key = txKey(date, type, categoryId, amount, note);
+      if (existingKeys.has(key) || batchKeys.has(key)) {
+        skippedDuplicates++;
+        continue;
+      }
+      batchKeys.add(key);
+
       toInsert.push({ user_id: user.id, type, category_id: categoryId, amount, note, tx_date: date });
-    });
+    }
+
+    if (newlyCreatedCategories.length > 0) {
+      setCategories((prev) => [...prev, ...newlyCreatedCategories]);
+    }
 
     let successCount = 0;
     if (toInsert.length > 0) {
@@ -525,13 +583,13 @@ export default function Dashboard({ user, onLogout }) {
       } else {
         successCount = data.length;
         setTransactions((prev) => [
-          ...data.map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date })),
+          ...data.map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date, assetPriceAtTx: t.asset_price_at_tx ? Number(t.asset_price_at_tx) : null })),
           ...prev,
         ].sort((a, b) => new Date(b.date) - new Date(a.date)));
       }
     }
 
-    setImportSummary({ success: successCount, failed: errors.length, errors });
+    setImportSummary({ success: successCount, failed: errors.length, skipped: skippedDuplicates, errors });
     setImporting(false);
   }
 
@@ -1441,7 +1499,8 @@ export default function Dashboard({ user, onLogout }) {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
                   <span style={{ flex: 1 }}>
-                    Import selesai: <b>{importSummary.success}</b> berhasil, <b>{importSummary.failed}</b> gagal.
+                    Import selesai: <b>{importSummary.success}</b> berhasil, <b>{importSummary.failed}</b> gagal
+                    {importSummary.skipped > 0 && <>, <b>{importSummary.skipped}</b> dilewati (sudah ada/duplikat)</>}.
                   </span>
                   <button onClick={() => setImportSummary(null)} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer' }}><X size={14} /></button>
                 </div>
