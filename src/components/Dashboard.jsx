@@ -327,7 +327,7 @@ export default function Dashboard({ user, onLogout }) {
         setBudgets(bgs || []);
         setRecurringList(recs || []);
         if (!priceErr && prices) {
-          const gold = prices.find((p) => p.asset_name === 'gold_antam');
+          const gold = prices.find((p) => p.asset_name === 'gold_pluang');
           if (gold) setLatestGoldPrice(Number(gold.price));
         }
         setSaveError(false);
