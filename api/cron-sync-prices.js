@@ -1,19 +1,18 @@
-import { createClient } from '@supabase/supabase-js';
-
 // ============================================================
 // Serverless Function (dipicu Vercel Cron 1x sehari) untuk sinkronisasi
 // harga Emas ke Supabase.
 //
-// SUMBER HARGA (update): sebelumnya pakai logam-mulia-api (harga Emas Antam
-// fisik). Sekarang diganti jadi ESTIMASI harga beli Emas Digital Pluang,
-// dihitung dari harga spot PAX Gold (PAXG) via CoinGecko + spread estimasi
-// Pluang, karena user investasi emasnya lewat aplikasi Pluang (digital),
-// bukan Antam fisik — dua harga ini bisa beda cukup jauh.
+// SUMBER HARGA (update terakhir): sebelumnya pakai estimasi dari harga spot
+// PAX Gold (CoinGecko) + spread asumsi. Sekarang diganti SCRAPE LANGSUNG dari
+// halaman publik resmi Pluang (https://pluang.com/en/asset/gold) — harga yang
+// benar-benar ditampilkan Pluang ke user, bukan estimasi/turunan lagi.
 //
-// CATATAN PENTING soal akurasi: ini TETAP ESTIMASI, bukan harga resmi Pluang
-// (Pluang tidak punya API publik). Spread 1.75% adalah asumsi kasar dan bisa
-// meleset dari harga asli di app Pluang kapan saja. Kalau nanti ketemu selisih
-// yang konsisten terlalu jauh, angka SPREAD_PLUANG di bawah tinggal disesuaikan.
+// CATATAN PENTING soal risiko: ini scraping HTML (bukan API resmi/didukung
+// Pluang), jadi kalau Pluang mengubah struktur halamannya, regex pengambil
+// harga di bawah bisa gagal (errornya akan kelihatan di response cron ini,
+// harga lama di Supabase tidak akan tertimpa data salah). Kalau suatu saat
+// gagal terus-menerus, cek dulu manual halaman https://pluang.com/en/asset/gold
+// masih menampilkan format harga yang sama atau tidak.
 //
 // CATATAN: sinkronisasi NAV Reksadana lewat scraping Bareksa SUDAH DIHAPUS —
 // fitur reksadana sekarang pakai rate tetap 5,3%/tahun yang dihitung
@@ -28,9 +27,6 @@ import { createClient } from '@supabase/supabase-js';
 //                                  dipakai untuk verifikasi request ini benar dari Vercel Cron.
 // ============================================================
 
-const GRAM_PER_TROY_OUNCE = 31.1035;
-const SPREAD_PLUANG = 0.0175; // estimasi spread beli Pluang di atas harga spot dunia (+1.75%)
-
 export default async function handler(req, res) {
   // Pastikan request ini benar dari Vercel Cron (atau seseorang yang tahu CRON_SECRET),
   // bukan sembarang orang yang menembak endpoint ini langsung dari browser.
@@ -43,30 +39,35 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY belum di-set di Environment Variables Vercel.' });
   }
 
+  const { createClient } = await import('@supabase/supabase-js');
   const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
   const results = { gold: null, errors: [] };
 
-  // ===== Harga Emas — estimasi Pluang, dari harga spot PAX Gold (PAXG) via CoinGecko =====
+  // ===== Harga Emas — scrape langsung dari halaman resmi Pluang =====
   try {
-    const goldRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=pax-gold&vs_currencies=idr');
-    if (!goldRes.ok) throw new Error(`HTTP ${goldRes.status} dari CoinGecko`);
-    const goldJson = await goldRes.json();
-    const hargaSpotPerTroyOunce = goldJson?.['pax-gold']?.idr;
-    if (!hargaSpotPerTroyOunce) throw new Error('Format response CoinGecko tidak sesuai / data kosong');
+    const goldRes = await fetch('https://pluang.com/en/asset/gold', {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DompetAppCron/1.0)' },
+    });
+    if (!goldRes.ok) throw new Error(`HTTP ${goldRes.status} dari halaman Pluang`);
+    const html = await goldRes.text();
 
-    const hargaSpotPerGram = hargaSpotPerTroyOunce / GRAM_PER_TROY_OUNCE;
-    const estimasiHargaBeliPluang = Math.round(hargaSpotPerGram * (1 + SPREAD_PLUANG));
+    // Harga muncul di <title>/meta og:title dengan format "...Rp2,351,508/g | Pluang"
+    const match = html.match(/Rp([\d,]+)\/g/);
+    if (!match) throw new Error('Format harga di halaman Pluang tidak ditemukan (mungkin struktur halaman berubah)');
+
+    const hargaPluang = parseInt(match[1].replace(/,/g, ''), 10);
+    if (!hargaPluang || hargaPluang < 100000) throw new Error(`Harga hasil scrape tidak masuk akal: ${hargaPluang}`);
 
     const { error } = await supabaseAdmin.from('asset_prices').insert({
       asset_name: 'gold_pluang',
-      price: estimasiHargaBeliPluang,
-      source: 'coingecko-paxg-estimasi-pluang',
-      raw: goldJson,
+      price: hargaPluang,
+      source: 'pluang-scrape-asset-gold-page',
+      raw: { scraped_from: 'https://pluang.com/en/asset/gold' },
     });
     if (error) throw error;
-    console.log('[cron-sync-prices] Estimasi harga emas Pluang berhasil disimpan:', estimasiHargaBeliPluang);
-    results.gold = { success: true, price: estimasiHargaBeliPluang };
+    console.log('[cron-sync-prices] Harga emas Pluang (scrape) berhasil disimpan:', hargaPluang);
+    results.gold = { success: true, price: hargaPluang };
   } catch (err) {
     console.error('[cron-sync-prices] Emas gagal:', err.message);
     results.gold = { success: false, error: err.message };
