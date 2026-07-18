@@ -845,7 +845,20 @@ export default function Dashboard({ user, onLogout }) {
   // dan apakah masih sesuai jadwal kalau ada target tanggal.
   function computeGoalProjection(cat) {
     const stat = savingGoalStats[cat.id];
-    const cumulative = stat?.cumulative || 0;
+
+    // Untuk kategori ASET (emas/reksadana): progress goal pakai NILAI ASET SEKARANG,
+    // bukan sekadar total kas masuk-keluar historis. Ini penting supaya sinkron dengan
+    // card investasi di bawahnya — kalau aset sudah full terjual (currentValue = 0),
+    // progress goal-nya ikut balik ke 0, bukan nyangkut di angka rugi yang sudah terealisasi.
+    // (Sebelumnya: cumulative = total beli − total jual secara kas, jadi kalau pernah rugi
+    // saat jual, "uang yang hilang karena rugi" itu tetap kehitung sebagai progress — padahal
+    // aset fisiknya sudah tidak ada.)
+    let cumulative = stat?.cumulative || 0;
+    if (cat.asset_type === 'gold' || cat.asset_type === 'reksadana_syariah') {
+      const invest = computeInvestmentStats(cat);
+      if (invest && !invest.noDataYet) cumulative = invest.currentValue;
+    }
+
     const goalAmount = Number(cat.goal_amount) || 0;
     if (!goalAmount) return null;
 
