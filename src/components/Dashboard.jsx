@@ -1467,49 +1467,58 @@ export default function Dashboard({ user, onLogout }) {
                           </div>
                         ) : invest && (
                           <div style={{
-                            marginTop: 10, padding: '10px 12px', borderRadius: 10,
-                            background: invest.gain >= 0 ? '#0D2A1A' : '#2A1010',
-                            border: `1px solid ${invest.gain >= 0 ? '#1A5A3A' : '#5A2020'}`,
+                            marginTop: 10, padding: '14px 14px', borderRadius: 12,
+                            background: 'var(--bg-card2)',
+                            border: '1px solid var(--border)',
                           }}>
-                            {c.asset_type === 'gold' && invest.heldUnits > 0 && (
-                              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                                🪙 {invest.heldUnits.toFixed(6)} gram · rata-rata beli {formatRupiah(invest.avgBuyPrice)}/gram
-                              </div>
-                            )}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                              <span>Modal aktif: {formatRupiah(invest.totalInvested)}</span>
-                              <span>Nilai sekarang: <b style={{ color: 'var(--text-primary)' }}>{formatRupiah(invest.currentValue)}</b></span>
+                            {/* Hero: nilai sekarang (besar) + Total Return, gaya seperti aplikasi investasi */}
+                            <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: -0.5, lineHeight: 1.2 }}>
+                              {formatRupiah(invest.currentValue)}
                             </div>
-                            <div style={{ fontSize: 12.5, fontWeight: 700, color: invest.gain >= 0 ? '#7FE8A4' : '#FF9466' }}>
-                              {invest.gain >= 0 ? '▲ Floating Untung ' : '▼ Floating Rugi '}
-                              {formatRupiah(Math.abs(invest.gain))} ({invest.gainPct >= 0 ? '+' : ''}{invest.gainPct.toFixed(1)}%)
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 3, flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Total Return</span>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: invest.gain >= 0 ? '#7FE8A4' : '#FF6B6B' }}>
+                                {invest.gain >= 0 ? '+' : '-'}{formatRupiah(Math.abs(invest.gain))} ({invest.gainPct >= 0 ? '+' : ''}{invest.gainPct.toFixed(2)}%)
+                              </span>
                             </div>
-                            {invest.realizedGain !== 0 && (
-                              <div style={{ fontSize: 11.5, fontWeight: 600, color: invest.realizedGain >= 0 ? '#7FE8A4' : '#FF9466', marginTop: 2 }}>
-                                {invest.realizedGain >= 0 ? '✓ Realized Untung ' : '✓ Realized Rugi '}
-                                {formatRupiah(Math.abs(invest.realizedGain))} (dari penjualan)
+
+                            {/* Detail sekunder: modal aktif, rata-rata beli, realized gain, dsb */}
+                            <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                              {c.asset_type === 'gold' && invest.heldUnits > 0 && (
+                                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                                  🪙 {invest.heldUnits.toFixed(6)} gram · rata-rata beli {formatRupiah(invest.avgBuyPrice)}/gram
+                                </div>
+                              )}
+                              <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                                Modal aktif: {formatRupiah(invest.totalInvested)}
                               </div>
-                            )}
-                            {invest.realizedGain !== 0 && (
-                              <div style={{ fontSize: 11, fontWeight: 700, color: invest.totalGain >= 0 ? '#7FE8A4' : '#FF9466', marginTop: 4, borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 4 }}>
-                                Total {invest.totalGain >= 0 ? 'untung' : 'kerugian'} keseluruhan: {formatRupiah(Math.abs(invest.totalGain))}
-                              </div>
-                            )}
-                            {c.asset_type === 'gold' && (
-                              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
-                                Harga emas terkini: {formatRupiah(latestGoldPrice)}/gram
-                              </div>
-                            )}
-                            {c.asset_type === 'reksadana_syariah' && (
-                              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
-                                Estimasi return {(REKSADANA_ANNUAL_RATE * 100).toFixed(1)}%/tahun
-                              </div>
-                            )}
-                            {invest.unpricedAmount > 0 && (
-                              <div style={{ fontSize: 10, color: '#F5C95D', marginTop: 4 }}>
-                                ⚠️ {formatRupiah(invest.unpricedAmount)} dari transaksi belum ada harga historis, belum ikut dihitung di atas — isi manual di daftar transaksi bawah.
-                              </div>
-                            )}
+                              {invest.realizedGain !== 0 && (
+                                <div style={{ fontSize: 11, fontWeight: 600, color: invest.realizedGain >= 0 ? '#7FE8A4' : '#FF6B6B' }}>
+                                  {invest.realizedGain >= 0 ? '✓ Realized untung ' : '✓ Realized rugi '}
+                                  {formatRupiah(Math.abs(invest.realizedGain))} (dari penjualan)
+                                </div>
+                              )}
+                              {invest.realizedGain !== 0 && (
+                                <div style={{ fontSize: 11, fontWeight: 700, color: invest.totalGain >= 0 ? '#7FE8A4' : '#FF6B6B' }}>
+                                  Total {invest.totalGain >= 0 ? 'untung' : 'kerugian'} keseluruhan: {formatRupiah(Math.abs(invest.totalGain))}
+                                </div>
+                              )}
+                              {c.asset_type === 'gold' && (
+                                <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                                  Harga emas terkini: {formatRupiah(latestGoldPrice)}/gram
+                                </div>
+                              )}
+                              {c.asset_type === 'reksadana_syariah' && (
+                                <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                                  Estimasi return {(REKSADANA_ANNUAL_RATE * 100).toFixed(1)}%/tahun
+                                </div>
+                              )}
+                              {invest.unpricedAmount > 0 && (
+                                <div style={{ fontSize: 10, color: '#F5C95D' }}>
+                                  ⚠️ {formatRupiah(invest.unpricedAmount)} dari transaksi belum ada harga historis, belum ikut dihitung di atas — isi manual di daftar transaksi bawah.
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
 
