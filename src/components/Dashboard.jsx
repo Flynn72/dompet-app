@@ -239,7 +239,7 @@ export default function Dashboard({ user, onLogout }) {
   const [editingPriceTxId, setEditingPriceTxId] = useState(null); // id transaksi yang sedang diisi harga historisnya
   const [editingPriceValue, setEditingPriceValue] = useState('');
   const [sellingCatId, setSellingCatId] = useState(null); // id kategori yang sedang dijual asetnya
-  const [sellForm, setSellForm] = useState({ amount: '', date: todayStr(), note: '' });
+  const [sellForm, setSellForm] = useState({ amount: '', date: todayStr(), note: '', isFullSale: false });
   const [savingSell, setSavingSell] = useState(false);
 
   // Navigasi bulan: dropdown selalu 12 bulan tahun aktif
@@ -918,8 +918,33 @@ export default function Dashboard({ user, onLogout }) {
     if (!sellingCatId) return;
     const cat = categories.find((c) => c.id === sellingCatId);
     if (!cat) return;
-    const amt = parseFloat(sellForm.amount);
-    if (!amt || amt <= 0) return;
+
+    const invest = computeInvestmentStats(cat);
+
+    // Kalau ditandai "jual semua aset", nominal DIPAKSA sama persis dengan nilai
+    // sekarang (dihitung ulang di sini, bukan dari angka yang mungkin sempat
+    // diketik manual/basi) — supaya seluruh gram/unit yang dipegang benar-benar
+    // habis terjual sampai 0, tidak nyisa sedikit-sedikit karena salah ketik nominal.
+    let amt;
+    if (sellForm.isFullSale) {
+      if (!invest || invest.noDataYet || invest.currentValue <= 0) {
+        alert('Belum ada data kepemilikan yang bisa dihitung untuk kategori ini, tidak bisa jual semua otomatis.');
+        return;
+      }
+      amt = Math.round(invest.currentValue);
+    } else {
+      amt = parseFloat(sellForm.amount);
+      if (!amt || amt <= 0) return;
+      // Konfirmasi eksplisit untuk penjualan SEBAGIAN, supaya user sadar betul
+      // ini bukan jual semua — mencegah kejadian salah catat nominal seperti
+      // sebelumnya (nominal jual tidak mencerminkan keseluruhan aset yang dijual).
+      const ok = window.confirm(
+        'Ini akan dicatat sebagai penjualan SEBAGIAN aset (bukan semua).\n\n' +
+        'Pastikan nominal yang diketik memang benar-benar sesuai uang yang diterima saat itu.\n\n' +
+        'Kalau sebenarnya ini penjualan SELURUH aset, klik Cancel, lalu centang opsi "Jual semua aset" di form.'
+      );
+      if (!ok) return;
+    }
 
     setSavingSell(true);
     const priceAtSell = cat.asset_type === 'gold' ? latestGoldPrice : null;
@@ -937,7 +962,7 @@ export default function Dashboard({ user, onLogout }) {
     ].sort((a, b) => new Date(b.date) - new Date(a.date)));
 
     setSellingCatId(null);
-    setSellForm({ amount: '', date: todayStr(), note: '' });
+    setSellForm({ amount: '', date: todayStr(), note: '', isFullSale: false });
   }
 
   // Transaksi per kategori (sub-kategori untuk dashboard)
@@ -2245,9 +2270,26 @@ export default function Dashboard({ user, onLogout }) {
                 <div style={{ fontSize: 11, color: '#F5C95D', marginBottom: 12 }}>⚠️ Belum ada data kepemilikan yang bisa dihitung untuk kategori ini.</div>
               )}
 
+              {invest && !invest.noDataYet && invest.heldUnits > 0 && (
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 12, cursor: 'pointer', background: sellForm.isFullSale ? 'rgba(255,148,102,0.12)' : 'transparent', padding: 8, borderRadius: 8, border: `1px solid ${sellForm.isFullSale ? '#FF9466' : 'var(--border)'}` }}>
+                  <input type="checkbox" checked={sellForm.isFullSale}
+                    onChange={(e) => setSellForm((f) => ({ ...f, isFullSale: e.target.checked, amount: e.target.checked ? String(Math.round(invest.currentValue)) : '' }))}
+                    style={{ marginTop: 2 }} />
+                  <span style={{ fontSize: 12, color: 'var(--text-primary)' }}>
+                    <b>Ini penjualan SELURUH aset saya</b> (habis, sisa jadi 0 gram/unit).
+                    <br /><span style={{ color: 'var(--text-secondary)', fontSize: 11 }}>Nominal otomatis diisi sesuai nilai sekarang, tidak perlu diketik manual.</span>
+                  </span>
+                </label>
+              )}
+
               <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Nominal hasil jual (Rupiah diterima)</label>
-              <input type="number" inputMode="numeric" placeholder="Contoh: 500000" value={sellForm.amount}
-                onChange={(e) => setSellForm((f) => ({ ...f, amount: e.target.value }))} style={styles.input} />
+              <input type="number" inputMode="numeric" placeholder="Contoh: 500000" value={sellForm.amount} disabled={sellForm.isFullSale}
+                onChange={(e) => setSellForm((f) => ({ ...f, amount: e.target.value }))} style={{ ...styles.input, opacity: sellForm.isFullSale ? 0.6 : 1 }} />
+              {sellForm.isFullSale && (
+                <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: -6, marginBottom: 10 }}>
+                  Nominal dikunci otomatis karena ini penjualan seluruh aset — kalau ternyata di aplikasi investasi Anda hasil jualnya beda (misal kena potongan/biaya admin), batalkan centang di atas dan isi manual nominal yang benar-benar diterima.
+                </div>
+              )}
 
               <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Tanggal jual</label>
               <input type="date" value={sellForm.date}
