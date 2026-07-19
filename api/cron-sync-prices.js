@@ -1,22 +1,23 @@
 // ============================================================
 // Serverless Function (dipicu Vercel Cron 1x sehari) untuk sinkronisasi
-// harga Emas ke Supabase.
+// harga Emas & NAV Reksadana Syariah ke Supabase.
 //
-// SUMBER HARGA (update terakhir): sebelumnya pakai estimasi dari harga spot
-// PAX Gold (CoinGecko) + spread asumsi. Sekarang diganti SCRAPE LANGSUNG dari
-// halaman publik resmi Pluang (https://pluang.com/en/asset/gold) — harga yang
-// benar-benar ditampilkan Pluang ke user, bukan estimasi/turunan lagi.
+// SUMBER HARGA EMAS: scrape langsung dari halaman publik resmi Pluang
+// (https://pluang.com/en/asset/gold) — harga yang benar-benar ditampilkan
+// Pluang ke user, bukan estimasi/turunan.
 //
-// CATATAN PENTING soal risiko: ini scraping HTML (bukan API resmi/didukung
-// Pluang), jadi kalau Pluang mengubah struktur halamannya, regex pengambil
-// harga di bawah bisa gagal (errornya akan kelihatan di response cron ini,
-// harga lama di Supabase tidak akan tertimpa data salah). Kalau suatu saat
-// gagal terus-menerus, cek dulu manual halaman https://pluang.com/en/asset/gold
-// masih menampilkan format harga yang sama atau tidak.
+// SUMBER NAV REKSADANA (BARU): scrape dari https://akufrugal.com/reksadana/insight-money-syariah
+// — NAV asli reksadana Insight Money Syariah (I-Money Syariah), BUKAN lagi
+// simulasi rate tetap 5,3%/tahun. Total Return reksadana sekarang bisa
+// naik-turun sesuai NAV asli, bukan cuma naik terus.
 //
-// CATATAN: sinkronisasi NAV Reksadana lewat scraping Bareksa SUDAH DIHAPUS —
-// fitur reksadana sekarang pakai rate tetap 5,3%/tahun yang dihitung
-// langsung di frontend (Dashboard.jsx), tidak butuh data harian.
+// CATATAN PENTING soal risiko kedua sumber ini: keduanya scraping HTML
+// (bukan API resmi), jadi kalau situs sumbernya berubah struktur, regex
+// pengambil harga bisa gagal (errornya kelihatan di response cron ini, harga
+// lama di Supabase TIDAK akan tertimpa data salah). Khusus akufrugal.com,
+// perlu diwaspadai juga: situs ini kadang tidak update NAV setiap hari
+// (pernah ditemukan selisih ~2 bulan dari tanggal aktual) — jadi NAV reksadana
+// di Dompet App bisa saja "diam" beberapa hari sampai situsnya update lagi.
 //
 // ENV VARS yang wajib diisi di Vercel (Project Settings > Environment Variables):
 // - SUPABASE_URL                -> URL project Supabase (sama seperti di supabaseClient.js)
@@ -42,7 +43,7 @@ export default async function handler(req, res) {
   const { createClient } = await import('@supabase/supabase-js');
   const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-  const results = { gold: null, errors: [] };
+  const results = { gold: null, reksadana: null, errors: [] };
 
   // ===== Harga Emas — scrape langsung dari halaman resmi Pluang =====
   try {
@@ -72,6 +73,36 @@ export default async function handler(req, res) {
     console.error('[cron-sync-prices] Emas gagal:', err.message);
     results.gold = { success: false, error: err.message };
     results.errors.push(`Emas: ${err.message}`);
+  }
+
+  // ===== NAV Reksadana Insight Money Syariah — scrape dari akufrugal.com =====
+  try {
+    const rdRes = await fetch('https://akufrugal.com/reksadana/insight-money-syariah', {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DompetAppCron/1.0)' },
+    });
+    if (!rdRes.ok) throw new Error(`HTTP ${rdRes.status} dari akufrugal.com`);
+    const html = await rdRes.text();
+
+    // NAV muncul di title/meta dengan format "...IDR = 1.763,22" dan juga sebagai angka polos "1763.2200000000"
+    const match = html.match(/adalah\s*Rp([\d.]+)/);
+    if (!match) throw new Error('Format NAV di halaman akufrugal.com tidak ditemukan (mungkin struktur halaman berubah)');
+
+    const navReksadana = parseFloat(match[1]);
+    if (!navReksadana || navReksadana < 100) throw new Error(`NAV hasil scrape tidak masuk akal: ${navReksadana}`);
+
+    const { error } = await supabaseAdmin.from('asset_prices').insert({
+      asset_name: 'reksadana_insight_syariah',
+      price: navReksadana,
+      source: 'akufrugal-scrape-insight-money-syariah',
+      raw: { scraped_from: 'https://akufrugal.com/reksadana/insight-money-syariah' },
+    });
+    if (error) throw error;
+    console.log('[cron-sync-prices] NAV Reksadana berhasil disimpan:', navReksadana);
+    results.reksadana = { success: true, price: navReksadana };
+  } catch (err) {
+    console.error('[cron-sync-prices] Reksadana gagal:', err.message);
+    results.reksadana = { success: false, error: err.message };
+    results.errors.push(`Reksadana: ${err.message}`);
   }
 
   const statusCode = results.errors.length === 0 ? 200 : 207;
