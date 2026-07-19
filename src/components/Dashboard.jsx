@@ -195,6 +195,7 @@ export default function Dashboard({ user, onLogout }) {
   const [showRecurringModal, setShowRecurringModal] = useState(false);
   const [recurringList, setRecurringList] = useState([]);
   const [latestGoldPrice, setLatestGoldPrice] = useState(null); // harga emas per gram terbaru, dari asset_prices via RPC
+  const [latestReksadanaNav, setLatestReksadanaNav] = useState(null); // NAV reksadana Insight Money Syariah terbaru, dari asset_prices via RPC
   const [recurringForm, setRecurringForm] = useState({ type: 'expense', categoryId: null, amount: '', note: '', dayOfMonth: '1' });
   const [savingRecurring, setSavingRecurring] = useState(false);
   const [themeMode, setThemeMode] = useState(() => localStorage.getItem('dompet_theme') || 'system'); // system | dark | light
@@ -329,6 +330,8 @@ export default function Dashboard({ user, onLogout }) {
         if (!priceErr && prices) {
           const gold = prices.find((p) => p.asset_name === 'gold_pluang');
           if (gold) setLatestGoldPrice(Number(gold.price));
+          const reksadana = prices.find((p) => p.asset_name === 'reksadana_insight_syariah');
+          if (reksadana) setLatestReksadanaNav(Number(reksadana.price));
         }
         setSaveError(false);
         // Tampilkan onboarding hanya untuk user baru (belum punya kategori sama sekali)
@@ -398,13 +401,15 @@ export default function Dashboard({ user, onLogout }) {
     const amt = parseFloat(form.amount);
     if (!amt || amt <= 0) return;
 
-    // Kalau kategori tujuannya ditandai sebagai "Emas", catat harga emas per gram saat ini
-    // (dari cache harian di Supabase, bukan panggil API langsung tiap transaksi).
+    // Kalau kategori tujuannya ditandai sebagai "Emas" atau "Reksadana Syariah", catat
+    // harga/NAV per unit saat ini (dari cache harian di Supabase, bukan panggil API tiap transaksi).
     const selectedCat = form.type !== 'income' ? categories.find((c) => c.id === form.categoryId) : null;
-    const assetPriceAtTx = (selectedCat?.asset_type === 'gold' && latestGoldPrice) ? latestGoldPrice : null;
-    // Gram/unit manual (opsional) — kalau Surya isi persis dari histori Pluang, ini yang dipakai
-    // untuk hitung investasi, BUKAN hasil bagi amount/harga (lebih presisi daripada estimasi harga kita).
-    const unitsOverride = selectedCat?.asset_type === 'gold' && form.unitsOverride ? parseFloat(form.unitsOverride) : null;
+    const assetPriceAtTx = selectedCat?.asset_type === 'gold' ? (latestGoldPrice || null)
+      : selectedCat?.asset_type === 'reksadana_syariah' ? (latestReksadanaNav || null)
+      : null;
+    // Gram/unit manual (opsional) — kalau Surya isi persis dari histori Pluang/Ajaib, ini yang dipakai
+    // untuk hitung investasi, BUKAN hasil bagi amount/harga (lebih presisi daripada estimasi kita).
+    const unitsOverride = selectedCat?.asset_type && form.unitsOverride ? parseFloat(form.unitsOverride) : null;
 
     const payload = {
       user_id: user.id, type: form.type, category_id: form.type === 'income' ? null : form.categoryId,
@@ -754,28 +759,15 @@ export default function Dashboard({ user, onLogout }) {
   const expenseSpend = useMemo(() => spendByCat('expense'), [spendByCat]);
   const savingSpend = useMemo(() => spendByCat('saving'), [spendByCat]);
 
-  const REKSADANA_ANNUAL_RATE = 0.053; // 5,3%/tahun, sesuai permintaan — bisa dijadikan setting kalau nanti mau diubah
-
-  // Hitung nilai investasi sekarang & untung/rugi untuk kategori saving yang ditandai
-  // sebagai "Emas" atau "Reksadana Syariah". Emas: pakai harga per gram saat tiap transaksi
-  // dibuat vs harga terbaru. Reksadana: pakai rate tetap 5,3%/tahun (bunga majemuk) dari tiap
-  // transaksi berdasarkan lama waktu berjalan sejak tanggal transaksi itu.
-  // Harga/unit sintetik untuk reksadana pada tanggal tertentu, berdasarkan rate tetap 5,3%/tahun
-  // dari titik acuan tetap. Ini menyatukan logika emas & reksadana dalam satu algoritma yang sama:
-  // "unit" = nominal / harga-saat-itu, baik untuk gram emas maupun unit reksadana sintetik.
-  function syntheticReksadanaPrice(dateStr) {
-    const epoch = new Date('2000-01-01T00:00:00');
-    const d = new Date(dateStr + 'T00:00:00');
-    const years = (d - epoch) / (365.25 * 24 * 60 * 60 * 1000);
-    return Math.pow(1 + REKSADANA_ANNUAL_RATE, years);
-  }
-
   // Hitung nilai investasi sekarang, REALIZED gain/loss (dari transaksi jual), dan FLOATING
   // gain/loss (dari aset yang masih dipegang) — pakai metode rata-rata biaya (weighted average
   // cost), diproses berurutan sesuai tanggal transaksi (penting untuk akurasi rata-rata beli).
+  // Emas: harga per gram dari scrape Pluang. Reksadana: NAV asli dari scrape akufrugal.com
+  // (BUKAN lagi rate tetap 5,3%/tahun — itu sudah dihapus, karena tidak bisa mencerminkan rugi).
   function computeInvestmentStats(cat) {
     if (!cat.asset_type) return null;
     if (cat.asset_type === 'gold' && !latestGoldPrice) return null; // harga terbaru belum ke-load
+    if (cat.asset_type === 'reksadana_syariah' && !latestReksadanaNav) return null; // NAV terbaru belum ke-load
 
     const catTx = transactions
       .filter((t) => t.type === 'saving' && t.category === cat.id)
@@ -783,19 +775,19 @@ export default function Dashboard({ user, onLogout }) {
       .sort((a, b) => new Date(a.date) - new Date(b.date)); // urutan kronologis wajib untuk avg cost yang benar
     if (catTx.length === 0) return null;
 
-    let heldUnits = 0;      // gram (emas) atau unit sintetik (reksadana) yang masih dipegang
+    let heldUnits = 0;      // gram (emas) atau unit reksadana (nominal / NAV) yang masih dipegang
     let heldCostBasis = 0;  // modal aktif yang masih tertanam (setelah dikurangi yang sudah dijual)
     let realizedGain = 0;   // untung/rugi dari transaksi JUAL yang sudah terjadi, sudah final
-    let unpricedAmount = 0; // transaksi emas lama yang belum ada harga historisnya, belum ikut dihitung
+    let unpricedAmount = 0; // transaksi lama yang belum ada harga/NAV historisnya, belum ikut dihitung
 
     catTx.forEach((t) => {
-      const priceAtTx = cat.asset_type === 'gold' ? t.assetPriceAtTx : syntheticReksadanaPrice(t.date);
-      // Kalau gram/unit diisi manual (lebih presisi, biasanya nyalin persis dari Pluang),
+      const priceAtTx = t.assetPriceAtTx;
+      // Kalau gram/unit diisi manual (lebih presisi, biasanya nyalin persis dari Pluang/Ajaib),
       // pakai itu langsung — tidak perlu hitung dari amount/priceAtTx lagi.
       const hasManualUnits = t.assetUnitsOverride != null && t.assetUnitsOverride > 0;
-      if (!hasManualUnits && cat.asset_type === 'gold' && !priceAtTx) {
+      if (!hasManualUnits && !priceAtTx) {
         if (t.assetAction !== 'sell') unpricedAmount += t.amount;
-        return; // transaksi emas tanpa harga historis DAN tanpa gram manual dilewati dulu
+        return; // transaksi tanpa harga/NAV historis DAN tanpa gram/unit manual dilewati dulu
       }
       const units = hasManualUnits ? t.assetUnitsOverride : t.amount / priceAtTx;
 
@@ -812,7 +804,7 @@ export default function Dashboard({ user, onLogout }) {
       }
     });
 
-    const currentPrice = cat.asset_type === 'gold' ? latestGoldPrice : syntheticReksadanaPrice(todayStr());
+    const currentPrice = cat.asset_type === 'gold' ? latestGoldPrice : latestReksadanaNav;
     const currentValue = heldUnits * currentPrice;
     const floatingGain = currentValue - heldCostBasis;
     const totalGain = realizedGain + floatingGain;
@@ -972,7 +964,7 @@ export default function Dashboard({ user, onLogout }) {
     const unitsOverride = (!sellForm.isFullSale && sellForm.unitsOverride) ? parseFloat(sellForm.unitsOverride) : null;
 
     setSavingSell(true);
-    const priceAtSell = cat.asset_type === 'gold' ? latestGoldPrice : null;
+    const priceAtSell = cat.asset_type === 'gold' ? latestGoldPrice : cat.asset_type === 'reksadana_syariah' ? latestReksadanaNav : null;
     const { data, error } = await supabase.from('transactions').insert({
       user_id: user.id, type: 'saving', category_id: cat.id, amount: amt,
       note: sellForm.note.trim() || 'Jual aset', tx_date: sellForm.date,
@@ -1561,12 +1553,12 @@ export default function Dashboard({ user, onLogout }) {
                               )}
                               {c.asset_type === 'reksadana_syariah' && (
                                 <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                                  Estimasi return {(REKSADANA_ANNUAL_RATE * 100).toFixed(1)}%/tahun
+                                  NAV Insight Money Syariah terkini: {formatRupiah(latestReksadanaNav)}/unit
                                 </div>
                               )}
                               {invest.unpricedAmount > 0 && (
                                 <div style={{ fontSize: 10, color: '#F5C95D' }}>
-                                  ⚠️ {formatRupiah(invest.unpricedAmount)} dari transaksi belum ada harga historis, belum ikut dihitung di atas — isi manual di daftar transaksi bawah.
+                                  ⚠️ {formatRupiah(invest.unpricedAmount)} dari transaksi belum ada harga/NAV historis, belum ikut dihitung di atas — isi manual di daftar transaksi bawah.
                                 </div>
                               )}
                             </div>
@@ -1576,7 +1568,7 @@ export default function Dashboard({ user, onLogout }) {
                         {subTx.length > 0 && (
                           <div style={{ marginTop: 10, borderTop: '1px solid #22291F', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
                             {subTx.map((t) => {
-                              const needsPrice = c.asset_type === 'gold' && !t.assetPriceAtTx && !t.assetUnitsOverride;
+                              const needsPrice = !!c.asset_type && !t.assetPriceAtTx && !t.assetUnitsOverride;
                               return (
                                 <div key={t.id}>
                                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -1595,7 +1587,7 @@ export default function Dashboard({ user, onLogout }) {
                                       <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
                                         <input
                                           type="number" inputMode="numeric" autoFocus
-                                          placeholder="Harga emas/gram saat itu"
+                                          placeholder={c.asset_type === 'gold' ? 'Harga emas/gram saat itu' : 'NAV reksadana/unit saat itu'}
                                           value={editingPriceValue}
                                           onChange={(e) => setEditingPriceValue(e.target.value)}
                                           onKeyDown={(e) => { if (e.key === 'Enter') saveHistoricalAssetPrice(t.id); }}
@@ -2160,14 +2152,15 @@ export default function Dashboard({ user, onLogout }) {
             <input type="number" inputMode="numeric" placeholder="50000" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} style={styles.input} autoFocus />
             {(() => {
               const selectedFormCat = form.type !== 'income' ? categories.find((c) => c.id === form.categoryId) : null;
-              if (selectedFormCat?.asset_type !== 'gold') return null;
+              if (!selectedFormCat?.asset_type) return null;
+              const isGold = selectedFormCat.asset_type === 'gold';
               return (
                 <>
-                  <label style={styles.formLabel}>Jumlah gram (opsional, kalau tau persis dari Pluang)</label>
-                  <input type="number" inputMode="decimal" placeholder="Contoh: 0.343380" value={form.unitsOverride || ''}
+                  <label style={styles.formLabel}>{isGold ? 'Jumlah gram (opsional, kalau tau persis dari Pluang)' : 'Jumlah unit (opsional, kalau tau persis dari Ajaib)'}</label>
+                  <input type="number" inputMode="decimal" placeholder={isGold ? 'Contoh: 0.343380' : 'Contoh: 56.789'} value={form.unitsOverride || ''}
                     onChange={(e) => setForm({ ...form, unitsOverride: e.target.value })} style={styles.input} />
                   <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: -6, marginBottom: 10 }}>
-                    Kalau diisi, ini dipakai langsung sebagai gram (lebih presisi dari histori Pluang). Kalau dikosongkan, gram dihitung otomatis dari nominal ÷ harga emas hari ini.
+                    Kalau diisi, ini dipakai langsung sebagai {isGold ? 'gram' : 'unit'} (lebih presisi dari histori {isGold ? 'Pluang' : 'Ajaib'}). Kalau dikosongkan, dihitung otomatis dari nominal ÷ {isGold ? 'harga emas' : 'NAV reksadana'} hari ini.
                   </div>
                 </>
               );
@@ -2331,13 +2324,15 @@ export default function Dashboard({ user, onLogout }) {
                 </div>
               )}
 
-              {!sellForm.isFullSale && cat.asset_type === 'gold' && (
+              {!sellForm.isFullSale && cat.asset_type && (
                 <>
-                  <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Jumlah gram terjual (opsional, kalau tau persis dari Pluang)</label>
-                  <input type="number" inputMode="decimal" placeholder="Contoh: 0.343380" value={sellForm.unitsOverride}
+                  <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>
+                    {cat.asset_type === 'gold' ? 'Jumlah gram terjual (opsional, kalau tau persis dari Pluang)' : 'Jumlah unit terjual (opsional, kalau tau persis dari Ajaib)'}
+                  </label>
+                  <input type="number" inputMode="decimal" placeholder={cat.asset_type === 'gold' ? 'Contoh: 0.343380' : 'Contoh: 56.789'} value={sellForm.unitsOverride}
                     onChange={(e) => setSellForm((f) => ({ ...f, unitsOverride: e.target.value }))} style={styles.input} />
                   <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: -6, marginBottom: 10 }}>
-                    Kalau diisi, ini dipakai langsung sebagai gram yang terjual (lebih presisi dari histori Pluang). Kalau dikosongkan, gram dihitung otomatis dari nominal ÷ harga emas saat ini.
+                    Kalau diisi, ini dipakai langsung sebagai {cat.asset_type === 'gold' ? 'gram' : 'unit'} yang terjual (lebih presisi dari histori {cat.asset_type === 'gold' ? 'Pluang' : 'Ajaib'}). Kalau dikosongkan, dihitung otomatis dari nominal ÷ {cat.asset_type === 'gold' ? 'harga emas' : 'NAV reksadana'} saat ini.
                   </div>
                 </>
               )}
