@@ -83,11 +83,15 @@ export default async function handler(req, res) {
     if (!rdRes.ok) throw new Error(`HTTP ${rdRes.status} dari akufrugal.com`);
     const html = await rdRes.text();
 
-    // NAV muncul di title/meta dengan format "...IDR = 1.763,22" dan juga sebagai angka polos "1763.2200000000"
-    const match = html.match(/adalah\s*Rp([\d.]+)/);
+    // NAV muncul paling konsisten di <title>/meta description dengan format Indonesia:
+    // "Harga Reksadana Insight Money Syariah Hari Ini IDR = 1.763,22"
+    // (regex sebelumnya nyari pola di teks body "adalah Rp...", tapi itu sering kepisah
+    // tag HTML di antaranya sehingga gagal — title/meta description lebih polos & stabil)
+    const match = html.match(/IDR\s*=\s*([\d.,]+)/);
     if (!match) throw new Error('Format NAV di halaman akufrugal.com tidak ditemukan (mungkin struktur halaman berubah)');
 
-    const navReksadana = parseFloat(match[1]);
+    // Format Indonesia: titik = pemisah ribuan, koma = desimal. Contoh "1.763,22" -> 1763.22
+    const navReksadana = parseFloat(match[1].replace(/\./g, '').replace(',', '.'));
     if (!navReksadana || navReksadana < 100) throw new Error(`NAV hasil scrape tidak masuk akal: ${navReksadana}`);
 
     const { error } = await supabaseAdmin.from('asset_prices').insert({
