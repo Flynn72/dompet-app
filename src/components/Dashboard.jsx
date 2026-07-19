@@ -221,7 +221,7 @@ export default function Dashboard({ user, onLogout }) {
     expenseCard: expenseCardRef, txSearch: txSearchRef, recurringKelola: recurringKelolaRef,
   };
 
-  const [form, setForm] = useState({ type: 'expense', amount: '', categoryId: null, note: '', date: todayStr() });
+  const [form, setForm] = useState({ type: 'expense', amount: '', categoryId: null, note: '', date: todayStr(), unitsOverride: '' });
   const [catEditType, setCatEditType] = useState('expense');
   const [newCatLabel, setNewCatLabel] = useState('');
   const [newCatIcon, setNewCatIcon] = useState('dollar');
@@ -239,7 +239,7 @@ export default function Dashboard({ user, onLogout }) {
   const [editingPriceTxId, setEditingPriceTxId] = useState(null); // id transaksi yang sedang diisi harga historisnya
   const [editingPriceValue, setEditingPriceValue] = useState('');
   const [sellingCatId, setSellingCatId] = useState(null); // id kategori yang sedang dijual asetnya
-  const [sellForm, setSellForm] = useState({ amount: '', date: todayStr(), note: '', isFullSale: false });
+  const [sellForm, setSellForm] = useState({ amount: '', date: todayStr(), note: '', isFullSale: false, unitsOverride: '' });
   const [savingSell, setSavingSell] = useState(false);
 
   // Navigasi bulan: dropdown selalu 12 bulan tahun aktif
@@ -322,7 +322,7 @@ export default function Dashboard({ user, onLogout }) {
       if (catErr || txErr || bgErr || recErr) { setSaveError(true); }
       else {
         setCategories(cats || []);
-        const txList = (txs || []).map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date, recurringId: t.recurring_id, assetPriceAtTx: t.asset_price_at_tx ? Number(t.asset_price_at_tx) : null, assetAction: t.asset_action || 'buy' }));
+        const txList = (txs || []).map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date, recurringId: t.recurring_id, assetPriceAtTx: t.asset_price_at_tx ? Number(t.asset_price_at_tx) : null, assetAction: t.asset_action || 'buy', assetUnitsOverride: t.asset_units_override ? Number(t.asset_units_override) : null }));
         setTransactions(txList);
         setBudgets(bgs || []);
         setRecurringList(recs || []);
@@ -402,16 +402,20 @@ export default function Dashboard({ user, onLogout }) {
     // (dari cache harian di Supabase, bukan panggil API langsung tiap transaksi).
     const selectedCat = form.type !== 'income' ? categories.find((c) => c.id === form.categoryId) : null;
     const assetPriceAtTx = (selectedCat?.asset_type === 'gold' && latestGoldPrice) ? latestGoldPrice : null;
+    // Gram/unit manual (opsional) — kalau Surya isi persis dari histori Pluang, ini yang dipakai
+    // untuk hitung investasi, BUKAN hasil bagi amount/harga (lebih presisi daripada estimasi harga kita).
+    const unitsOverride = selectedCat?.asset_type === 'gold' && form.unitsOverride ? parseFloat(form.unitsOverride) : null;
 
     const payload = {
       user_id: user.id, type: form.type, category_id: form.type === 'income' ? null : form.categoryId,
       amount: amt, note: form.note.trim(), tx_date: form.date, asset_price_at_tx: assetPriceAtTx,
       asset_action: selectedCat?.asset_type ? 'buy' : null,
+      asset_units_override: unitsOverride && unitsOverride > 0 ? unitsOverride : null,
     };
     const { data, error } = await supabase.from('transactions').insert(payload).select().single();
     if (error) { setSaveError(true); return; }
-    setTransactions((prev) => [{ id: data.id, type: data.type, amount: Number(data.amount), category: data.category_id, note: data.note || '', date: data.tx_date, assetPriceAtTx: data.asset_price_at_tx ? Number(data.asset_price_at_tx) : null, assetAction: data.asset_action || 'buy' }, ...prev]);
-    setForm({ type: 'expense', amount: '', categoryId: expenseCategories[0] ? expenseCategories[0].id : null, note: '', date: todayStr() });
+    setTransactions((prev) => [{ id: data.id, type: data.type, amount: Number(data.amount), category: data.category_id, note: data.note || '', date: data.tx_date, assetPriceAtTx: data.asset_price_at_tx ? Number(data.asset_price_at_tx) : null, assetAction: data.asset_action || 'buy', assetUnitsOverride: data.asset_units_override ? Number(data.asset_units_override) : null }, ...prev]);
+    setForm({ type: 'expense', amount: '', categoryId: expenseCategories[0] ? expenseCategories[0].id : null, note: '', date: todayStr(), unitsOverride: '' });
     setShowAddModal(false);
   }
 
@@ -452,11 +456,12 @@ export default function Dashboard({ user, onLogout }) {
     const { data, error } = await supabase.from('transactions').insert({
       user_id: user.id, type: tx.type, category_id: tx.category, amount: tx.amount,
       note: tx.note, tx_date: tx.date, asset_price_at_tx: tx.assetPriceAtTx, asset_action: tx.assetAction || null,
+      asset_units_override: tx.assetUnitsOverride || null,
     }).select().single();
     if (error) { setSaveError(true); return; }
 
     setTransactions((prev) => [
-      { id: data.id, type: data.type, amount: Number(data.amount), category: data.category_id, note: data.note || '', date: data.tx_date, assetPriceAtTx: data.asset_price_at_tx ? Number(data.asset_price_at_tx) : null, assetAction: data.asset_action || 'buy' },
+      { id: data.id, type: data.type, amount: Number(data.amount), category: data.category_id, note: data.note || '', date: data.tx_date, assetPriceAtTx: data.asset_price_at_tx ? Number(data.asset_price_at_tx) : null, assetAction: data.asset_action || 'buy', assetUnitsOverride: data.asset_units_override ? Number(data.asset_units_override) : null },
       ...prev,
     ].sort((a, b) => new Date(b.date) - new Date(a.date)));
   }
@@ -589,7 +594,7 @@ export default function Dashboard({ user, onLogout }) {
       } else {
         successCount = data.length;
         setTransactions((prev) => [
-          ...data.map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date, assetPriceAtTx: t.asset_price_at_tx ? Number(t.asset_price_at_tx) : null, assetAction: t.asset_action || 'buy' })),
+          ...data.map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date, assetPriceAtTx: t.asset_price_at_tx ? Number(t.asset_price_at_tx) : null, assetAction: t.asset_action || 'buy', assetUnitsOverride: t.asset_units_override ? Number(t.asset_units_override) : null })),
           ...prev,
         ].sort((a, b) => new Date(b.date) - new Date(a.date)));
       }
@@ -785,11 +790,14 @@ export default function Dashboard({ user, onLogout }) {
 
     catTx.forEach((t) => {
       const priceAtTx = cat.asset_type === 'gold' ? t.assetPriceAtTx : syntheticReksadanaPrice(t.date);
-      if (cat.asset_type === 'gold' && !priceAtTx) {
+      // Kalau gram/unit diisi manual (lebih presisi, biasanya nyalin persis dari Pluang),
+      // pakai itu langsung — tidak perlu hitung dari amount/priceAtTx lagi.
+      const hasManualUnits = t.assetUnitsOverride != null && t.assetUnitsOverride > 0;
+      if (!hasManualUnits && cat.asset_type === 'gold' && !priceAtTx) {
         if (t.assetAction !== 'sell') unpricedAmount += t.amount;
-        return; // transaksi emas tanpa harga historis dilewati dulu sampai diisi manual
+        return; // transaksi emas tanpa harga historis DAN tanpa gram manual dilewati dulu
       }
-      const units = t.amount / priceAtTx;
+      const units = hasManualUnits ? t.assetUnitsOverride : t.amount / priceAtTx;
 
       if (t.assetAction === 'sell') {
         const avgCost = heldUnits > 0 ? heldCostBasis / heldUnits : 0;
@@ -959,23 +967,28 @@ export default function Dashboard({ user, onLogout }) {
       if (!ok) return;
     }
 
+    // Gram/unit manual (opsional) — cuma relevan untuk jual SEBAGIAN, karena "jual semua"
+    // sudah otomatis melikuidasi seluruh heldUnits tanpa perlu input gram lagi.
+    const unitsOverride = (!sellForm.isFullSale && sellForm.unitsOverride) ? parseFloat(sellForm.unitsOverride) : null;
+
     setSavingSell(true);
     const priceAtSell = cat.asset_type === 'gold' ? latestGoldPrice : null;
     const { data, error } = await supabase.from('transactions').insert({
       user_id: user.id, type: 'saving', category_id: cat.id, amount: amt,
       note: sellForm.note.trim() || 'Jual aset', tx_date: sellForm.date,
       asset_price_at_tx: priceAtSell, asset_action: 'sell',
+      asset_units_override: unitsOverride && unitsOverride > 0 ? unitsOverride : null,
     }).select().single();
     setSavingSell(false);
     if (error) { setSaveError(true); return; }
 
     setTransactions((prev) => [
-      { id: data.id, type: data.type, amount: Number(data.amount), category: data.category_id, note: data.note || '', date: data.tx_date, assetPriceAtTx: data.asset_price_at_tx ? Number(data.asset_price_at_tx) : null, assetAction: data.asset_action },
+      { id: data.id, type: data.type, amount: Number(data.amount), category: data.category_id, note: data.note || '', date: data.tx_date, assetPriceAtTx: data.asset_price_at_tx ? Number(data.asset_price_at_tx) : null, assetAction: data.asset_action, assetUnitsOverride: data.asset_units_override ? Number(data.asset_units_override) : null },
       ...prev,
     ].sort((a, b) => new Date(b.date) - new Date(a.date)));
 
     setSellingCatId(null);
-    setSellForm({ amount: '', date: todayStr(), note: '', isFullSale: false });
+    setSellForm({ amount: '', date: todayStr(), note: '', isFullSale: false, unitsOverride: '' });
   }
 
   // Transaksi per kategori (sub-kategori untuk dashboard)
@@ -1563,7 +1576,7 @@ export default function Dashboard({ user, onLogout }) {
                         {subTx.length > 0 && (
                           <div style={{ marginTop: 10, borderTop: '1px solid #22291F', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
                             {subTx.map((t) => {
-                              const needsPrice = c.asset_type === 'gold' && !t.assetPriceAtTx;
+                              const needsPrice = c.asset_type === 'gold' && !t.assetPriceAtTx && !t.assetUnitsOverride;
                               return (
                                 <div key={t.id}>
                                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -2145,6 +2158,20 @@ export default function Dashboard({ user, onLogout }) {
             </div>
             <label style={styles.formLabel}>Jumlah (Rp)</label>
             <input type="number" inputMode="numeric" placeholder="50000" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} style={styles.input} autoFocus />
+            {(() => {
+              const selectedFormCat = form.type !== 'income' ? categories.find((c) => c.id === form.categoryId) : null;
+              if (selectedFormCat?.asset_type !== 'gold') return null;
+              return (
+                <>
+                  <label style={styles.formLabel}>Jumlah gram (opsional, kalau tau persis dari Pluang)</label>
+                  <input type="number" inputMode="decimal" placeholder="Contoh: 0.343380" value={form.unitsOverride || ''}
+                    onChange={(e) => setForm({ ...form, unitsOverride: e.target.value })} style={styles.input} />
+                  <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: -6, marginBottom: 10 }}>
+                    Kalau diisi, ini dipakai langsung sebagai gram (lebih presisi dari histori Pluang). Kalau dikosongkan, gram dihitung otomatis dari nominal ÷ harga emas hari ini.
+                  </div>
+                </>
+              );
+            })()}
             {(form.type === 'expense' || form.type === 'saving') && (
               <>
                 <label style={styles.formLabel}>Kategori (opsional)</label>
@@ -2302,6 +2329,17 @@ export default function Dashboard({ user, onLogout }) {
                 <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: -6, marginBottom: 10 }}>
                   Nominal dikunci otomatis karena ini penjualan seluruh aset — kalau ternyata di aplikasi investasi Anda hasil jualnya beda (misal kena potongan/biaya admin), batalkan centang di atas dan isi manual nominal yang benar-benar diterima.
                 </div>
+              )}
+
+              {!sellForm.isFullSale && cat.asset_type === 'gold' && (
+                <>
+                  <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Jumlah gram terjual (opsional, kalau tau persis dari Pluang)</label>
+                  <input type="number" inputMode="decimal" placeholder="Contoh: 0.343380" value={sellForm.unitsOverride}
+                    onChange={(e) => setSellForm((f) => ({ ...f, unitsOverride: e.target.value }))} style={styles.input} />
+                  <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: -6, marginBottom: 10 }}>
+                    Kalau diisi, ini dipakai langsung sebagai gram yang terjual (lebih presisi dari histori Pluang). Kalau dikosongkan, gram dihitung otomatis dari nominal ÷ harga emas saat ini.
+                  </div>
+                </>
               )}
 
               <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Tanggal jual</label>
