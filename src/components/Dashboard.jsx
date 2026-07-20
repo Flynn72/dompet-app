@@ -1021,10 +1021,10 @@ export default function Dashboard({ user, onLogout }) {
       const inc = monthTxList.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
       const exp = monthTxList.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
 
-      // Saving: akumulatif dari semua transaksi sampai akhir bulan ini
+      // Saving: akumulatif dari semua transaksi sampai akhir bulan ini (jual = mengurangi, sama seperti totalSaving)
       const savCumulative = transactions
         .filter((t) => t.type === 'saving' && t.date <= `${y}-${String(m).padStart(2, '0')}-31`)
-        .reduce((s, t) => s + t.amount, 0);
+        .reduce((s, t) => s + t.amount * (t.assetAction === 'sell' ? -1 : 1), 0);
 
       return {
         label: MONTHS_ID[m - 1] + ' ' + y,
