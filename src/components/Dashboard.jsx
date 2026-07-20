@@ -231,6 +231,7 @@ export default function Dashboard({ user, onLogout }) {
   const [importSummary, setImportSummary] = useState(null); // { success, failed, errors: [] }
   const importFileRef = useRef(null);
   const [onboardingStep, setOnboardingStep] = useState(0);
+  const [obActionPhase, setObActionPhase] = useState(0); // 0 = spotlight tombol, 1 = modal terkait sudah dibuka
   const [spotlightRect, setSpotlightRect] = useState(null); // posisi presisi elemen target, dihitung langsung dari DOM
   const settingsBtnRef = useRef(null);
   const fabRef = useRef(null);
@@ -1068,6 +1069,7 @@ export default function Dashboard({ user, onLogout }) {
     localStorage.setItem(`onboarding_done_${user.id}`, '1');
     setShowOnboarding(false);
     setOnboardingStep(0);
+    setObActionPhase(0);
     closeAllOnboardingModals();
   }
 
@@ -1075,19 +1077,37 @@ export default function Dashboard({ user, onLogout }) {
   // tidak bergantung pada localStorage flag atau jumlah kategori.
   function openOnboardingTour() {
     setOnboardingStep(0);
+    setObActionPhase(0);
     setShowOnboarding(true);
   }
 
+  // Step yang punya "action" (buka modal) jalan 2 fase:
+  // fase 0 = spotlight nyorot tombolnya dulu (modal masih tertutup, jelasin dulu fungsinya)
+  // fase 1 = klik "Lanjut" sekali lagi baru modalnya kebuka, pop-up pindah ke samping modal
+  // Step tanpa action (cuma spotlight biasa) tetap 1 fase seperti biasa.
   function nextStep() {
+    const step = ONBOARDING_STEPS[onboardingStep];
+    if (step.action && obActionPhase === 0) {
+      setObActionPhase(1); // buka modalnya dulu, belum pindah step
+      return;
+    }
     if (onboardingStep < ONBOARDING_STEPS.length - 1) {
       setOnboardingStep((s) => s + 1);
+      setObActionPhase(0);
     } else {
       finishOnboarding();
     }
   }
 
   function prevStep() {
-    if (onboardingStep > 0) setOnboardingStep((s) => s - 1);
+    if (obActionPhase === 1) {
+      setObActionPhase(0); // mundur ke fase spotlight dulu (tutup modal), bukan langsung pindah step
+      return;
+    }
+    if (onboardingStep > 0) {
+      setOnboardingStep((s) => s - 1);
+      setObActionPhase(0);
+    }
   }
 
   // Modal apa pun yang sempat dibuka otomatis oleh step tour (lihat effect di bawah) perlu
@@ -1100,12 +1120,14 @@ export default function Dashboard({ user, onLogout }) {
     setSellingCatId(null);
   }
 
-  // Sebagian step tour "mendemokan" tombolnya langsung dengan otomatis membuka modal terkait,
-  // bukan cuma nyorot doang — supaya user beneran lihat hasil klik tombolnya, bukan cuma dikasih tau.
+  // Sebagian step tour "mendemokan" tombolnya langsung dengan otomatis membuka modal terkait
+  // begitu masuk fase 1 (setelah user klik "Lanjut" sekali di fase spotlight) — bukan cuma
+  // nyorot doang, supaya user beneran lihat hasil klik tombolnya, bukan cuma dikasih tau.
   useEffect(() => {
     if (!showOnboarding) return;
     const step = ONBOARDING_STEPS[onboardingStep];
-    closeAllOnboardingModals(); // tutup dulu sisa modal dari step sebelumnya
+    closeAllOnboardingModals(); // tutup dulu sisa modal dari step/fase sebelumnya
+    if (obActionPhase !== 1) return; // fase 0 = belum buka apa-apa, cuma spotlight tombolnya
     if (step.action === 'openCategoryModal') {
       setShowCategoryModal(true);
     } else if (step.action === 'openAddModal') {
@@ -1119,7 +1141,7 @@ export default function Dashboard({ user, onLogout }) {
       setSellForm({ amount: '', date: todayStr(), note: '', isFullSale: false, unitsOverride: '' });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showOnboarding, onboardingStep]);
+  }, [showOnboarding, onboardingStep, obActionPhase]);
 
   // Hitung posisi presisi elemen target (spotlight) langsung dari DOM,
   // supaya pop-up onboarding selalu tepat menunjuk ke tombol yang dimaksud
@@ -1133,9 +1155,10 @@ export default function Dashboard({ user, onLogout }) {
       setTab(step.tab);
     }
 
-    // Step yang otomatis buka modal (action) nggak perlu spotlight lagi — tombol pemicunya
-    // toh bakal ketutup modal begitu terbuka, jadi biarkan pop-up center-align aja ngikutin modal.
-    if (!step.target || step.action) { setSpotlightRect(null); return; }
+    // spotlightRect tetap diukur terus baik di fase 0 maupun fase 1 (dipakai buat posisi
+    // pop-up "di samping" lokasi tombol aslinya) — ring & overlay gelapnya yang dikondisikan
+    // belakangan di bagian render, bukan di sini.
+    if (!step.target) { setSpotlightRect(null); return; }
     setSpotlightRect(null); // reset dulu biar tidak ada ring "nyasar" dari step sebelumnya sesaat
 
     function measure() {
@@ -1167,7 +1190,7 @@ export default function Dashboard({ user, onLogout }) {
       window.removeEventListener('resize', measure);
       window.removeEventListener('scroll', measure, true);
     };
-  }, [showOnboarding, onboardingStep, tab]);
+  }, [showOnboarding, onboardingStep, tab, obActionPhase]);
 
 
   if (!loaded) {
@@ -2058,18 +2081,24 @@ export default function Dashboard({ user, onLogout }) {
         const GAP = 14;  // jarak pop-up dari spotlight
         const POPUP_W = 260;
 
+        // Fase 1 (modal action sudah kebuka): ring & overlay gelap disembunyikan (tombolnya
+        // toh ketutup modal), TAPI posisi pop-up tetap dihitung dari spotlightRect yang sama,
+        // supaya pop-up tetap nempel di sisi yang sama seperti waktu nyorot tombolnya tadi —
+        // hasilnya kelihatan "bersampingan" dengan modal yang baru kebuka, bukan pindah ke tengah.
+        const showRing = !(step.action && obActionPhase === 1);
+
         let spotlight = null;
         let popupStyle;
         let arrowStyle = null;
 
         if (spotlightRect) {
           // Spotlight persis mengikuti posisi & ukuran elemen asli (diukur dari DOM)
-          spotlight = {
+          spotlight = showRing ? {
             top: spotlightRect.top - PAD,
             left: spotlightRect.left - PAD,
             width: spotlightRect.width + PAD * 2,
             height: spotlightRect.height + PAD * 2,
-          };
+          } : null;
 
           const vh = window.innerHeight;
           const vw = window.innerWidth;
@@ -2215,7 +2244,7 @@ export default function Dashboard({ user, onLogout }) {
                   fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
                   boxShadow: `0 4px 12px ${step.color}44`,
                 }}>
-                  {isLast ? '🚀 Mulai!' : 'Lanjut →'}
+                  {isLast ? '🚀 Mulai!' : (step.action && obActionPhase === 0) ? 'Buka →' : 'Lanjut →'}
                 </button>
               </div>
 
