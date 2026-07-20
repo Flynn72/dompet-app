@@ -1133,7 +1133,9 @@ export default function Dashboard({ user, onLogout }) {
       setTab(step.tab);
     }
 
-    if (!step.target) { setSpotlightRect(null); return; }
+    // Step yang otomatis buka modal (action) nggak perlu spotlight lagi — tombol pemicunya
+    // toh bakal ketutup modal begitu terbuka, jadi biarkan pop-up center-align aja ngikutin modal.
+    if (!step.target || step.action) { setSpotlightRect(null); return; }
     setSpotlightRect(null); // reset dulu biar tidak ada ring "nyasar" dari step sebelumnya sesaat
 
     function measure() {
