@@ -180,6 +180,22 @@ const ONBOARDING_STEPS = [
     target: 'reportsTab', // ref ke tab Laporan, otomatis pindah tab
     tab: 'reports',
   },
+  {
+    emoji: '🥇',
+    title: 'Lacak investasi Emas & Reksadana',
+    desc: 'Tandai kategori saving sebagai "Emas" atau "Reksadana Syariah" (lewat ⚙️ kelola kategori) buat otomatis lacak untung/rugi. Harga emas & NAV reksadana ter-update sendiri tiap hari — nggak perlu isi manual, kecuali mau lebih presisi.',
+    color: '#F5C95D',
+    target: 'investSection',
+    tab: 'overview',
+  },
+  {
+    emoji: '💸',
+    title: 'Jual aset? Pakai tombol khusus',
+    desc: 'Di dalam kartu investasi, klik ikon 🎯 lalu "Jual Aset" — JANGAN pakai tombol + biasa, karena nanti nggak kehitung sebagai penjualan. Kalau jual SEMUA aset sekaligus, centang "Jual Semua Aset" biar sisa gram/unit otomatis pas ke 0.',
+    color: '#FF9466',
+    target: 'investSection',
+    tab: 'overview',
+  },
 ];
 
 export default function Dashboard({ user, onLogout }) {
@@ -217,9 +233,11 @@ export default function Dashboard({ user, onLogout }) {
   const expenseCardRef = useRef(null);
   const txSearchRef = useRef(null);
   const recurringKelolaRef = useRef(null);
+  const investSectionRef = useRef(null);
   const targetRefs = {
     settings: settingsBtnRef, fab: fabRef, reportsTab: reportsTabRef, budgetLink: budgetLinkRef,
     expenseCard: expenseCardRef, txSearch: txSearchRef, recurringKelola: recurringKelolaRef,
+    investSection: investSectionRef,
   };
 
   const [form, setForm] = useState({ type: 'expense', amount: '', categoryId: null, note: '', date: todayStr(), unitsOverride: '' });
@@ -1424,7 +1442,7 @@ export default function Dashboard({ user, onLogout }) {
 
             {/* Kolom kanan: kartu budget saving per kategori + sub-transaksi */}
             <div className="dompet-col-right">
-              <div style={{ ...styles.sectionHeader, marginTop: 24 }}>
+              <div ref={investSectionRef} style={{ ...styles.sectionHeader, marginTop: 24 }}>
                 <span style={styles.sectionTitle}>Target saving & investasi</span>
                 <button onClick={() => setShowBudgetModal('saving')} style={styles.linkBtn}>Atur target</button>
               </div>
