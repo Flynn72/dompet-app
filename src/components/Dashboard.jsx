@@ -744,6 +744,10 @@ export default function Dashboard({ user, onLogout }) {
   // Transaksi "jual aset" (assetAction='sell') MENGURANGI total saving (uang keluar dari tabungan/investasi),
   // bukan menambah — beda dari transaksi saving biasa (beli/nabung) yang menambah.
   const totalSaving = useMemo(() => monthTx.filter((t) => t.type === 'saving').reduce((s, t) => s + t.amount * (t.assetAction === 'sell' ? -1 : 1), 0), [monthTx]);
+  // Breakdown kotor (gross) beli vs jual saving bulan ini — dipakai buat nampilin ringkasan yang jelas
+  // di Laporan waktu netto-nya negatif (jual lebih besar dari beli), supaya nggak kelihatan "kosong".
+  const savingGrossBuy = useMemo(() => monthTx.filter((t) => t.type === 'saving' && t.assetAction !== 'sell').reduce((s, t) => s + t.amount, 0), [monthTx]);
+  const savingGrossSell = useMemo(() => monthTx.filter((t) => t.type === 'saving' && t.assetAction === 'sell').reduce((s, t) => s + t.amount, 0), [monthTx]);
   const balance = totalIncome - totalExpense - totalSaving;
   const totalUsed = totalExpense + totalSaving;
 
@@ -1797,14 +1801,22 @@ export default function Dashboard({ user, onLogout }) {
               {[
                 { label: 'Income', color: '#7FE8A4', total: totalIncome, data: totalIncome > 0 ? [{ name: 'Income', value: totalIncome, color: '#7FE8A4' }] : [] },
                 { label: 'Expense', color: '#FF9466', total: totalExpense, data: pieData },
-                { label: 'Saving', color: '#6FB7E8', total: totalSaving, data: savingPieData },
-              ].map((section) => (
+                { label: 'Saving', color: '#6FB7E8', total: totalSaving, data: savingPieData, isSaving: true },
+              ].map((section) => {
+                // Saving netto BISA negatif (kalau jual aset lebih besar dari beli bulan ini) — itu VALID,
+                // bukan berarti "tidak ada aktivitas". Jadi gate kosongnya beda dari Income/Expense:
+                // cek ada gross buy/sell dulu, baru dianggap benar-benar kosong.
+                const hasActivity = section.isSaving ? (savingGrossBuy > 0 || savingGrossSell > 0) : section.total > 0;
+                const canShowPie = section.isSaving ? section.total > 0 && section.data.length > 0 : section.total > 0;
+                return (
                 <div key={section.label} style={{ background: chartTheme.bg, border: "1px solid var(--border)", borderRadius: 14, padding: '20px 18px' }}>
                   <div style={styles.sectionHeader}>
                     <span style={styles.sectionTitle}>{section.label}</span>
-                    <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 15, color: section.color }}>{formatRupiah(section.total)}</span>
+                    <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 15, color: section.total < 0 ? '#FF9466' : section.color }}>{formatRupiah(section.total)}</span>
                   </div>
-                  {section.total > 0 ? (
+                  {!hasActivity ? (
+                    <div style={{ ...styles.emptyHint, padding: '40px 0' }}>Belum ada data {section.label.toLowerCase()} bulan ini.</div>
+                  ) : canShowPie ? (
                     <>
                       <div style={{ width: '100%', height: 200 }}>
                         <ResponsiveContainer>
@@ -1827,10 +1839,30 @@ export default function Dashboard({ user, onLogout }) {
                       </div>
                     </>
                   ) : (
-                    <div style={{ ...styles.emptyHint, padding: '40px 0' }}>Belum ada data {section.label.toLowerCase()} bulan ini.</div>
+                    // Saving ada aktivitas, tapi nettonya negatif/nol atau semua kategori netto <=0 —
+                    // nggak bisa digambar pie (nggak ada slice positif), jadi tampilkan breakdown teks.
+                    <div style={{ padding: '20px 0' }}>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 10, lineHeight: 1.6 }}>
+                        Bulan ini lebih banyak dana <b>ditarik dari investasi/tabungan</b> (jual aset) daripada yang <b>ditambahkan</b> (beli/setor baru), jadi nggak bisa digambar sebagai pie chart. Rinciannya:
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                          <span style={{ color: 'var(--text-secondary)' }}>Total setor/beli</span>
+                          <span style={{ color: '#6FB7E8', fontWeight: 700 }}>+{formatRupiah(savingGrossBuy)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                          <span style={{ color: 'var(--text-secondary)' }}>Total jual/tarik</span>
+                          <span style={{ color: '#7FE8A4', fontWeight: 700 }}>+{formatRupiah(savingGrossSell)} (masuk ke saldo)</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 2 }}>
+                          <span style={{ color: 'var(--text-secondary)' }}>Netto saving bulan ini</span>
+                          <span style={{ color: totalSaving < 0 ? '#FF9466' : '#6FB7E8', fontWeight: 700 }}>{formatRupiah(totalSaving)}</span>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
-              ))}
+              );})}
             </div>
 
             {/* Tren 6 bulan */}
@@ -2596,7 +2628,15 @@ function TxRow({ t, onDelete, catLookup }) {
   let iconBg = cat ? cat.color + '22' : '#A8A89C22';
   let amountColor = '#FF9466'; let sign = '-';
   if (isIncome) { iconEl = <TrendingUp size={15} color="#7FE8A4" />; iconBg = '#7FE8A422'; amountColor = '#7FE8A4'; sign = '+'; }
-  else if (isSaving) { iconEl = <PiggyBank size={15} color={cat ? cat.color : '#6FB7E8'} />; amountColor = '#6FB7E8'; }
+  else if (isSaving) {
+    iconEl = <PiggyBank size={15} color={cat ? cat.color : '#6FB7E8'} />;
+    if (t.assetAction === 'sell') {
+      // Jual aset = uang MASUK (dari investasi kembali ke saldo utama), bukan keluar
+      amountColor = '#7FE8A4'; sign = '+';
+    } else {
+      amountColor = '#6FB7E8';
+    }
+  }
   if (cat && CatIcon) iconEl = <CatIcon size={15} color={cat.color} />;
   return (
     <div style={styles.txRow}>
