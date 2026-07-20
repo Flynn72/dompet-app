@@ -131,6 +131,7 @@ const ONBOARDING_STEPS = [
     color: '#C99FE8',
     target: 'settings', // ref ke tombol kelola kategori
     tab: 'overview',
+    action: 'openCategoryModal',
   },
   {
     emoji: '💰',
@@ -139,6 +140,7 @@ const ONBOARDING_STEPS = [
     color: '#7FE8A4',
     target: 'fab', // ref ke tombol tambah transaksi
     tab: 'overview',
+    action: 'openAddModal',
   },
   {
     emoji: '🔎',
@@ -163,6 +165,7 @@ const ONBOARDING_STEPS = [
     color: '#F5C95D',
     target: 'budgetLink',
     tab: 'overview', // pindah balik ke Dashboard setelah step sebelumnya sempat ke tab Transaksi
+    action: 'openBudgetModal',
   },
   {
     emoji: '🔁',
@@ -171,6 +174,7 @@ const ONBOARDING_STEPS = [
     color: '#C99FE8',
     target: 'recurringKelola',
     tab: 'overview',
+    action: 'openRecurringModal',
   },
   {
     emoji: '🎯',
@@ -183,18 +187,20 @@ const ONBOARDING_STEPS = [
   {
     emoji: '🥇',
     title: 'Lacak investasi Emas & Reksadana',
-    desc: 'Tandai kategori saving sebagai "Emas" atau "Reksadana Syariah" (lewat ⚙️ kelola kategori) buat otomatis lacak untung/rugi. Harga emas & NAV reksadana ter-update sendiri tiap hari — nggak perlu isi manual, kecuali mau lebih presisi.',
+    desc: 'Klik ikon pengaturan ini, lalu tandai kategori saving sebagai "Emas" atau "Reksadana Syariah". Setelah ditandai, harga emas & NAV reksadana otomatis ter-update tiap hari — nggak perlu isi manual, kecuali mau lebih presisi.',
     color: '#F5C95D',
-    target: 'investSection',
+    target: 'settings',
     tab: 'overview',
+    action: 'openCategoryModal',
   },
   {
     emoji: '💸',
     title: 'Jual aset? Pakai tombol khusus',
-    desc: 'Di dalam kartu investasi, klik ikon 🎯 lalu "Jual Aset" — JANGAN pakai tombol + biasa, karena nanti nggak kehitung sebagai penjualan. Kalau jual SEMUA aset sekaligus, centang "Jual Semua Aset" biar sisa gram/unit otomatis pas ke 0.',
+    desc: 'Buat kategori Emas/Reksadana, klik ikon panah oranye di sini (bukan tombol + biasa) buat catat penjualan — kalau pakai tombol + biasa, nanti nggak kehitung sebagai penjualan. Kalau jual SEMUA aset sekaligus, centang "Jual Semua Aset" biar sisa gram/unit otomatis pas ke 0.',
     color: '#FF9466',
-    target: 'investSection',
+    target: 'sellAssetBtn',
     tab: 'overview',
+    action: 'openSellAssetModal',
   },
 ];
 
@@ -234,10 +240,11 @@ export default function Dashboard({ user, onLogout }) {
   const txSearchRef = useRef(null);
   const recurringKelolaRef = useRef(null);
   const investSectionRef = useRef(null);
+  const sellAssetBtnRef = useRef(null); // ref khusus tombol "Jual aset" di kategori aset PERTAMA, buat spotlight onboarding
   const targetRefs = {
     settings: settingsBtnRef, fab: fabRef, reportsTab: reportsTabRef, budgetLink: budgetLinkRef,
     expenseCard: expenseCardRef, txSearch: txSearchRef, recurringKelola: recurringKelolaRef,
-    investSection: investSectionRef,
+    investSection: investSectionRef, sellAssetBtn: sellAssetBtnRef,
   };
 
   const [form, setForm] = useState({ type: 'expense', amount: '', categoryId: null, note: '', date: todayStr(), unitsOverride: '' });
@@ -286,6 +293,7 @@ export default function Dashboard({ user, onLogout }) {
 
   const expenseCategories = useMemo(() => categories.filter((c) => c.type === 'expense'), [categories]);
   const savingCategories = useMemo(() => categories.filter((c) => c.type === 'saving'), [categories]);
+  const firstAssetCatId = useMemo(() => savingCategories.find((c) => c.asset_type)?.id || null, [savingCategories]);
 
   // Cek semua aturan transaksi berulang yang aktif; kalau sudah lewat/sama dengan tanggal jatuh temponya
   // di bulan KALENDER SAAT INI (bukan bulan yang sedang dilihat di Dashboard) dan belum pernah dibuat
@@ -1060,6 +1068,7 @@ export default function Dashboard({ user, onLogout }) {
     localStorage.setItem(`onboarding_done_${user.id}`, '1');
     setShowOnboarding(false);
     setOnboardingStep(0);
+    closeAllOnboardingModals();
   }
 
   // Bisa dibuka ulang kapan saja lewat tombol "?", baik oleh user baru maupun user lama —
@@ -1080,6 +1089,37 @@ export default function Dashboard({ user, onLogout }) {
   function prevStep() {
     if (onboardingStep > 0) setOnboardingStep((s) => s - 1);
   }
+
+  // Modal apa pun yang sempat dibuka otomatis oleh step tour (lihat effect di bawah) perlu
+  // ditutup lagi sebelum pindah ke step lain / tur selesai, biar tidak numpuk/nyangkut.
+  function closeAllOnboardingModals() {
+    setShowCategoryModal(false);
+    setShowAddModal(false);
+    setShowBudgetModal(null);
+    setShowRecurringModal(false);
+    setSellingCatId(null);
+  }
+
+  // Sebagian step tour "mendemokan" tombolnya langsung dengan otomatis membuka modal terkait,
+  // bukan cuma nyorot doang — supaya user beneran lihat hasil klik tombolnya, bukan cuma dikasih tau.
+  useEffect(() => {
+    if (!showOnboarding) return;
+    const step = ONBOARDING_STEPS[onboardingStep];
+    closeAllOnboardingModals(); // tutup dulu sisa modal dari step sebelumnya
+    if (step.action === 'openCategoryModal') {
+      setShowCategoryModal(true);
+    } else if (step.action === 'openAddModal') {
+      setShowAddModal(true);
+    } else if (step.action === 'openBudgetModal') {
+      setShowBudgetModal('expense');
+    } else if (step.action === 'openRecurringModal') {
+      setShowRecurringModal(true);
+    } else if (step.action === 'openSellAssetModal' && firstAssetCatId) {
+      setSellingCatId(firstAssetCatId);
+      setSellForm({ amount: '', date: todayStr(), note: '', isFullSale: false, unitsOverride: '' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showOnboarding, onboardingStep]);
 
   // Hitung posisi presisi elemen target (spotlight) langsung dari DOM,
   // supaya pop-up onboarding selalu tepat menunjuk ke tombol yang dimaksud
@@ -1481,6 +1521,7 @@ export default function Dashboard({ user, onLogout }) {
                           </div>
                           {c.asset_type && (
                             <button
+                              ref={c.id === firstAssetCatId ? sellAssetBtnRef : null}
                               onClick={() => { setSellingCatId(c.id); setSellForm({ amount: '', date: todayStr(), note: '' }); }}
                               style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#FF9466', display: 'flex', padding: 4, flexShrink: 0 }}
                               title="Jual aset"
