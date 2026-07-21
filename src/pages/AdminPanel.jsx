@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { LogOut, Trash2, Shield, Users, Clock, AlertTriangle, RefreshCw, ChevronDown, ChevronUp, UserPlus, Activity, BarChart3, Trophy } from 'lucide-react';
+import { LogOut, Trash2, Shield, Users, Clock, AlertTriangle, RefreshCw, ChevronDown, ChevronUp, UserPlus, Activity, BarChart3, Trophy, MessageSquare } from 'lucide-react';
 
 function timeAgo(dateStr) {
   if (!dateStr) return 'Tidak diketahui';
@@ -33,6 +33,16 @@ export default function AdminPanel({ user, onLogout }) {
   const [successMsg, setSuccessMsg] = useState('');
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const isFetchingRef = useRef(false); // guard: cegah loadUsers() tumpang tindih saat interval cepat (500ms)
+  const [feedbackList, setFeedbackList] = useState([]);
+  const [feedbackLoading, setFeedbackLoading] = useState(true);
+  const [feedbackFilter, setFeedbackFilter] = useState('semua'); // 'semua' | 'bug' | 'saran' | 'lainnya'
+  const [feedbackExpanded, setFeedbackExpanded] = useState(false);
+
+  async function loadFeedback() {
+    const { data, error } = await supabase.rpc('admin_get_all_feedback');
+    if (!error) setFeedbackList(data || []);
+    setFeedbackLoading(false);
+  }
 
 async function loadUsers() {
   // Kalau masih ada request sebelumnya yang belum selesai, lewati siklus ini
@@ -66,6 +76,7 @@ useEffect(() => {
     }
 
     await loadUsers();
+    await loadFeedback();
   }
 
   init();
@@ -282,6 +293,55 @@ useEffect(() => {
             </div>
           </div>
         )}
+
+        {/* Feedback dari user */}
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '18px 18px', marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, cursor: 'pointer' }} onClick={() => setFeedbackExpanded((v) => !v)}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <MessageSquare size={18} color="#7FE8A4" />
+              <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 15 }}>Feedback dari user ({feedbackList.length})</span>
+            </div>
+            {feedbackExpanded ? <ChevronUp size={16} color="var(--text-secondary)" /> : <ChevronDown size={16} color="var(--text-secondary)" />}
+          </div>
+
+          {feedbackExpanded && (
+            <>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+                {['semua', 'bug', 'saran', 'lainnya'].map((f) => (
+                  <button key={f} onClick={() => setFeedbackFilter(f)} style={{ ...s.filterBtn, ...(feedbackFilter === f ? s.filterBtnActive : {}) }}>
+                    {f === 'semua' ? 'Semua' : f === 'bug' ? '🐛 Bug' : f === 'saran' ? '💡 Saran' : '💬 Lainnya'}
+                  </button>
+                ))}
+              </div>
+
+              {feedbackLoading ? (
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Memuat feedback...</div>
+              ) : feedbackList.length === 0 ? (
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Belum ada feedback masuk.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 400, overflowY: 'auto' }}>
+                  {feedbackList
+                    .filter((f) => feedbackFilter === 'semua' || f.category === feedbackFilter)
+                    .map((f) => (
+                      <div key={f.id} style={{ background: 'var(--bg-card2, var(--bg-base))', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>{f.username || 'User tanpa nama'}</span>
+                            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: f.category === 'bug' ? '#2A1010' : f.category === 'saran' ? '#0D2A1A' : 'var(--bg-base)', color: f.category === 'bug' ? '#FF9466' : f.category === 'saran' ? '#7FE8A4' : 'var(--text-secondary)' }}>
+                              {f.category === 'bug' ? '🐛 Bug' : f.category === 'saran' ? '💡 Saran' : '💬 Lainnya'}
+                            </span>
+                            {f.rating > 0 && <span style={{ fontSize: 11, color: '#F5C95D' }}>{'⭐'.repeat(f.rating)}</span>}
+                          </div>
+                          <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{timeAgo(f.created_at)}</span>
+                        </div>
+                        <div style={{ fontSize: 13, color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{f.message}</div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
 
         {/* Alerts */}
         {error && (
