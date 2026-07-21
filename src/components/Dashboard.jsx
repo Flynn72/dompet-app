@@ -1936,13 +1936,27 @@ export default function Dashboard({ user, onLogout }) {
                         </ResponsiveContainer>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 12 }}>
-                        {section.data.map((p) => (
-                          <div key={p.name} style={styles.legendItem}>
-                            <span style={{ width: 9, height: 9, borderRadius: 2, background: p.color, display: 'inline-block', flexShrink: 0 }} />
-                            <span style={{ fontSize: 12, color: 'var(--chart-subtext)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-                            <span style={{ fontSize: 12, color: 'var(--chart-text)', flexShrink: 0, fontWeight: 600 }}>{formatRupiah(p.value)}</span>
-                          </div>
-                        ))}
+                        {(() => {
+                          const pieKey = `pie-${section.label}`;
+                          const isExpanded = expandedCatIds.has(pieKey);
+                          const visibleData = isExpanded ? section.data : section.data.slice(0, 3);
+                          return (
+                            <>
+                              {visibleData.map((p) => (
+                                <div key={p.name} style={styles.legendItem}>
+                                  <span style={{ width: 9, height: 9, borderRadius: 2, background: p.color, display: 'inline-block', flexShrink: 0 }} />
+                                  <span style={{ fontSize: 12, color: 'var(--chart-subtext)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                                  <span style={{ fontSize: 12, color: 'var(--chart-text)', flexShrink: 0, fontWeight: 600 }}>{formatRupiah(p.value)}</span>
+                                </div>
+                              ))}
+                              {section.data.length > 3 && (
+                                <button onClick={() => toggleCatExpanded(pieKey)} style={{ ...styles.linkBtn, alignSelf: 'flex-start', marginTop: 2, fontSize: 11.5 }}>
+                                  {isExpanded ? '▲ Sembunyikan' : `▼ Tampilkan semua (${section.data.length})`}
+                                </button>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     </>
                   ) : (
