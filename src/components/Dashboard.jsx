@@ -231,6 +231,16 @@ export default function Dashboard({ user, onLogout }) {
   const [importSummary, setImportSummary] = useState(null); // { success, failed, errors: [] }
   const importFileRef = useRef(null);
   const [onboardingStep, setOnboardingStep] = useState(0);
+  // Kategori mana yang sedang di-expand (nampilin SEMUA transaksi) — defaultnya cuma 3 transaksi
+  // terakhir yang kelihatan per card, biar card nggak kepanjangan kalau transaksinya banyak.
+  const [expandedCatIds, setExpandedCatIds] = useState(() => new Set());
+  function toggleCatExpanded(catId) {
+    setExpandedCatIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(catId)) next.delete(catId); else next.add(catId);
+      return next;
+    });
+  }
   const [obActionPhase, setObActionPhase] = useState(0); // 0 = spotlight tombol, 1 = modal terkait sudah dibuka
   const [spotlightRect, setSpotlightRect] = useState(null); // posisi presisi elemen target, dihitung langsung dari DOM
   const settingsBtnRef = useRef(null);
@@ -1280,6 +1290,7 @@ export default function Dashboard({ user, onLogout }) {
         @keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
 
         .dompet-page { min-height: 100vh; background: var(--bg-base); color: var(--text-primary); padding-bottom: 90px; max-width: 480px; margin: 0 auto; position: relative; }
+        .dompet-sticky-top { position: sticky; top: 0; z-index: 40; background: var(--bg-base); }
         .dompet-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 12px; background: var(--bg-base); }
         .dompet-tabbar { display: flex; align-items: center; gap: 4px; padding: 0 20px 16px; border-bottom: 1px solid var(--border); }
         .dompet-content { padding: 16px 20px 0; }
@@ -1310,39 +1321,40 @@ export default function Dashboard({ user, onLogout }) {
         </div>
       )}
 
-      {/* Header */}
-      <div className="dompet-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={styles.logoMark}><Wallet size={18} color="#0F1410" /></div>
-          <span style={styles.logoText}>Dompet</span>
+      {/* Header + Tabs — dibungkus sticky biar freeze di atas saat scroll, gampang ganti bulan tanpa scroll ulang */}
+      <div className="dompet-sticky-top">
+        <div className="dompet-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={styles.logoMark}><Wallet size={18} color="#0F1410" /></div>
+            <span style={styles.logoText}>Dompet</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button onClick={() => shiftMonth(-1)} style={styles.monthBtn}>‹</button>
+            <select
+              value={activeMonth}
+              onChange={(e) => setActiveMonth(e.target.value)}
+              style={styles.monthSelect}
+            >
+              {monthOptions.map((m) => (
+                <option key={m.key} value={m.key} style={{ background: 'var(--bg-card)' }}>{m.label}</option>
+              ))}
+            </select>
+            <button onClick={() => shiftMonth(1)} style={styles.monthBtn}>›</button>
+            <button onClick={handleLogout} style={{ ...styles.monthBtn, marginLeft: 4 }} aria-label="Keluar"><LogOut size={14} color="#9CA89F" /></button>
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <button onClick={() => shiftMonth(-1)} style={styles.monthBtn}>‹</button>
-          <select
-            value={activeMonth}
-            onChange={(e) => setActiveMonth(e.target.value)}
-            style={styles.monthSelect}
-          >
-            {monthOptions.map((m) => (
-              <option key={m.key} value={m.key} style={{ background: 'var(--bg-card)' }}>{m.label}</option>
-            ))}
-          </select>
-          <button onClick={() => shiftMonth(1)} style={styles.monthBtn}>›</button>
-          <button onClick={handleLogout} style={{ ...styles.monthBtn, marginLeft: 4 }} aria-label="Keluar"><LogOut size={14} color="#9CA89F" /></button>
-        </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="dompet-tabbar">
-        {[
-          { id: 'overview', label: 'Dashboard' },
-          { id: 'transactions', label: 'Transaksi' },
-          { id: 'reports', label: 'Laporan' },
-        ].map((t) => (
-          <button key={t.id} ref={t.id === 'reports' ? reportsTabRef : null} onClick={() => setTab(t.id)} style={{ ...styles.tabBtn, ...(tab === t.id ? styles.tabBtnActive : {}) }}>{t.label}</button>
-        ))}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
-          <button onClick={openOnboardingTour} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Panduan fitur" title="Buka panduan fitur">
+        {/* Tabs */}
+        <div className="dompet-tabbar">
+          {[
+            { id: 'overview', label: 'Dashboard' },
+            { id: 'transactions', label: 'Transaksi' },
+            { id: 'reports', label: 'Laporan' },
+          ].map((t) => (
+            <button key={t.id} ref={t.id === 'reports' ? reportsTabRef : null} onClick={() => setTab(t.id)} style={{ ...styles.tabBtn, ...(tab === t.id ? styles.tabBtnActive : {}) }}>{t.label}</button>
+          ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+            <button onClick={openOnboardingTour} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Panduan fitur" title="Buka panduan fitur">
             <HelpCircle size={16} color="#9CA89F" />
           </button>
           <button onClick={cycleTheme} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Ganti tema" title={themeMode === 'system' ? 'Tema: Ikuti sistem' : themeMode === 'dark' ? 'Tema: Gelap' : 'Tema: Terang'}>
@@ -1350,6 +1362,7 @@ export default function Dashboard({ user, onLogout }) {
           </button>
           <button ref={settingsBtnRef} onClick={() => setShowCategoryModal(true)} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Kelola kategori"><Settings size={16} color="#9CA89F" /></button>
         </div>
+      </div>
       </div>
 
       <div className="dompet-content">
@@ -1447,7 +1460,7 @@ export default function Dashboard({ user, onLogout }) {
                         {/* Sub-transaksi */}
                         {subTx.length > 0 && (
                           <div style={{ marginTop: 10, borderTop: '1px solid #22291F', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            {subTx.map((t) => (
+                            {(expandedCatIds.has(c.id) ? subTx : subTx.slice(0, 3)).map((t) => (
                               <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                                 <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                   {t.note || c.label}
@@ -1459,6 +1472,11 @@ export default function Dashboard({ user, onLogout }) {
                                 <button onClick={() => deleteTransaction(t.id)} style={styles.deleteBtn}><Trash2 size={12} color="#6B7568" /></button>
                               </div>
                             ))}
+                            {subTx.length > 3 && (
+                              <button onClick={() => toggleCatExpanded(c.id)} style={{ ...styles.linkBtn, alignSelf: 'flex-start', marginTop: 2, fontSize: 11.5 }}>
+                                {expandedCatIds.has(c.id) ? '▲ Sembunyikan' : `▼ Tampilkan semua (${subTx.length})`}
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1655,7 +1673,7 @@ export default function Dashboard({ user, onLogout }) {
 
                         {subTx.length > 0 && (
                           <div style={{ marginTop: 10, borderTop: '1px solid #22291F', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            {subTx.map((t) => {
+                            {(expandedCatIds.has(c.id) ? subTx : subTx.slice(0, 3)).map((t) => {
                               const needsPrice = !!c.asset_type && !t.assetPriceAtTx && !t.assetUnitsOverride;
                               return (
                                 <div key={t.id}>
@@ -1694,6 +1712,11 @@ export default function Dashboard({ user, onLogout }) {
                                 </div>
                               );
                             })}
+                            {subTx.length > 3 && (
+                              <button onClick={() => toggleCatExpanded(c.id)} style={{ ...styles.linkBtn, alignSelf: 'flex-start', marginTop: 2, fontSize: 11.5 }}>
+                                {expandedCatIds.has(c.id) ? '▲ Sembunyikan' : `▼ Tampilkan semua (${subTx.length})`}
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -2178,8 +2201,10 @@ export default function Dashboard({ user, onLogout }) {
               </div>
             )}
 
-            {/* Overlay gelap penuh untuk step tanpa spotlight */}
-            {!spotlight && (
+            {/* Overlay gelap penuh HANYA untuk step yang memang tidak menunjuk elemen apa pun sama
+                sekali (misal step welcome/penutup) — BUKAN untuk fase 1 (modal action terbuka),
+                supaya modalnya tetap kelihatan terang normal, tidak dobel gelap dengan overlay modal. */}
+            {!step.target && (
               <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.70)', backdropFilter: 'blur(3px)' }} />
             )}
 
