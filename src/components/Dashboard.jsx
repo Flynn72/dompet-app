@@ -11,7 +11,7 @@ import {
   Vault, BadgeDollarSign, WalletCards, Building2, HandCoins, BadgePercent,
   Coins, PiggyBank as PiggyBankIcon, Clock, Globe, Umbrella, Lock,
   QrCode, Nfc, BarChart2, TrendingDown as TrendingDownIcon, Package,
-  Download, Upload, Sun, Moon, Target, HelpCircle
+  Download, Upload, Sun, Moon, Target, HelpCircle, MessageSquare
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -231,6 +231,27 @@ export default function Dashboard({ user, onLogout }) {
   const [importSummary, setImportSummary] = useState(null); // { success, failed, errors: [] }
   const importFileRef = useRef(null);
   const [onboardingStep, setOnboardingStep] = useState(0);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackForm, setFeedbackForm] = useState({ category: 'saran', message: '', rating: 0 });
+  const [savingFeedback, setSavingFeedback] = useState(false);
+  const [feedbackSentMsg, setFeedbackSentMsg] = useState(false);
+
+  async function sendFeedback() {
+    if (!feedbackForm.message.trim()) return;
+    setSavingFeedback(true);
+    const { error } = await supabase.from('feedback').insert({
+      user_id: user.id,
+      category: feedbackForm.category,
+      message: feedbackForm.message.trim(),
+      rating: feedbackForm.rating || null,
+    });
+    setSavingFeedback(false);
+    if (error) { setSaveError(true); return; }
+    setShowFeedbackModal(false);
+    setFeedbackForm({ category: 'saran', message: '', rating: 0 });
+    setFeedbackSentMsg(true);
+    setTimeout(() => setFeedbackSentMsg(false), 4000);
+  }
   // Kategori mana yang sedang di-expand (nampilin SEMUA transaksi) — defaultnya cuma 3 transaksi
   // terakhir yang kelihatan per card, biar card nggak kepanjangan kalau transaksinya banyak.
   const [expandedCatIds, setExpandedCatIds] = useState(() => new Set());
@@ -1360,6 +1381,7 @@ export default function Dashboard({ user, onLogout }) {
           <button onClick={cycleTheme} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Ganti tema" title={themeMode === 'system' ? 'Tema: Ikuti sistem' : themeMode === 'dark' ? 'Tema: Gelap' : 'Tema: Terang'}>
             {themeMode === 'system' ? <Monitor size={16} color="#9CA89F" /> : themeMode === 'dark' ? <Moon size={16} color="#9CA89F" /> : <Sun size={16} color="#9CA89F" />}
           </button>
+          <button onClick={() => setShowFeedbackModal(true)} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Kasih masukan" title="Kasih masukan buat Dompet App"><MessageSquare size={16} color="#9CA89F" /></button>
           <button ref={settingsBtnRef} onClick={() => setShowCategoryModal(true)} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Kelola kategori"><Settings size={16} color="#9CA89F" /></button>
         </div>
       </div>
@@ -1659,7 +1681,7 @@ export default function Dashboard({ user, onLogout }) {
                               )}
                               {c.asset_type === 'reksadana_syariah' && (
                                 <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                                  NAV Insight Money Syariah terkini: {formatRupiah(latestReksadanaNav)}/unit
+                                  NAV reksadana terkini: {formatRupiah(latestReksadanaNav)}/unit
                                 </div>
                               )}
                               {invest.unpricedAmount > 0 && (
@@ -2317,11 +2339,11 @@ export default function Dashboard({ user, onLogout }) {
               const isGold = selectedFormCat.asset_type === 'gold';
               return (
                 <>
-                  <label style={styles.formLabel}>{isGold ? 'Jumlah gram (opsional, kalau tau persis dari Pluang)' : 'Jumlah unit (opsional, kalau tau persis dari Ajaib)'}</label>
+                  <label style={styles.formLabel}>{isGold ? 'Jumlah gram (opsional, kalau tau persis dari platform investasi Anda)' : 'Jumlah unit (opsional, kalau tau persis dari platform investasi Anda)'}</label>
                   <input type="number" inputMode="decimal" placeholder={isGold ? 'Contoh: 0.343380' : 'Contoh: 56.789'} value={form.unitsOverride || ''}
                     onChange={(e) => setForm({ ...form, unitsOverride: e.target.value })} style={styles.input} />
                   <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: -6, marginBottom: 10 }}>
-                    Kalau diisi, ini dipakai langsung sebagai {isGold ? 'gram' : 'unit'} (lebih presisi dari histori {isGold ? 'Pluang' : 'Ajaib'}). Kalau dikosongkan, dihitung otomatis dari nominal ÷ {isGold ? 'harga emas' : 'NAV reksadana'} hari ini.
+                    Kalau diisi, ini dipakai langsung sebagai {isGold ? 'gram' : 'unit'} (lebih presisi dari histori platform investasi Anda). Kalau dikosongkan, dihitung otomatis dari nominal ÷ {isGold ? 'harga emas' : 'NAV reksadana'} hari ini.
                   </div>
                 </>
               );
@@ -2488,12 +2510,12 @@ export default function Dashboard({ user, onLogout }) {
               {!sellForm.isFullSale && cat.asset_type && (
                 <>
                   <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>
-                    {cat.asset_type === 'gold' ? 'Jumlah gram terjual (opsional, kalau tau persis dari Pluang)' : 'Jumlah unit terjual (opsional, kalau tau persis dari Ajaib)'}
+                    {cat.asset_type === 'gold' ? 'Jumlah gram terjual (opsional, kalau tau persis dari platform investasi Anda)' : 'Jumlah unit terjual (opsional, kalau tau persis dari platform investasi Anda)'}
                   </label>
                   <input type="number" inputMode="decimal" placeholder={cat.asset_type === 'gold' ? 'Contoh: 0.343380' : 'Contoh: 56.789'} value={sellForm.unitsOverride}
                     onChange={(e) => setSellForm((f) => ({ ...f, unitsOverride: e.target.value }))} style={styles.input} />
                   <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: -6, marginBottom: 10 }}>
-                    Kalau diisi, ini dipakai langsung sebagai {cat.asset_type === 'gold' ? 'gram' : 'unit'} yang terjual (lebih presisi dari histori {cat.asset_type === 'gold' ? 'Pluang' : 'Ajaib'}). Kalau dikosongkan, dihitung otomatis dari nominal ÷ {cat.asset_type === 'gold' ? 'harga emas' : 'NAV reksadana'} saat ini.
+                    Kalau diisi, ini dipakai langsung sebagai {cat.asset_type === 'gold' ? 'gram' : 'unit'} yang terjual (lebih presisi dari histori platform investasi Anda). Kalau dikosongkan, dihitung otomatis dari nominal ÷ {cat.asset_type === 'gold' ? 'harga emas' : 'NAV reksadana'} saat ini.
                   </div>
                 </>
               )}
@@ -2521,6 +2543,69 @@ export default function Dashboard({ user, onLogout }) {
       })()}
 
       {/* Modal: kelola transaksi berulang */}
+      {showFeedbackModal && (
+        <div style={styles.modalOverlay} onClick={() => setShowFeedbackModal(false)}>
+          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <span style={styles.modalTitle}>Kasih masukan</span>
+              <button onClick={() => setShowFeedbackModal(false)} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
+            </div>
+
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.6 }}>
+              Nemu bug, punya ide fitur, atau cuma mau cerita pengalaman pakai Dompet App? Tulis di sini, langsung masuk ke saya.
+            </div>
+
+            <label style={styles.formLabel}>Kategori</label>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              {[['bug', '🐛 Bug'], ['saran', '💡 Saran'], ['lainnya', '💬 Lainnya']].map(([val, label]) => (
+                <button key={val} onClick={() => setFeedbackForm((f) => ({ ...f, category: val }))}
+                  style={{
+                    flex: 1, padding: '8px 0', borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    border: `1px solid ${feedbackForm.category === val ? '#7FE8A4' : 'var(--border)'}`,
+                    background: feedbackForm.category === val ? '#7FE8A422' : 'transparent',
+                    color: feedbackForm.category === val ? '#7FE8A4' : 'var(--text-secondary)',
+                  }}>{label}</button>
+              ))}
+            </div>
+
+            <label style={styles.formLabel}>Rating pengalaman pakai app (opsional)</label>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button key={n} onClick={() => setFeedbackForm((f) => ({ ...f, rating: f.rating === n ? 0 : n }))}
+                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 22, padding: 0, opacity: feedbackForm.rating >= n ? 1 : 0.3 }}>
+                  ⭐
+                </button>
+              ))}
+            </div>
+
+            <label style={styles.formLabel}>Pesan</label>
+            <textarea
+              placeholder="Ceritain di sini..."
+              value={feedbackForm.message}
+              onChange={(e) => setFeedbackForm((f) => ({ ...f, message: e.target.value }))}
+              rows={4}
+              style={{ ...styles.input, resize: 'vertical', fontFamily: 'inherit' }}
+            />
+
+            <button onClick={sendFeedback} disabled={savingFeedback || !feedbackForm.message.trim()} style={{ ...styles.submitBtn, opacity: (savingFeedback || !feedbackForm.message.trim()) ? 0.6 : 1, marginTop: 4 }}>
+              {savingFeedback ? 'Mengirim...' : 'Kirim masukan'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {feedbackSentMsg && (
+        <div style={{
+          position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)',
+          background: 'var(--bg-card)', border: '1px solid #7FE8A4', borderRadius: 12,
+          padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 10,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.35)', zIndex: 60, maxWidth: 'calc(100vw - 32px)',
+        }}>
+          <span style={{ fontSize: 18 }}>✅</span>
+          <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>Makasih! Masukan kamu sudah terkirim.</span>
+        </div>
+      )}
+
       {showRecurringModal && (
         <div style={styles.modalOverlay} onClick={() => setShowRecurringModal(false)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
