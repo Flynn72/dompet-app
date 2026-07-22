@@ -1314,7 +1314,11 @@ export default function Dashboard({ user, onLogout }) {
         .dompet-page { min-height: 100vh; background: var(--bg-base); color: var(--text-primary); padding-bottom: 90px; max-width: 480px; margin: 0 auto; position: relative; }
         .dompet-sticky-top { position: sticky; top: 0; z-index: 40; background: var(--bg-base); }
         .dompet-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 12px; background: var(--bg-base); }
-        .dompet-tabbar { display: flex; align-items: center; gap: 4px; padding: 0 20px 16px; border-bottom: 1px solid var(--border); }
+        .dompet-tabbar { display: flex; align-items: center; gap: 4px; padding: 0 20px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; row-gap: 8px; }
+        @media (max-width: 400px) {
+          .dompet-icon-group { gap: 5px !important; }
+          .dompet-icon-group button { width: 28px !important; height: 28px !important; }
+        }
         .dompet-content { padding: 16px 20px 0; }
         .dompet-columns { display: block; }
         .dompet-col-left { width: 100%; }
@@ -1375,7 +1379,7 @@ export default function Dashboard({ user, onLogout }) {
           ].map((t) => (
             <button key={t.id} ref={t.id === 'reports' ? reportsTabRef : null} onClick={() => setTab(t.id)} style={{ ...styles.tabBtn, ...(tab === t.id ? styles.tabBtnActive : {}) }}>{t.label}</button>
           ))}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+          <div className="dompet-icon-group" style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <button onClick={openOnboardingTour} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Panduan fitur" title="Buka panduan fitur">
             <HelpCircle size={16} color="#9CA89F" />
           </button>
