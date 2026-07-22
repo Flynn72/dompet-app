@@ -1226,9 +1226,10 @@ export default function Dashboard({ user, onLogout }) {
 
   if (!loaded) {
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--bg-base)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ minHeight: '100vh', background: '#0F1410', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: 36, height: 36, borderRadius: 10, background: '#7FE8A4', animation: 'pulse 1.2s ease-in-out infinite' }} />
-        <p style={{ color: 'var(--text-secondary)', marginTop: 16, fontFamily: 'Inter, sans-serif' }}>Memuat data...</p>
+        <p style={{ color: '#9CA89F', marginTop: 16, fontFamily: 'Inter, sans-serif' }}>Memuat data...</p>
+        <style>{`@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}`}</style>
       </div>
     );
   }
