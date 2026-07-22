@@ -2165,22 +2165,44 @@ export default function Dashboard({ user, onLogout }) {
             height: spotlightRect.height + PAD * 2,
           } : null;
 
-          if (isMobileViewport) {
-            // MOBILE: pop-up SELALU didok sebagai bar di bagian bawah layar, lebar penuh —
-            // supaya tidak pernah menimpa isi tengah modal (form, daftar kategori, dll) seperti
-            // yang terjadi kalau dipaksa nempel di sisi tombol seperti versi desktop. Ring
-            // spotlight-nya tetap jalan normal buat nunjukin tombolnya, cuma kotak teksnya yang
-            // dipindah ke bawah. Tidak ada panah penunjuk di mode ini (karena tidak lagi nempel).
+          const vh = window.innerHeight;
+          const vw = window.innerWidth;
+          const MARGIN = 12;
+
+          if (step.action && obActionPhase === 1) {
+            // FASE 1 (modal sudah kebuka): posisi popup dihitung dari TEPI MODAL CARD, bukan lagi
+            // posisi tombol aslinya — modal card selalu di-center dengan max-width 480px, jadi kita
+            // tau persis tepi kiri/kanannya dari lebar layar. Kalau ada cukup ruang di samping modal,
+            // geser popup ke situ (kanan diprioritaskan, lalu kiri). Kalau layar terlalu sempit buat
+            // muat di samping (misal HP atau browser desktop yang di-resize kecil), fallback dock
+            // di bawah layar (lebar penuh) — sama seperti perilaku mobile, supaya tetap kelihatan
+            // utuh, bukan malah numpuk di atas header modal.
+            const MODAL_MAX_W = 480;
+            const modalWidth = Math.min(vw, MODAL_MAX_W);
+            const modalLeft = (vw - modalWidth) / 2;
+            const modalRight = modalLeft + modalWidth;
+            const roomRight = vw - modalRight;
+            const roomLeft = modalLeft;
+
+            if (roomRight >= POPUP_W + MARGIN * 2) {
+              popupStyle = { position: 'fixed', width: POPUP_W, left: modalRight + GAP, bottom: 16 };
+            } else if (roomLeft >= POPUP_W + MARGIN * 2) {
+              popupStyle = { position: 'fixed', width: POPUP_W, left: modalLeft - GAP - POPUP_W, bottom: 16 };
+            } else {
+              popupStyle = { position: 'fixed', left: 12, right: 12, bottom: 16, width: 'auto', maxWidth: 'none' };
+            }
+            // Tidak ada panah penunjuk di fase ini (tidak lagi menunjuk ke tombol spesifik, tapi ke modal secara umum)
+          } else if (isMobileViewport) {
+            // MOBILE (fase spotlight biasa): pop-up didok sebagai bar di bagian bawah layar, lebar
+            // penuh — supaya tidak pernah menimpa isi tengah modal (form, daftar kategori, dll)
+            // seperti yang terjadi kalau dipaksa nempel di sisi tombol seperti versi desktop.
             popupStyle = {
               position: 'fixed', left: 12, right: 12, bottom: 16, width: 'auto', maxWidth: 'none',
             };
           } else {
-            const vh = window.innerHeight;
-            const vw = window.innerWidth;
             const rectCenterX = spotlightRect.left + spotlightRect.width / 2;
             const placeBelow = spotlightRect.top < vh / 2; // elemen di atas layar -> pop-up di bawahnya, dst.
             const alignRight = rectCenterX > vw / 2;
-            const MARGIN = 12;
 
             // Selalu hitung posisi lewat 'left' (bukan 'right') supaya tidak ada celah CSS positioning.
             // Kalau target di sisi kanan, sejajarkan tepi KANAN pop-up dengan tepi kanan target.
