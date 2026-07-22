@@ -40,7 +40,11 @@ export default function AdminPanel({ user, onLogout }) {
 
   async function loadFeedback() {
     const { data, error } = await supabase.rpc('admin_get_all_feedback');
-    if (!error) setFeedbackList(data || []);
+    if (error) {
+      console.error('[AdminPanel] Gagal ambil feedback:', error.message, error);
+    } else {
+      setFeedbackList(data || []);
+    }
     setFeedbackLoading(false);
   }
 
