@@ -1306,6 +1306,7 @@ export default function Dashboard({ user, onLogout }) {
 
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 3px; }
+        html { background: var(--bg-base); }
         body { font-family: 'Inter', sans-serif; background: var(--bg-base); margin: 0; color: var(--text-primary); }
         input, select { font-family: 'Inter', sans-serif; }
         @keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
@@ -2137,8 +2138,9 @@ export default function Dashboard({ user, onLogout }) {
         const isFirst = onboardingStep === 0;
 
         const PAD = 8;   // jarak ring spotlight dari tepi elemen asli
-        const GAP = 14;  // jarak pop-up dari spotlight
+        const GAP = 14;  // jarak pop-up dari spotlight (khusus desktop)
         const POPUP_W = 260;
+        const isMobileViewport = window.innerWidth < 640; // di HP, popup didok di bawah layar, bukan nempel tombol
 
         // Fase 1 (modal action sudah kebuka): ring & overlay gelap disembunyikan (tombolnya
         // toh ketutup modal), TAPI posisi pop-up tetap dihitung dari spotlightRect yang sama,
@@ -2159,51 +2161,64 @@ export default function Dashboard({ user, onLogout }) {
             height: spotlightRect.height + PAD * 2,
           } : null;
 
-          const vh = window.innerHeight;
-          const vw = window.innerWidth;
-          const rectCenterX = spotlightRect.left + spotlightRect.width / 2;
-          const placeBelow = spotlightRect.top < vh / 2; // elemen di atas layar -> pop-up di bawahnya, dst.
-          const alignRight = rectCenterX > vw / 2;
-          const MARGIN = 12;
+          if (isMobileViewport) {
+            // MOBILE: pop-up SELALU didok sebagai bar di bagian bawah layar, lebar penuh —
+            // supaya tidak pernah menimpa isi tengah modal (form, daftar kategori, dll) seperti
+            // yang terjadi kalau dipaksa nempel di sisi tombol seperti versi desktop. Ring
+            // spotlight-nya tetap jalan normal buat nunjukin tombolnya, cuma kotak teksnya yang
+            // dipindah ke bawah. Tidak ada panah penunjuk di mode ini (karena tidak lagi nempel).
+            popupStyle = {
+              position: 'fixed', left: 12, right: 12, bottom: 16, width: 'auto', maxWidth: 'none',
+            };
+          } else {
+            const vh = window.innerHeight;
+            const vw = window.innerWidth;
+            const rectCenterX = spotlightRect.left + spotlightRect.width / 2;
+            const placeBelow = spotlightRect.top < vh / 2; // elemen di atas layar -> pop-up di bawahnya, dst.
+            const alignRight = rectCenterX > vw / 2;
+            const MARGIN = 12;
 
-          // Selalu hitung posisi lewat 'left' (bukan 'right') supaya tidak ada celah CSS positioning.
-          // Kalau target di sisi kanan, sejajarkan tepi KANAN pop-up dengan tepi kanan target.
-          // Kalau target di sisi kiri, sejajarkan tepi KIRI pop-up dengan tepi kiri target.
-          let popupLeft = alignRight
-            ? (spotlightRect.left + spotlightRect.width) - POPUP_W
-            : spotlightRect.left;
-          // Jangan sampai keluar layar di kanan maupun kiri
-          popupLeft = Math.min(popupLeft, vw - POPUP_W - MARGIN);
-          popupLeft = Math.max(popupLeft, MARGIN);
+            // Selalu hitung posisi lewat 'left' (bukan 'right') supaya tidak ada celah CSS positioning.
+            // Kalau target di sisi kanan, sejajarkan tepi KANAN pop-up dengan tepi kanan target.
+            // Kalau target di sisi kiri, sejajarkan tepi KIRI pop-up dengan tepi kiri target.
+            let popupLeft = alignRight
+              ? (spotlightRect.left + spotlightRect.width) - POPUP_W
+              : spotlightRect.left;
+            // Jangan sampai keluar layar di kanan maupun kiri
+            popupLeft = Math.min(popupLeft, vw - POPUP_W - MARGIN);
+            popupLeft = Math.max(popupLeft, MARGIN);
 
-          popupStyle = {
-            position: 'fixed',
-            width: POPUP_W,
-            maxWidth: 'calc(100vw - 24px)',
-            left: popupLeft,
-            ...(placeBelow
-              ? { top: spotlightRect.top + spotlightRect.height + GAP }
-              : { bottom: vh - spotlightRect.top + GAP }),
-          };
+            popupStyle = {
+              position: 'fixed',
+              width: POPUP_W,
+              maxWidth: 'calc(100vw - 24px)',
+              left: popupLeft,
+              ...(placeBelow
+                ? { top: spotlightRect.top + spotlightRect.height + GAP }
+                : { bottom: vh - spotlightRect.top + GAP }),
+            };
 
-          // Panah mengikuti titik tengah horizontal target ASLI, relatif terhadap posisi kiri pop-up
-          // (bukan angka tetap), supaya selalu presisi menunjuk ke tombolnya berapa pun lebar pop-up.
-          const arrowLeft = Math.min(
-            Math.max(rectCenterX - popupLeft - 7, 16),
-            POPUP_W - 16 - 14
-          );
+            // Panah mengikuti titik tengah horizontal target ASLI, relatif terhadap posisi kiri pop-up
+            // (bukan angka tetap), supaya selalu presisi menunjuk ke tombolnya berapa pun lebar pop-up.
+            const arrowLeft = Math.min(
+              Math.max(rectCenterX - popupLeft - 7, 16),
+              POPUP_W - 16 - 14
+            );
 
-          arrowStyle = {
-            position: 'absolute',
-            width: 0, height: 0,
-            borderStyle: 'solid',
-            left: arrowLeft,
-            ...(placeBelow
-              ? { top: -7, borderWidth: '0 7px 8px 7px', borderColor: `transparent transparent ${step.color} transparent` }
-              : { bottom: -7, borderWidth: '8px 7px 0 7px', borderColor: `${step.color} transparent transparent transparent` }),
-          };
+            arrowStyle = {
+              position: 'absolute',
+              width: 0, height: 0,
+              borderStyle: 'solid',
+              left: arrowLeft,
+              ...(placeBelow
+                ? { top: -7, borderWidth: '0 7px 8px 7px', borderColor: `transparent transparent ${step.color} transparent` }
+                : { bottom: -7, borderWidth: '8px 7px 0 7px', borderColor: `${step.color} transparent transparent transparent` }),
+            };
+          }
         } else {
-          popupStyle = { position: 'fixed', bottom: '40%', left: '50%', transform: 'translateX(-50%)', width: 280 };
+          popupStyle = isMobileViewport
+            ? { position: 'fixed', left: 12, right: 12, bottom: 16, width: 'auto', maxWidth: 'none' }
+            : { position: 'fixed', bottom: '40%', left: '50%', transform: 'translateX(-50%)', width: 280 };
         }
 
         return (
