@@ -232,6 +232,7 @@ export default function Dashboard({ user, onLogout }) {
   const importFileRef = useRef(null);
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [showExportChoice, setShowExportChoice] = useState(false);
   const [feedbackForm, setFeedbackForm] = useState({ category: 'saran', message: '', rating: 0 });
   const [savingFeedback, setSavingFeedback] = useState(false);
   const [feedbackSentMsg, setFeedbackSentMsg] = useState(false);
@@ -529,8 +530,11 @@ export default function Dashboard({ user, onLogout }) {
     ].sort((a, b) => new Date(b.date) - new Date(a.date)));
   }
 
-  function exportTransactionsExcel() {
-    const rows = transactions.map((t) => ({
+  // scope: 'all' = seluruh transaksi dari awal (perilaku lama), 'filtered' = cuma yang lagi
+  // ditampilkan di layar sekarang (sudah kefilter bulan aktif + tipe + kata kunci pencarian).
+  function exportTransactionsExcel(scope) {
+    const source = scope === 'filtered' ? filteredMonthTx : transactions;
+    const rows = source.map((t) => ({
       Tanggal: t.date,
       Tipe: t.type,
       Kategori: t.type === 'income' ? '' : (catLookup(t.category)?.label || ''),
@@ -541,7 +545,9 @@ export default function Dashboard({ user, onLogout }) {
     ws['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 30 }, { wch: 14 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Transaksi');
-    XLSX.writeFile(wb, `dompet-transaksi-${todayStr()}.xlsx`);
+    const suffix = scope === 'filtered' ? `-filter-${activeMonth}` : '-semua';
+    XLSX.writeFile(wb, `dompet-transaksi${suffix}-${todayStr()}.xlsx`);
+    setShowExportChoice(false);
   }
 
   async function handleImportExcel(e) {
@@ -1828,7 +1834,7 @@ export default function Dashboard({ user, onLogout }) {
           <div style={styles.txList}>
             {/* Export & Import Excel */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-              <button onClick={exportTransactionsExcel} style={styles.csvBtn}>
+              <button onClick={() => setShowExportChoice(true)} style={styles.csvBtn}>
                 <Download size={13} /> Export Excel
               </button>
               <button onClick={() => importFileRef.current?.click()} disabled={importing} style={{ ...styles.csvBtn, opacity: importing ? 0.6 : 1 }}>
@@ -2585,6 +2591,38 @@ export default function Dashboard({ user, onLogout }) {
       })()}
 
       {/* Modal: kelola transaksi berulang */}
+      {showExportChoice && (
+        <div style={styles.modalOverlay} onClick={() => setShowExportChoice(false)}>
+          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <span style={styles.modalTitle}>Export Excel</span>
+              <button onClick={() => setShowExportChoice(false)} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
+            </div>
+
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.6 }}>
+              Pilih transaksi mana yang mau di-export ke Excel.
+            </div>
+
+            <button
+              onClick={() => exportTransactionsExcel('filtered')}
+              style={{ ...styles.submitBtn, marginBottom: 10, background: 'var(--accent)' }}
+            >
+              Sesuai tampilan sekarang ({filteredMonthTx.length} transaksi)
+            </button>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 14, marginTop: -4 }}>
+              {monthLabel(activeMonth)}{txTypeFilter !== 'all' ? ` · tipe ${txTypeFilter}` : ''}{txSearch.trim() ? ` · cari "${txSearch.trim()}"` : ''}
+            </div>
+
+            <button
+              onClick={() => exportTransactionsExcel('all')}
+              style={{ ...styles.submitBtn, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            >
+              Semua transaksi ({transactions.length} transaksi, sejak awal)
+            </button>
+          </div>
+        </div>
+      )}
+
       {showFeedbackModal && (
         <div style={styles.modalOverlay} onClick={() => setShowFeedbackModal(false)}>
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
