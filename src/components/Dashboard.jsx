@@ -2153,6 +2153,14 @@ export default function Dashboard({ user, onLogout }) {
         const POPUP_W = 260;
         const isMobileViewport = window.innerWidth < 640; // di HP, popup didok di bawah layar, bukan nempel tombol
 
+        // Fase 1 (modal action sudah kebuka) DI MOBILE: modal-modal di app ini didok di BAWAH layar
+        // dan tombol utamanya (Selesai/Simpan/Catat Penjualan) ada di paling bawah — kalau popup ikut
+        // didok di bawah juga, tombol itu ketutup total (keluhan nyata dari screenshot). Makanya khusus
+        // kombinasi ini, popup dipindah ke ATAS layar (area kosong di atas modal) DAN dibikin ringkas
+        // (skip paragraf deskripsi panjang, karena user sudah baca itu di fase spotlight sebelumnya) —
+        // supaya tombol submit modal di bawah selalu bebas kesentuh.
+        const compactMobilePhase1 = isMobileViewport && step.action && obActionPhase === 1;
+
         // Fase 1 (modal action sudah kebuka): ring & overlay gelap disembunyikan (tombolnya
         // toh ketutup modal), TAPI posisi pop-up tetap dihitung dari spotlightRect yang sama,
         // supaya pop-up tetap nempel di sisi yang sama seperti waktu nyorot tombolnya tadi —
@@ -2176,7 +2184,10 @@ export default function Dashboard({ user, onLogout }) {
           const vw = window.innerWidth;
           const MARGIN = 12;
 
-          if (step.action && obActionPhase === 1) {
+          if (compactMobilePhase1) {
+            // Dock ke ATAS layar, ringkas — lihat penjelasan di atas.
+            popupStyle = { position: 'fixed', left: 12, right: 12, top: 12, width: 'auto', maxWidth: 'none' };
+          } else if (step.action && obActionPhase === 1) {
             // FASE 1 (modal sudah kebuka): posisi popup dihitung dari TEPI MODAL CARD, bukan lagi
             // posisi tombol aslinya — modal card selalu di-center dengan max-width 480px, jadi kita
             // tau persis tepi kiri/kanannya dari lebar layar. Kalau ada cukup ruang di samping modal,
@@ -2298,26 +2309,36 @@ export default function Dashboard({ user, onLogout }) {
               pointerEvents: 'all',
               background: 'var(--bg-card)',
               borderRadius: 18,
-              padding: '16px 18px',
+              padding: compactMobilePhase1 ? '12px 14px' : '16px 18px',
               boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px ${step.color}33`,
               border: `1px solid ${step.color}44`,
             }}>
               {/* Panah penunjuk arah ke elemen yang dituju */}
               {arrowStyle && <div style={arrowStyle} />}
               {/* Header: emoji + dots + skip */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                <span style={{ fontSize: 28 }}>{step.emoji}</span>
-                <div style={{ flex: 1, display: 'flex', gap: 4 }}>
-                  {ONBOARDING_STEPS.map((_, i) => (
-                    <div key={i} onClick={() => setOnboardingStep(i)} style={{
-                      width: i === onboardingStep ? 18 : 5,
-                      height: 5, borderRadius: 3,
-                      background: i === onboardingStep ? step.color : 'var(--bg-card2)',
-                      transition: 'all 0.3s ease',
-                      cursor: 'pointer',
-                    }} />
-                  ))}
-                </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: compactMobilePhase1 ? 0 : 10 }}>
+                <span style={{ fontSize: compactMobilePhase1 ? 20 : 28 }}>{step.emoji}</span>
+                {compactMobilePhase1 && (
+                  <div style={{
+                    fontFamily: "'Space Grotesk', sans-serif",
+                    fontWeight: 700, fontSize: 13.5,
+                    color: step.color, flex: 1,
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  }}>{step.title}</div>
+                )}
+                {!compactMobilePhase1 && (
+                  <div style={{ flex: 1, display: 'flex', gap: 4 }}>
+                    {ONBOARDING_STEPS.map((_, i) => (
+                      <div key={i} onClick={() => setOnboardingStep(i)} style={{
+                        width: i === onboardingStep ? 18 : 5,
+                        height: 5, borderRadius: 3,
+                        background: i === onboardingStep ? step.color : 'var(--bg-card2)',
+                        transition: 'all 0.3s ease',
+                        cursor: 'pointer',
+                      }} />
+                    ))}
+                  </div>
+                )}
                 <button onClick={finishOnboarding} style={{
                   background: 'transparent', border: 'none',
                   color: 'var(--text-muted)', fontSize: 12,
@@ -2325,21 +2346,26 @@ export default function Dashboard({ user, onLogout }) {
                 }}>✕</button>
               </div>
 
-              {/* Judul */}
-              <div style={{
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontWeight: 700, fontSize: 15,
-                color: step.color, marginBottom: 6,
-              }}>{step.title}</div>
+              {/* Judul (versi normal saja — versi compact sudah ditaruh di baris header) */}
+              {!compactMobilePhase1 && (
+                <div style={{
+                  fontFamily: "'Space Grotesk', sans-serif",
+                  fontWeight: 700, fontSize: 15,
+                  color: step.color, marginBottom: 6,
+                }}>{step.title}</div>
+              )}
 
-              {/* Deskripsi */}
-              <p style={{
-                fontSize: 12.5, color: 'var(--text-secondary)',
-                lineHeight: 1.6, margin: '0 0 14px',
-              }}>{step.desc}</p>
-
+              {/* Deskripsi — disembunyikan di mode ringkas, karena user sudah baca ini
+                  di fase spotlight sebelum modal dibuka. Cukup judul + tombol saja di sini,
+                  supaya popup tetap pendek dan tidak menutupi tombol submit modal di bawah. */}
+              {!compactMobilePhase1 && (
+                <p style={{
+                  fontSize: 12.5, color: 'var(--text-secondary)',
+                  lineHeight: 1.6, margin: '0 0 14px',
+                }}>{step.desc}</p>
+              )}
               {/* Tombol */}
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, marginTop: compactMobilePhase1 ? 10 : 0 }}>
                 {!isFirst && (
                   <button onClick={prevStep} style={{
                     flex: 1, padding: '8px 0', borderRadius: 10,
