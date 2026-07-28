@@ -298,6 +298,17 @@ export default function Dashboard({ user, onLogout }) {
   const [savingGoal, setSavingGoal] = useState(false);
   const [editingPriceTxId, setEditingPriceTxId] = useState(null); // id transaksi yang sedang diisi harga historisnya
   const [editingPriceValue, setEditingPriceValue] = useState('');
+  const [editingUnitsValue, setEditingUnitsValue] = useState(''); // alternatif: isi gram/unit langsung (bukan harga), buat transaksi lama yang belum ada harganya
+  const [editingFixMode, setEditingFixMode] = useState('price'); // 'price' | 'units' — pilihan cara isi manual buat transaksi yang belum ada harga
+  const [editingDetailAsset, setEditingDetailAsset] = useState(false); // lagi koreksi harga/unit dari modal Detail Transaksi
+  const [detailPriceValue, setDetailPriceValue] = useState('');
+  const [detailUnitsValue, setDetailUnitsValue] = useState('');
+  function openTxDetail(t) {
+    setSelectedTxDetail(t);
+    setEditingDetailAsset(false);
+    setDetailPriceValue('');
+    setDetailUnitsValue('');
+  }
   const [sellingCatId, setSellingCatId] = useState(null); // id kategori yang sedang dijual asetnya
   const [sellForm, setSellForm] = useState({ amount: '', date: todayStr(), note: '', isFullSale: false, unitsOverride: '' });
   const [savingSell, setSavingSell] = useState(false);
@@ -991,6 +1002,46 @@ export default function Dashboard({ user, onLogout }) {
     setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...t, assetPriceAtTx: price } : t)));
     setEditingPriceTxId(null);
     setEditingPriceValue('');
+    setEditingUnitsValue('');
+    setEditingFixMode('price');
+  }
+
+  // Alternatif dari isi harga: isi LANGSUNG jumlah gram/unit yang benar-benar dipegang
+  // (nyalin persis dari histori Pluang/Ajaib). Ini menghindari salah kaprah kalau yang
+  // diketik itu sebenarnya jumlah unit, bukan harga per unit — dua hal itu beda kolom.
+  async function saveHistoricalAssetUnits(txId) {
+    const units = parseFloat(editingUnitsValue);
+    if (!units || units <= 0) return;
+    const { error } = await supabase.from('transactions').update({ asset_units_override: units }).eq('id', txId);
+    if (error) { setSaveError(true); return; }
+    setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...t, assetUnitsOverride: units } : t)));
+    setEditingPriceTxId(null);
+    setEditingPriceValue('');
+    setEditingUnitsValue('');
+    setEditingFixMode('price');
+  }
+
+  // Koreksi harga/unit dari modal Detail Transaksi — dipakai untuk MEMPERBAIKI transaksi yang
+  // SUDAH punya harga/unit tapi salah ketik (beda dengan quick-fix di atas yang hanya muncul
+  // saat transaksi belum ada data sama sekali).
+  async function saveDetailAssetOverride(txId) {
+    const priceVal = detailPriceValue.trim() ? parseFloat(detailPriceValue) : null;
+    const unitsVal = detailUnitsValue.trim() ? parseFloat(detailUnitsValue) : null;
+    const updates = {};
+    if (unitsVal && unitsVal > 0) updates.asset_units_override = unitsVal;
+    if (priceVal && priceVal > 0) updates.asset_price_at_tx = priceVal;
+    if (Object.keys(updates).length === 0) return;
+
+    const { error } = await supabase.from('transactions').update(updates).eq('id', txId);
+    if (error) { setSaveError(true); return; }
+    const patch = {};
+    if (updates.asset_units_override !== undefined) patch.assetUnitsOverride = updates.asset_units_override;
+    if (updates.asset_price_at_tx !== undefined) patch.assetPriceAtTx = updates.asset_price_at_tx;
+    setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...t, ...patch } : t)));
+    setSelectedTxDetail((prev) => (prev && prev.id === txId ? { ...prev, ...patch } : prev));
+    setEditingDetailAsset(false);
+    setDetailPriceValue('');
+    setDetailUnitsValue('');
   }
 
   // Catat penjualan aset (emas/reksadana) — dicatat sebagai transaksi saving dengan
@@ -1496,7 +1547,7 @@ export default function Dashboard({ user, onLogout }) {
                         {subTx.length > 0 && (
                           <div style={{ marginTop: 10, borderTop: '1px solid #22291F', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
                             {(expandedCatIds.has(c.id) ? subTx : subTx.slice(0, 3)).map((t) => (
-                              <div key={t.id} onClick={() => setSelectedTxDetail(t)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, cursor: 'pointer' }}>
+                              <div key={t.id} onClick={() => openTxDetail(t)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, cursor: 'pointer' }}>
                                 <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                   {t.note || c.label}
                                 </span>
@@ -1712,7 +1763,7 @@ export default function Dashboard({ user, onLogout }) {
                               const needsPrice = !!c.asset_type && !t.assetPriceAtTx && !t.assetUnitsOverride;
                               return (
                                 <div key={t.id}>
-                                  <div onClick={() => setSelectedTxDetail(t)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, cursor: 'pointer' }}>
+                                  <div onClick={() => openTxDetail(t)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, cursor: 'pointer' }}>
                                     <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                       {t.assetAction === 'sell' && <span style={{ color: '#FF9466' }}>🔻 Jual: </span>}
                                       {t.note || c.label}
@@ -1725,21 +1776,42 @@ export default function Dashboard({ user, onLogout }) {
                                   </div>
                                   {needsPrice && (
                                     editingPriceTxId === t.id ? (
-                                      <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-                                        <input
-                                          type="number" inputMode="numeric" autoFocus
-                                          placeholder={c.asset_type === 'gold' ? 'Harga emas/gram saat itu' : 'NAV reksadana/unit saat itu'}
-                                          value={editingPriceValue}
-                                          onChange={(e) => setEditingPriceValue(e.target.value)}
-                                          onKeyDown={(e) => { if (e.key === 'Enter') saveHistoricalAssetPrice(t.id); }}
-                                          style={{ ...styles.input, marginBottom: 0, fontSize: 11, padding: '5px 8px', flex: 1 }}
-                                        />
-                                        <button onClick={() => saveHistoricalAssetPrice(t.id)} style={{ ...styles.smallIconBtn, background: '#7FE8A4' }}><Check size={13} color="#0F1410" /></button>
-                                        <button onClick={() => { setEditingPriceTxId(null); setEditingPriceValue(''); }} style={styles.smallIconBtn}><X size={13} color="#9CA89F" /></button>
+                                      <div style={{ marginTop: 4 }}>
+                                        <div style={{ display: 'flex', gap: 10, marginBottom: 4 }}>
+                                          <button onClick={() => setEditingFixMode('price')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 600, color: editingFixMode === 'price' ? '#7FE8A4' : 'var(--text-muted)', textDecoration: editingFixMode === 'price' ? 'underline' : 'none', padding: 0 }}>Isi harga/NAV</button>
+                                          <button onClick={() => setEditingFixMode('units')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 600, color: editingFixMode === 'units' ? '#7FE8A4' : 'var(--text-muted)', textDecoration: editingFixMode === 'units' ? 'underline' : 'none', padding: 0 }}>Isi jumlah gram/unit langsung</button>
+                                        </div>
+                                        {editingFixMode === 'price' ? (
+                                          <div style={{ display: 'flex', gap: 6 }}>
+                                            <input
+                                              type="number" inputMode="numeric" autoFocus
+                                              placeholder={c.asset_type === 'gold' ? 'Harga emas/gram saat itu' : 'NAV reksadana/unit saat itu'}
+                                              value={editingPriceValue}
+                                              onChange={(e) => setEditingPriceValue(e.target.value)}
+                                              onKeyDown={(e) => { if (e.key === 'Enter') saveHistoricalAssetPrice(t.id); }}
+                                              style={{ ...styles.input, marginBottom: 0, fontSize: 11, padding: '5px 8px', flex: 1 }}
+                                            />
+                                            <button onClick={() => saveHistoricalAssetPrice(t.id)} style={{ ...styles.smallIconBtn, background: '#7FE8A4' }}><Check size={13} color="#0F1410" /></button>
+                                            <button onClick={() => { setEditingPriceTxId(null); setEditingPriceValue(''); setEditingUnitsValue(''); setEditingFixMode('price'); }} style={styles.smallIconBtn}><X size={13} color="#9CA89F" /></button>
+                                          </div>
+                                        ) : (
+                                          <div style={{ display: 'flex', gap: 6 }}>
+                                            <input
+                                              type="number" inputMode="decimal" autoFocus
+                                              placeholder={c.asset_type === 'gold' ? 'Contoh: 0.343380 (gram)' : 'Contoh: 56.4905 (unit)'}
+                                              value={editingUnitsValue}
+                                              onChange={(e) => setEditingUnitsValue(e.target.value)}
+                                              onKeyDown={(e) => { if (e.key === 'Enter') saveHistoricalAssetUnits(t.id); }}
+                                              style={{ ...styles.input, marginBottom: 0, fontSize: 11, padding: '5px 8px', flex: 1 }}
+                                            />
+                                            <button onClick={() => saveHistoricalAssetUnits(t.id)} style={{ ...styles.smallIconBtn, background: '#7FE8A4' }}><Check size={13} color="#0F1410" /></button>
+                                            <button onClick={() => { setEditingPriceTxId(null); setEditingPriceValue(''); setEditingUnitsValue(''); setEditingFixMode('price'); }} style={styles.smallIconBtn}><X size={13} color="#9CA89F" /></button>
+                                          </div>
+                                        )}
                                       </div>
                                     ) : (
                                       <button
-                                        onClick={() => { setEditingPriceTxId(t.id); setEditingPriceValue(''); }}
+                                        onClick={() => { setEditingPriceTxId(t.id); setEditingPriceValue(''); setEditingUnitsValue(''); setEditingFixMode('price'); }}
                                         style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#FF9466', fontSize: 10.5, padding: '2px 0', display: 'flex', alignItems: 'center', gap: 3 }}
                                       >⚠️ Belum ada harga saat beli — klik untuk isi manual</button>
                                     )
@@ -1904,7 +1976,7 @@ export default function Dashboard({ user, onLogout }) {
                 {monthTx.length === 0 ? 'Belum ada transaksi bulan ini.' : 'Tidak ada transaksi yang cocok dengan pencarian.'}
               </div>
             )}
-            {filteredMonthTx.map((t) => (<TxRow key={t.id} t={t} onDelete={deleteTransaction} catLookup={catLookup} onSelect={setSelectedTxDetail} />))}
+            {filteredMonthTx.map((t) => (<TxRow key={t.id} t={t} onDelete={deleteTransaction} catLookup={catLookup} onSelect={openTxDetail} />))}
           </div>
         )}
 
@@ -2483,11 +2555,11 @@ export default function Dashboard({ user, onLogout }) {
                 <button onClick={() => setSelectedTxDetail(null)} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
               </div>
 
-              {/* Tipe transaksi — badge non-interaktif, dipertahankan style yang sama dengan form tambah */}
+              {/* Tipe transaksi — cuma tampilkan badge sesuai tipe transaksi ini, tidak perlu tampilkan ketiganya */}
               <div style={styles.typeToggle}>
-                <div style={{ ...styles.typeBtn, cursor: 'default', ...(t.type === 'expense' ? styles.typeBtnExpenseActive : {}) }}>Expense</div>
-                <div style={{ ...styles.typeBtn, cursor: 'default', ...(isSaving ? styles.typeBtnSavingActive : {}) }}>Saving</div>
-                <div style={{ ...styles.typeBtn, cursor: 'default', ...(isIncome ? styles.typeBtnIncomeActive : {}) }}>Income</div>
+                <div style={{ ...styles.typeBtn, cursor: 'default', flex: 'initial', padding: '10px 20px', ...(t.type === 'expense' ? styles.typeBtnExpenseActive : isSaving ? styles.typeBtnSavingActive : styles.typeBtnIncomeActive) }}>
+                  {t.type === 'expense' ? 'Expense' : isSaving ? 'Saving' : 'Income'}
+                </div>
               </div>
 
               {isSaving && hasAsset && (
@@ -2512,6 +2584,39 @@ export default function Dashboard({ user, onLogout }) {
                   {t.assetPriceAtTx && (
                     <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: -6, marginBottom: 10 }}>
                       Harga/NAV saat transaksi: {formatRupiah(t.assetPriceAtTx)} / {unitLabel}
+                    </div>
+                  )}
+
+                  {!editingDetailAsset ? (
+                    <button
+                      onClick={() => setEditingDetailAsset(true)}
+                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#6FB7E8', fontSize: 11, padding: '2px 0', marginTop: -6, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 3 }}
+                    >✏️ Koreksi harga/unit transaksi ini</button>
+                  ) : (
+                    <div style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginTop: -6, marginBottom: 14 }}>
+                      <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 8 }}>
+                        Salah isi kolom (mis. kolom "harga" ke-isi jumlah unit)? Betulkan salah satu kolom di bawah — kolom yang dikosongkan tidak akan diubah.
+                      </div>
+                      <label style={{ ...styles.formLabel, marginTop: 0, fontSize: 11 }}>Jumlah gram/unit yang benar</label>
+                      <input
+                        type="number" inputMode="decimal"
+                        placeholder={cat.asset_type === 'gold' ? 'Contoh: 0.343380' : 'Contoh: 56.4905'}
+                        value={detailUnitsValue}
+                        onChange={(e) => setDetailUnitsValue(e.target.value)}
+                        style={{ ...styles.input, fontSize: 12, padding: '8px 10px' }}
+                      />
+                      <label style={{ ...styles.formLabel, fontSize: 11 }}>Atau harga/NAV per {unitLabel} yang benar</label>
+                      <input
+                        type="number" inputMode="numeric"
+                        placeholder={cat.asset_type === 'gold' ? 'Harga emas/gram saat itu' : 'NAV reksadana/unit saat itu'}
+                        value={detailPriceValue}
+                        onChange={(e) => setDetailPriceValue(e.target.value)}
+                        style={{ ...styles.input, fontSize: 12, padding: '8px 10px', marginBottom: 10 }}
+                      />
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => saveDetailAssetOverride(t.id)} style={{ ...styles.submitBtn, marginTop: 0, padding: '9px 0', fontSize: 12.5 }}>Simpan koreksi</button>
+                        <button onClick={() => { setEditingDetailAsset(false); setDetailPriceValue(''); setDetailUnitsValue(''); }} style={{ ...styles.submitBtn, marginTop: 0, padding: '9px 0', fontSize: 12.5, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}>Batal</button>
+                      </div>
                     </div>
                   )}
                 </>
