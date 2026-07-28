@@ -227,6 +227,7 @@ export default function Dashboard({ user, onLogout }) {
   const [txSearch, setTxSearch] = useState('');
   const [txTypeFilter, setTxTypeFilter] = useState('all'); // all | income | expense | saving
   const [pendingDelete, setPendingDelete] = useState(null); // { tx, timeoutId } — untuk fitur undo hapus
+  const [selectedTxDetail, setSelectedTxDetail] = useState(null); // transaksi yang lagi dilihat detailnya (klik dari history)
   const [importing, setImporting] = useState(false);
   const [importSummary, setImportSummary] = useState(null); // { success, failed, errors: [] }
   const importFileRef = useRef(null);
@@ -1495,7 +1496,7 @@ export default function Dashboard({ user, onLogout }) {
                         {subTx.length > 0 && (
                           <div style={{ marginTop: 10, borderTop: '1px solid #22291F', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
                             {(expandedCatIds.has(c.id) ? subTx : subTx.slice(0, 3)).map((t) => (
-                              <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                              <div key={t.id} onClick={() => setSelectedTxDetail(t)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, cursor: 'pointer' }}>
                                 <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                   {t.note || c.label}
                                 </span>
@@ -1503,7 +1504,7 @@ export default function Dashboard({ user, onLogout }) {
                                   {new Date(t.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
                                 </span>
                                 <span style={{ fontSize: 12, fontWeight: 600, color: '#FF9466', flexShrink: 0 }}>-{formatRupiah(t.amount)}</span>
-                                <button onClick={() => deleteTransaction(t.id)} style={styles.deleteBtn}><Trash2 size={12} color="#6B7568" /></button>
+                                <button onClick={(e) => { e.stopPropagation(); deleteTransaction(t.id); }} style={styles.deleteBtn}><Trash2 size={12} color="#6B7568" /></button>
                               </div>
                             ))}
                             {subTx.length > 3 && (
@@ -1711,7 +1712,7 @@ export default function Dashboard({ user, onLogout }) {
                               const needsPrice = !!c.asset_type && !t.assetPriceAtTx && !t.assetUnitsOverride;
                               return (
                                 <div key={t.id}>
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                                  <div onClick={() => setSelectedTxDetail(t)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, cursor: 'pointer' }}>
                                     <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                       {t.assetAction === 'sell' && <span style={{ color: '#FF9466' }}>🔻 Jual: </span>}
                                       {t.note || c.label}
@@ -1720,7 +1721,7 @@ export default function Dashboard({ user, onLogout }) {
                                     <span style={{ fontSize: 12, fontWeight: 600, color: t.assetAction === 'sell' ? '#FF9466' : '#6FB7E8', flexShrink: 0 }}>
                                       {t.assetAction === 'sell' ? '+' : '-'}{formatRupiah(t.amount)}
                                     </span>
-                                    <button onClick={() => deleteTransaction(t.id)} style={styles.deleteBtn}><Trash2 size={12} color="#6B7568" /></button>
+                                    <button onClick={(e) => { e.stopPropagation(); deleteTransaction(t.id); }} style={styles.deleteBtn}><Trash2 size={12} color="#6B7568" /></button>
                                   </div>
                                   {needsPrice && (
                                     editingPriceTxId === t.id ? (
@@ -1903,7 +1904,7 @@ export default function Dashboard({ user, onLogout }) {
                 {monthTx.length === 0 ? 'Belum ada transaksi bulan ini.' : 'Tidak ada transaksi yang cocok dengan pencarian.'}
               </div>
             )}
-            {filteredMonthTx.map((t) => (<TxRow key={t.id} t={t} onDelete={deleteTransaction} catLookup={catLookup} />))}
+            {filteredMonthTx.map((t) => (<TxRow key={t.id} t={t} onDelete={deleteTransaction} catLookup={catLookup} onSelect={setSelectedTxDetail} />))}
           </div>
         )}
 
@@ -2460,6 +2461,89 @@ export default function Dashboard({ user, onLogout }) {
         </div>
       )}
 
+      {/* Modal: detail transaksi (read-only) — dibuka saat history transaksi di-klik */}
+      {selectedTxDetail && (() => {
+        const t = selectedTxDetail;
+        const isIncome = t.type === 'income';
+        const isSaving = t.type === 'saving';
+        const cat = !isIncome ? catLookup(t.category) : null;
+        const CatIcon = cat ? getIconComponent(cat.icon) : null;
+        const isSell = t.assetAction === 'sell';
+        const hasAsset = !!cat?.asset_type;
+        const unitLabel = cat?.asset_type === 'gold' ? 'gram' : 'unit';
+        const units = t.assetUnitsOverride != null ? t.assetUnitsOverride
+          : (t.assetPriceAtTx ? t.amount / t.assetPriceAtTx : null);
+        const tglFormatted = new Date(t.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+        return (
+          <div style={styles.modalOverlay} onClick={() => setSelectedTxDetail(null)}>
+            <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+              <div style={styles.modalHeader}>
+                <span style={styles.modalTitle}>Detail Transaksi</span>
+                <button onClick={() => setSelectedTxDetail(null)} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
+              </div>
+
+              {/* Tipe transaksi — badge non-interaktif, dipertahankan style yang sama dengan form tambah */}
+              <div style={styles.typeToggle}>
+                <div style={{ ...styles.typeBtn, cursor: 'default', ...(t.type === 'expense' ? styles.typeBtnExpenseActive : {}) }}>Expense</div>
+                <div style={{ ...styles.typeBtn, cursor: 'default', ...(isSaving ? styles.typeBtnSavingActive : {}) }}>Saving</div>
+                <div style={{ ...styles.typeBtn, cursor: 'default', ...(isIncome ? styles.typeBtnIncomeActive : {}) }}>Income</div>
+              </div>
+
+              {isSaving && hasAsset && (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: isSell ? '#FF9466' : '#6FB7E8', background: isSell ? '#FF946622' : '#6FB7E822', padding: '4px 10px', borderRadius: 20, marginBottom: 14 }}>
+                  {isSell ? '🔻 Transaksi Jual Aset' : '📈 Transaksi Beli Aset'}
+                </div>
+              )}
+
+              <label style={styles.formLabel}>Jumlah (Rp)</label>
+              <div style={{ ...styles.input, display: 'flex', alignItems: 'center', color: isIncome || isSell ? '#7FE8A4' : (isSaving ? '#6FB7E8' : '#FF9466'), fontWeight: 700 }}>
+                {isIncome || isSell ? '+' : isSaving ? '' : '-'}{formatRupiah(t.amount)}
+              </div>
+
+              {isSaving && hasAsset && (
+                <>
+                  <label style={styles.formLabel}>Jumlah {unitLabel === 'gram' ? 'gram' : 'unit'}</label>
+                  <div style={styles.input}>
+                    {units != null
+                      ? `${units.toLocaleString('id-ID', { maximumFractionDigits: 6 })} ${unitLabel}${t.assetUnitsOverride != null ? ' (input manual)' : ' (dihitung otomatis)'}`
+                      : 'Belum tercatat — harga/NAV saat transaksi belum diisi'}
+                  </div>
+                  {t.assetPriceAtTx && (
+                    <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: -6, marginBottom: 10 }}>
+                      Harga/NAV saat transaksi: {formatRupiah(t.assetPriceAtTx)} / {unitLabel}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {!isIncome && (
+                <>
+                  <label style={styles.formLabel}>Kategori</label>
+                  <div style={{ ...styles.catChip, cursor: 'default', width: '100%', boxSizing: 'border-box', borderColor: cat ? cat.color : '#2A332C', background: cat ? cat.color + '22' : 'transparent' }}>
+                    {cat && CatIcon ? <CatIcon size={13} color={cat.color} /> : null}
+                    {cat ? cat.label : 'Tanpa kategori'}
+                  </div>
+                </>
+              )}
+
+              <label style={styles.formLabel}>Catatan</label>
+              <div style={styles.input}>{t.note || '—'}</div>
+
+              <label style={styles.formLabel}>Tanggal</label>
+              <div style={styles.input}>{tglFormatted}</div>
+
+              <button
+                onClick={() => { deleteTransaction(t.id); setSelectedTxDetail(null); }}
+                style={{ ...styles.submitBtn, background: 'transparent', border: '1px solid #5A2020', color: '#FF9466', marginTop: 14 }}
+              >
+                <Trash2 size={15} color="#FF9466" />Hapus transaksi ini
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Modal: atur budget */}
       {showBudgetModal && (
         <div style={styles.modalOverlay} onClick={() => setShowBudgetModal(null)}>
@@ -2939,7 +3023,7 @@ export default function Dashboard({ user, onLogout }) {
   );
 }
 
-function TxRow({ t, onDelete, catLookup }) {
+function TxRow({ t, onDelete, catLookup, onSelect }) {
   const isIncome = t.type === 'income';
   const isSaving = t.type === 'saving';
   const cat = isIncome ? null : catLookup(t.category);
@@ -2959,7 +3043,7 @@ function TxRow({ t, onDelete, catLookup }) {
   }
   if (cat && CatIcon) iconEl = <CatIcon size={15} color={cat.color} />;
   return (
-    <div style={styles.txRow}>
+    <div style={{ ...styles.txRow, cursor: 'pointer' }} onClick={() => onSelect && onSelect(t)}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
         <div style={{ width: 32, height: 32, borderRadius: 8, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{iconEl}</div>
         <div style={{ minWidth: 0 }}>
@@ -2969,7 +3053,7 @@ function TxRow({ t, onDelete, catLookup }) {
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <span style={{ fontSize: 13, fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif", color: amountColor }}>{sign}{formatRupiah(t.amount)}</span>
-        <button onClick={() => onDelete(t.id)} style={styles.deleteBtn}><Trash2 size={14} color="#6B7568" /></button>
+        <button onClick={(e) => { e.stopPropagation(); onDelete(t.id); }} style={styles.deleteBtn}><Trash2 size={14} color="#6B7568" /></button>
       </div>
     </div>
   );
