@@ -296,10 +296,8 @@ export default function Dashboard({ user, onLogout }) {
   const [goalEditingCatId, setGoalEditingCatId] = useState(null); // id kategori saving yang sedang diatur goal-nya
   const [goalForm, setGoalForm] = useState({ amount: '', date: '' });
   const [savingGoal, setSavingGoal] = useState(false);
-  const [editingPriceTxId, setEditingPriceTxId] = useState(null); // id transaksi yang sedang diisi harga historisnya
-  const [editingPriceValue, setEditingPriceValue] = useState('');
-  const [editingUnitsValue, setEditingUnitsValue] = useState(''); // alternatif: isi gram/unit langsung (bukan harga), buat transaksi lama yang belum ada harganya
-  const [editingFixMode, setEditingFixMode] = useState('price'); // 'price' | 'units' — pilihan cara isi manual buat transaksi yang belum ada harga
+  const [editingPriceTxId, setEditingPriceTxId] = useState(null); // id transaksi yang sedang diisi jumlah gram/unit-nya
+  const [editingUnitsValue, setEditingUnitsValue] = useState(''); // isi jumlah gram/unit langsung, buat transaksi lama/berulang yang belum tercatat
   const [editingDetailAsset, setEditingDetailAsset] = useState(false); // lagi koreksi harga/unit dari modal Detail Transaksi
   const [detailPriceValue, setDetailPriceValue] = useState('');
   const [detailUnitsValue, setDetailUnitsValue] = useState('');
@@ -344,7 +342,7 @@ export default function Dashboard({ user, onLogout }) {
   // di bulan KALENDER SAAT INI (bukan bulan yang sedang dilihat di Dashboard) dan belum pernah dibuat
   // transaksinya bulan ini, buatkan otomatis. Tanggal di-clamp ke tanggal terakhir bulan itu kalau perlu
   // (mis. aturan tanggal 31 tapi bulan berjalan cuma 30/28/29 hari).
-  async function generateDueRecurringTransactions(rules, existingTx) {
+  async function generateDueRecurringTransactions(rules, existingTx, catsFresh, goldPriceFresh, reksadanaNavFresh) {
     const today = new Date();
     const y = today.getFullYear();
     const m = today.getMonth() + 1; // 1-12
@@ -360,6 +358,11 @@ export default function Dashboard({ user, onLogout }) {
       const alreadyGenerated = existingTx.some((t) => t.recurringId === rule.id && monthKey(t.date) === currentMonthKey);
       if (alreadyGenerated) continue;
 
+      const selectedCat = catsFresh.find((c) => c.id === rule.category_id);
+      const assetPriceAtTx = rule.type === 'saving' && selectedCat?.asset_type === 'gold' ? (goldPriceFresh || null)
+        : rule.type === 'saving' && selectedCat?.asset_type === 'reksadana_syariah' ? (reksadanaNavFresh || null)
+        : null;
+
       toCreate.push({
         user_id: user.id,
         type: rule.type,
@@ -368,6 +371,8 @@ export default function Dashboard({ user, onLogout }) {
         note: rule.note || '',
         tx_date: `${currentMonthKey}-${pad2(clampedDay)}`,
         recurring_id: rule.id,
+        asset_price_at_tx: assetPriceAtTx,
+        asset_action: selectedCat?.asset_type ? 'buy' : null,
       });
     }
 
@@ -376,7 +381,7 @@ export default function Dashboard({ user, onLogout }) {
     const { data, error } = await supabase.from('transactions').insert(toCreate).select();
     if (!error && data) {
       setTransactions((prev) => [
-        ...data.map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date, recurringId: t.recurring_id })),
+        ...data.map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date, recurringId: t.recurring_id, assetPriceAtTx: t.asset_price_at_tx ? Number(t.asset_price_at_tx) : null, assetAction: t.asset_action || 'buy', assetUnitsOverride: t.asset_units_override ? Number(t.asset_units_override) : null })),
         ...prev,
       ].sort((a, b) => new Date(b.date) - new Date(a.date)));
     }
@@ -398,11 +403,13 @@ export default function Dashboard({ user, onLogout }) {
         setTransactions(txList);
         setBudgets(bgs || []);
         setRecurringList(recs || []);
+        let freshGoldPrice = null;
+        let freshReksadanaNav = null;
         if (!priceErr && prices) {
           const gold = prices.find((p) => p.asset_name === 'gold_pluang');
-          if (gold) setLatestGoldPrice(Number(gold.price));
+          if (gold) { freshGoldPrice = Number(gold.price); setLatestGoldPrice(freshGoldPrice); }
           const reksadana = prices.find((p) => p.asset_name === 'reksadana_insight_syariah');
-          if (reksadana) setLatestReksadanaNav(Number(reksadana.price));
+          if (reksadana) { freshReksadanaNav = Number(reksadana.price); setLatestReksadanaNav(freshReksadanaNav); }
         }
         setSaveError(false);
         // Tampilkan onboarding hanya untuk user baru (belum punya kategori sama sekali)
@@ -412,8 +419,11 @@ export default function Dashboard({ user, onLogout }) {
           if (!alreadyDone) setShowOnboarding(true);
         }
         // Cek & generate transaksi berulang yang sudah jatuh tempo bulan ini
+        // (pakai cats/harga yang BARU SAJA di-fetch di atas, bukan state React lama,
+        // supaya tidak kena stale closure — loadAll ini di-memo via useCallback
+        // dan hanya dibuat ulang saat user.id berubah)
         if (recs && recs.length > 0) {
-          generateDueRecurringTransactions(recs, txList);
+          generateDueRecurringTransactions(recs, txList, cats || [], freshGoldPrice, freshReksadanaNav);
         }
       }
     } catch (e) { setSaveError(true); }
@@ -992,23 +1002,10 @@ export default function Dashboard({ user, onLogout }) {
     setGoalEditingCatId(null);
   }
 
-  // Isi harga emas per gram secara manual untuk transaksi LAMA yang dibuat sebelum
-  // fitur pelacakan emas ada (jadi belum otomatis tercatat harganya saat itu).
-  async function saveHistoricalAssetPrice(txId) {
-    const price = parseFloat(editingPriceValue);
-    if (!price || price <= 0) return;
-    const { error } = await supabase.from('transactions').update({ asset_price_at_tx: price }).eq('id', txId);
-    if (error) { setSaveError(true); return; }
-    setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...t, assetPriceAtTx: price } : t)));
-    setEditingPriceTxId(null);
-    setEditingPriceValue('');
-    setEditingUnitsValue('');
-    setEditingFixMode('price');
-  }
-
-  // Alternatif dari isi harga: isi LANGSUNG jumlah gram/unit yang benar-benar dipegang
-  // (nyalin persis dari histori Pluang/Ajaib). Ini menghindari salah kaprah kalau yang
-  // diketik itu sebenarnya jumlah unit, bukan harga per unit — dua hal itu beda kolom.
+  // Isi jumlah gram/unit secara LANGSUNG untuk transaksi yang belum tercatat datanya
+  // (transaksi lama sebelum fitur ini ada, atau transaksi berulang) — nyalin persis dari
+  // histori Pluang/Ajaib. Sengaja tidak minta "harga per unit" di sini karena rawan
+  // tertukar (yang diketik user adalah jumlah unit, bukan harga per unit).
   async function saveHistoricalAssetUnits(txId) {
     const units = parseFloat(editingUnitsValue);
     if (!units || units <= 0) return;
@@ -1016,9 +1013,7 @@ export default function Dashboard({ user, onLogout }) {
     if (error) { setSaveError(true); return; }
     setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...t, assetUnitsOverride: units } : t)));
     setEditingPriceTxId(null);
-    setEditingPriceValue('');
     setEditingUnitsValue('');
-    setEditingFixMode('price');
   }
 
   // Koreksi harga/unit dari modal Detail Transaksi — dipakai untuk MEMPERBAIKI transaksi yang
@@ -1776,44 +1771,23 @@ export default function Dashboard({ user, onLogout }) {
                                   </div>
                                   {needsPrice && (
                                     editingPriceTxId === t.id ? (
-                                      <div style={{ marginTop: 4 }}>
-                                        <div style={{ display: 'flex', gap: 10, marginBottom: 4 }}>
-                                          <button onClick={() => setEditingFixMode('price')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 600, color: editingFixMode === 'price' ? '#7FE8A4' : 'var(--text-muted)', textDecoration: editingFixMode === 'price' ? 'underline' : 'none', padding: 0 }}>Isi harga/NAV</button>
-                                          <button onClick={() => setEditingFixMode('units')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 600, color: editingFixMode === 'units' ? '#7FE8A4' : 'var(--text-muted)', textDecoration: editingFixMode === 'units' ? 'underline' : 'none', padding: 0 }}>Isi jumlah gram/unit langsung</button>
-                                        </div>
-                                        {editingFixMode === 'price' ? (
-                                          <div style={{ display: 'flex', gap: 6 }}>
-                                            <input
-                                              type="number" inputMode="numeric" autoFocus
-                                              placeholder={c.asset_type === 'gold' ? 'Harga emas/gram saat itu' : 'NAV reksadana/unit saat itu'}
-                                              value={editingPriceValue}
-                                              onChange={(e) => setEditingPriceValue(e.target.value)}
-                                              onKeyDown={(e) => { if (e.key === 'Enter') saveHistoricalAssetPrice(t.id); }}
-                                              style={{ ...styles.input, marginBottom: 0, fontSize: 11, padding: '5px 8px', flex: 1 }}
-                                            />
-                                            <button onClick={() => saveHistoricalAssetPrice(t.id)} style={{ ...styles.smallIconBtn, background: '#7FE8A4' }}><Check size={13} color="#0F1410" /></button>
-                                            <button onClick={() => { setEditingPriceTxId(null); setEditingPriceValue(''); setEditingUnitsValue(''); setEditingFixMode('price'); }} style={styles.smallIconBtn}><X size={13} color="#9CA89F" /></button>
-                                          </div>
-                                        ) : (
-                                          <div style={{ display: 'flex', gap: 6 }}>
-                                            <input
-                                              type="number" inputMode="decimal" autoFocus
-                                              placeholder={c.asset_type === 'gold' ? 'Contoh: 0.343380 (gram)' : 'Contoh: 56.4905 (unit)'}
-                                              value={editingUnitsValue}
-                                              onChange={(e) => setEditingUnitsValue(e.target.value)}
-                                              onKeyDown={(e) => { if (e.key === 'Enter') saveHistoricalAssetUnits(t.id); }}
-                                              style={{ ...styles.input, marginBottom: 0, fontSize: 11, padding: '5px 8px', flex: 1 }}
-                                            />
-                                            <button onClick={() => saveHistoricalAssetUnits(t.id)} style={{ ...styles.smallIconBtn, background: '#7FE8A4' }}><Check size={13} color="#0F1410" /></button>
-                                            <button onClick={() => { setEditingPriceTxId(null); setEditingPriceValue(''); setEditingUnitsValue(''); setEditingFixMode('price'); }} style={styles.smallIconBtn}><X size={13} color="#9CA89F" /></button>
-                                          </div>
-                                        )}
+                                      <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                                        <input
+                                          type="number" inputMode="decimal" autoFocus
+                                          placeholder={c.asset_type === 'gold' ? 'Contoh: 0.343380 (gram)' : 'Contoh: 56.4905 (unit)'}
+                                          value={editingUnitsValue}
+                                          onChange={(e) => setEditingUnitsValue(e.target.value)}
+                                          onKeyDown={(e) => { if (e.key === 'Enter') saveHistoricalAssetUnits(t.id); }}
+                                          style={{ ...styles.input, marginBottom: 0, fontSize: 11, padding: '5px 8px', flex: 1 }}
+                                        />
+                                        <button onClick={() => saveHistoricalAssetUnits(t.id)} style={{ ...styles.smallIconBtn, background: '#7FE8A4' }}><Check size={13} color="#0F1410" /></button>
+                                        <button onClick={() => { setEditingPriceTxId(null); setEditingUnitsValue(''); }} style={styles.smallIconBtn}><X size={13} color="#9CA89F" /></button>
                                       </div>
                                     ) : (
                                       <button
-                                        onClick={() => { setEditingPriceTxId(t.id); setEditingPriceValue(''); setEditingUnitsValue(''); setEditingFixMode('price'); }}
+                                        onClick={() => { setEditingPriceTxId(t.id); setEditingUnitsValue(''); }}
                                         style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#FF9466', fontSize: 10.5, padding: '2px 0', display: 'flex', alignItems: 'center', gap: 3 }}
-                                      >⚠️ Belum ada harga saat beli — klik untuk isi manual</button>
+                                      >⚠️ Belum ada jumlah {c.asset_type === 'gold' ? 'gram' : 'unit'} — klik untuk isi manual</button>
                                     )
                                   )}
                                 </div>
