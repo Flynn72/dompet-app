@@ -117,7 +117,7 @@ function summaryCardActiveStyle(isActive, color) {
 
 const ONBOARDING_STEPS = [
   {
-    emoji: '👋',
+    emoji: '??',
     title: 'Selamat datang!',
     desc: 'Yuk kenalan dulu sama Dompet — aplikasi buat catat keuangan kamu sehari-hari. Cuma butuh beberapa langkah singkat untuk mulai.',
     color: '#7FE8A4',
@@ -125,7 +125,7 @@ const ONBOARDING_STEPS = [
     tab: 'overview',
   },
   {
-    emoji: '⚙️',
+    emoji: '??',
     title: 'Buat kategori dulu',
     desc: 'Klik ikon pengaturan ini untuk bikin kategori Expense (pengeluaran) & Saving (tabungan) sesuai kebutuhan kamu.',
     color: '#C99FE8',
@@ -134,7 +134,7 @@ const ONBOARDING_STEPS = [
     action: 'openCategoryModal',
   },
   {
-    emoji: '💰',
+    emoji: '??',
     title: 'Catat transaksi pertama',
     desc: 'Tekan tombol + ini untuk catat Income, Expense, atau Saving. Kategori sekarang opsional — bisa langsung simpan walau belum pilih kategori.',
     color: '#7FE8A4',
@@ -143,7 +143,7 @@ const ONBOARDING_STEPS = [
     action: 'openAddModal',
   },
   {
-    emoji: '🔎',
+    emoji: '??',
     title: 'Klik kartu buat filter cepat',
     desc: 'Klik kartu Expense ini buat langsung lihat semua transaksi Expense di tab Transaksi — jadi shortcut, nggak perlu atur filter manual.',
     color: '#FF9466',
@@ -151,7 +151,7 @@ const ONBOARDING_STEPS = [
     tab: 'overview',
   },
   {
-    emoji: '🔍',
+    emoji: '??',
     title: 'Cari, filter & export/import',
     desc: 'Di tab Transaksi ini, kamu bisa cari transaksi, filter per tipe, dan export/import data ke Excel — enak buat backup atau input transaksi banyak sekaligus.',
     color: '#6FB7E8',
@@ -159,7 +159,7 @@ const ONBOARDING_STEPS = [
     tab: 'transactions', // otomatis pindah ke tab Transaksi
   },
   {
-    emoji: '📊',
+    emoji: '??',
     title: 'Atur budget & target saving',
     desc: 'Klik "Atur budget" di kartu Budget Expense untuk tentukan batas pengeluaran per kategori. Ada juga "Atur target" buat goal saving jangka panjang (misal beli motor) lengkap dengan estimasi tercapainya.',
     color: '#F5C95D',
@@ -168,7 +168,7 @@ const ONBOARDING_STEPS = [
     action: 'openBudgetModal',
   },
   {
-    emoji: '🔁',
+    emoji: '??',
     title: 'Transaksi berulang',
     desc: 'Punya tagihan rutin kayak gaji, wifi, atau cicilan? Klik "Kelola" di sini buat atur transaksi yang otomatis tercatat sendiri tiap bulan.',
     color: '#C99FE8',
@@ -177,7 +177,7 @@ const ONBOARDING_STEPS = [
     action: 'openRecurringModal',
   },
   {
-    emoji: '🎯',
+    emoji: '??',
     title: 'Baca laporan bulanan',
     desc: 'Klik tab Laporan ini buat lihat pie chart dan tren 6 bulan keuangan kamu — enak dipantau tiap akhir bulan.',
     color: '#6FB7E8',
@@ -185,7 +185,7 @@ const ONBOARDING_STEPS = [
     tab: 'reports',
   },
   {
-    emoji: '🥇',
+    emoji: '??',
     title: 'Lacak investasi Emas & Reksadana',
     desc: 'Klik ikon pengaturan ini, lalu tandai kategori saving sebagai "Emas" atau "Reksadana Syariah". Setelah ditandai, harga emas & NAV reksadana otomatis ter-update tiap hari — nggak perlu isi manual, kecuali mau lebih presisi.',
     color: '#F5C95D',
@@ -194,7 +194,7 @@ const ONBOARDING_STEPS = [
     action: 'openCategoryModal',
   },
   {
-    emoji: '💸',
+    emoji: '??',
     title: 'Jual aset? Pakai tombol khusus',
     desc: 'Buat kategori Emas/Reksadana, klik ikon panah oranye di sini (bukan tombol + biasa) buat catat penjualan — kalau pakai tombol + biasa, nanti nggak kehitung sebagai penjualan. Kalau jual SEMUA aset sekaligus, centang "Jual Semua Aset" biar sisa gram/unit otomatis pas ke 0.',
     color: '#FF9466',
@@ -381,7 +381,7 @@ export default function Dashboard({ user, onLogout }) {
     const { data, error } = await supabase.from('transactions').insert(toCreate).select();
     if (!error && data) {
       setTransactions((prev) => [
-        ...data.map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date, recurringId: t.recurring_id, assetPriceAtTx: t.asset_price_at_tx ? Number(t.asset_price_at_tx) : null, assetAction: t.asset_action || 'buy', assetUnitsOverride: t.asset_units_override ? Number(t.asset_units_override) : null })),
+        ...data.map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date, createdAt: t.created_at, recurringId: t.recurring_id, assetPriceAtTx: t.asset_price_at_tx ? Number(t.asset_price_at_tx) : null, assetAction: t.asset_action || 'buy', assetUnitsOverride: t.asset_units_override ? Number(t.asset_units_override) : null })),
         ...prev,
       ].sort((a, b) => new Date(b.date) - new Date(a.date)));
     }
@@ -399,7 +399,7 @@ export default function Dashboard({ user, onLogout }) {
       if (catErr || txErr || bgErr || recErr) { setSaveError(true); }
       else {
         setCategories(cats || []);
-        const txList = (txs || []).map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date, recurringId: t.recurring_id, assetPriceAtTx: t.asset_price_at_tx ? Number(t.asset_price_at_tx) : null, assetAction: t.asset_action || 'buy', assetUnitsOverride: t.asset_units_override ? Number(t.asset_units_override) : null }));
+        const txList = (txs || []).map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date, createdAt: t.created_at, recurringId: t.recurring_id, assetPriceAtTx: t.asset_price_at_tx ? Number(t.asset_price_at_tx) : null, assetAction: t.asset_action || 'buy', assetUnitsOverride: t.asset_units_override ? Number(t.asset_units_override) : null }));
         setTransactions(txList);
         setBudgets(bgs || []);
         setRecurringList(recs || []);
@@ -500,7 +500,7 @@ export default function Dashboard({ user, onLogout }) {
     };
     const { data, error } = await supabase.from('transactions').insert(payload).select().single();
     if (error) { setSaveError(true); return; }
-    setTransactions((prev) => [{ id: data.id, type: data.type, amount: Number(data.amount), category: data.category_id, note: data.note || '', date: data.tx_date, assetPriceAtTx: data.asset_price_at_tx ? Number(data.asset_price_at_tx) : null, assetAction: data.asset_action || 'buy', assetUnitsOverride: data.asset_units_override ? Number(data.asset_units_override) : null }, ...prev]);
+    setTransactions((prev) => [{ id: data.id, type: data.type, amount: Number(data.amount), category: data.category_id, note: data.note || '', date: data.tx_date, createdAt: data.created_at, assetPriceAtTx: data.asset_price_at_tx ? Number(data.asset_price_at_tx) : null, assetAction: data.asset_action || 'buy', assetUnitsOverride: data.asset_units_override ? Number(data.asset_units_override) : null }, ...prev]);
     setForm({ type: 'expense', amount: '', categoryId: expenseCategories[0] ? expenseCategories[0].id : null, note: '', date: todayStr(), unitsOverride: '' });
     setShowAddModal(false);
   }
@@ -547,7 +547,7 @@ export default function Dashboard({ user, onLogout }) {
     if (error) { setSaveError(true); return; }
 
     setTransactions((prev) => [
-      { id: data.id, type: data.type, amount: Number(data.amount), category: data.category_id, note: data.note || '', date: data.tx_date, assetPriceAtTx: data.asset_price_at_tx ? Number(data.asset_price_at_tx) : null, assetAction: data.asset_action || 'buy', assetUnitsOverride: data.asset_units_override ? Number(data.asset_units_override) : null },
+      { id: data.id, type: data.type, amount: Number(data.amount), category: data.category_id, note: data.note || '', date: data.tx_date, createdAt: data.created_at, assetPriceAtTx: data.asset_price_at_tx ? Number(data.asset_price_at_tx) : null, assetAction: data.asset_action || 'buy', assetUnitsOverride: data.asset_units_override ? Number(data.asset_units_override) : null },
       ...prev,
     ].sort((a, b) => new Date(b.date) - new Date(a.date)));
   }
@@ -685,7 +685,7 @@ export default function Dashboard({ user, onLogout }) {
       } else {
         successCount = data.length;
         setTransactions((prev) => [
-          ...data.map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date, assetPriceAtTx: t.asset_price_at_tx ? Number(t.asset_price_at_tx) : null, assetAction: t.asset_action || 'buy', assetUnitsOverride: t.asset_units_override ? Number(t.asset_units_override) : null })),
+          ...data.map((t) => ({ id: t.id, type: t.type, amount: Number(t.amount), category: t.category_id, note: t.note || '', date: t.tx_date, createdAt: t.created_at, assetPriceAtTx: t.asset_price_at_tx ? Number(t.asset_price_at_tx) : null, assetAction: t.asset_action || 'buy', assetUnitsOverride: t.asset_units_override ? Number(t.asset_units_override) : null })),
           ...prev,
         ].sort((a, b) => new Date(b.date) - new Date(a.date)));
       }
@@ -862,7 +862,19 @@ export default function Dashboard({ user, onLogout }) {
     const catTx = transactions
       .filter((t) => t.type === 'saving' && t.category === cat.id)
       .slice()
-      .sort((a, b) => new Date(a.date) - new Date(b.date)); // urutan kronologis wajib untuk avg cost yang benar
+      .sort((a, b) => {
+        // Urutan kronologis WAJIB benar untuk avg cost yang akurat — kalau 2 transaksi
+        // (misal jual & beli) terjadi di TANGGAL YANG SAMA, urutan tanggal saja tidak cukup
+        // (keduanya dianggap "seri" oleh Date). Makanya pakai created_at (waktu benar-benar
+        // disimpan ke database) sebagai penentu urutan kedua, supaya urutan transaksi hari
+        // yang sama tetap sesuai urutan aslinya diinput (bug lama: bisa kebalik, bikin
+        // "Jual Semua Aset" salah hitung karena avg cost tercampur transaksi beli yang
+        // sebetulnya terjadi SESUDAHNYA).
+        const dateDiff = new Date(a.date) - new Date(b.date);
+        if (dateDiff !== 0) return dateDiff;
+        if (a.createdAt && b.createdAt) return new Date(a.createdAt) - new Date(b.createdAt);
+        return 0;
+      });
     if (catTx.length === 0) return null;
 
     let heldUnits = 0;      // gram (emas) atau unit reksadana (nominal / NAV) yang masih dipegang
@@ -940,7 +952,7 @@ export default function Dashboard({ user, onLogout }) {
     // bukan sekadar total kas masuk-keluar historis. Ini penting supaya sinkron dengan
     // card investasi di bawahnya — kalau aset sudah full terjual (currentValue = 0),
     // progress goal-nya ikut balik ke 0, bukan nyangkut di angka rugi yang sudah terealisasi.
-    // (Sebelumnya: cumulative = total beli − total jual secara kas, jadi kalau pernah rugi
+    // (Sebelumnya: cumulative = total beli - total jual secara kas, jadi kalau pernah rugi
     // saat jual, "uang yang hilang karena rugi" itu tetap kehitung sebagai progress — padahal
     // aset fisiknya sudah tidak ada.)
     let cumulative = stat?.cumulative || 0;
@@ -1090,7 +1102,7 @@ export default function Dashboard({ user, onLogout }) {
     if (error) { setSaveError(true); return; }
 
     setTransactions((prev) => [
-      { id: data.id, type: data.type, amount: Number(data.amount), category: data.category_id, note: data.note || '', date: data.tx_date, assetPriceAtTx: data.asset_price_at_tx ? Number(data.asset_price_at_tx) : null, assetAction: data.asset_action, assetUnitsOverride: data.asset_units_override ? Number(data.asset_units_override) : null },
+      { id: data.id, type: data.type, amount: Number(data.amount), category: data.category_id, note: data.note || '', date: data.tx_date, createdAt: data.created_at, assetPriceAtTx: data.asset_price_at_tx ? Number(data.asset_price_at_tx) : null, assetAction: data.asset_action, assetUnitsOverride: data.asset_units_override ? Number(data.asset_units_override) : null },
       ...prev,
     ].sort((a, b) => new Date(b.date) - new Date(a.date)));
 
@@ -1555,7 +1567,7 @@ export default function Dashboard({ user, onLogout }) {
                             ))}
                             {subTx.length > 3 && (
                               <button onClick={() => toggleCatExpanded(c.id)} style={{ ...styles.linkBtn, alignSelf: 'flex-start', marginTop: 2, fontSize: 11.5 }}>
-                                {expandedCatIds.has(c.id) ? '▲ Sembunyikan' : `▼ Tampilkan semua (${subTx.length})`}
+                                {expandedCatIds.has(c.id) ? '? Sembunyikan' : `? Tampilkan semua (${subTx.length})`}
                               </button>
                             )}
                           </div>
@@ -1634,8 +1646,8 @@ export default function Dashboard({ user, onLogout }) {
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
                               {c.label}
-                              {c.asset_type === 'gold' && <span style={{ marginLeft: 6, fontSize: 10, color: '#F5C95D' }}>🥇 Emas</span>}
-                              {c.asset_type === 'reksadana_syariah' && <span style={{ marginLeft: 6, fontSize: 10, color: '#6FB7E8' }}>📈 Reksadana</span>}
+                              {c.asset_type === 'gold' && <span style={{ marginLeft: 6, fontSize: 10, color: '#F5C95D' }}>?? Emas</span>}
+                              {c.asset_type === 'reksadana_syariah' && <span style={{ marginLeft: 6, fontSize: 10, color: '#6FB7E8' }}>?? Reksadana</span>}
                             </div>
                             <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
                               {goal
@@ -1680,20 +1692,20 @@ export default function Dashboard({ user, onLogout }) {
                             {goal.onTrack !== null && (
                               <span style={{ color: goal.onTrack ? '#7FE8A4' : '#FF9466' }}>
                                 {goal.onTrack
-                                  ? '✓ Sesuai target tanggal'
-                                  : `⚠ Perlu nabung ${formatRupiah(goal.neededPerMonth)}/bulan biar sesuai target tanggal`}
+                                  ? '? Sesuai target tanggal'
+                                  : `? Perlu nabung ${formatRupiah(goal.neededPerMonth)}/bulan biar sesuai target tanggal`}
                               </span>
                             )}
                           </div>
                         )}
                         {goal && goal.achieved && (
-                          <div style={{ marginTop: 8, fontSize: 11.5, color: '#7FE8A4', fontWeight: 600 }}>🎉 Target tercapai!</div>
+                          <div style={{ marginTop: 8, fontSize: 11.5, color: '#7FE8A4', fontWeight: 600 }}>?? Target tercapai!</div>
                         )}
 
                         {/* Nilai investasi sekarang + untung/rugi, khusus kategori Emas/Reksadana Syariah */}
                         {invest && invest.noDataYet ? (
                           <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 10, background: '#2A2410', border: '1px solid #5A4A20', fontSize: 11, color: '#F5C95D' }}>
-                            ⚠️ Semua transaksi di kategori ini belum ada data harga emas saat beli. Isi manual dulu di daftar transaksi bawah biar untung/ruginya bisa dihitung.
+                            ?? Semua transaksi di kategori ini belum ada data harga emas saat beli. Isi manual dulu di daftar transaksi bawah biar untung/ruginya bisa dihitung.
                           </div>
                         ) : invest && (
                           <div style={{
@@ -1716,7 +1728,7 @@ export default function Dashboard({ user, onLogout }) {
                             <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 3 }}>
                               {c.asset_type === 'gold' && invest.heldUnits > 0 && (
                                 <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                                  🪙 {invest.heldUnits.toFixed(6)} gram · rata-rata beli {formatRupiah(invest.avgBuyPrice)}/gram
+                                  ?? {invest.heldUnits.toFixed(6)} gram · rata-rata beli {formatRupiah(invest.avgBuyPrice)}/gram
                                 </div>
                               )}
                               <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
@@ -1724,7 +1736,7 @@ export default function Dashboard({ user, onLogout }) {
                               </div>
                               {invest.realizedGain !== 0 && (
                                 <div style={{ fontSize: 11, fontWeight: 600, color: invest.realizedGain >= 0 ? '#7FE8A4' : '#FF6B6B' }}>
-                                  {invest.realizedGain >= 0 ? '✓ Realized untung ' : '✓ Realized rugi '}
+                                  {invest.realizedGain >= 0 ? '? Realized untung ' : '? Realized rugi '}
                                   {formatRupiah(Math.abs(invest.realizedGain))} (dari penjualan)
                                 </div>
                               )}
@@ -1745,7 +1757,7 @@ export default function Dashboard({ user, onLogout }) {
                               )}
                               {invest.unpricedAmount > 0 && (
                                 <div style={{ fontSize: 10, color: '#F5C95D' }}>
-                                  ⚠️ {formatRupiah(invest.unpricedAmount)} dari transaksi belum ada harga/NAV historis, belum ikut dihitung di atas — isi manual di daftar transaksi bawah.
+                                  ?? {formatRupiah(invest.unpricedAmount)} dari transaksi belum ada harga/NAV historis, belum ikut dihitung di atas — isi manual di daftar transaksi bawah.
                                 </div>
                               )}
                             </div>
@@ -1767,7 +1779,7 @@ export default function Dashboard({ user, onLogout }) {
                                 <div key={t.id}>
                                   <div onClick={() => openTxDetail(t)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, cursor: 'pointer' }}>
                                     <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                      {t.assetAction === 'sell' && <span style={{ color: '#FF9466' }}>🔻 Jual: </span>}
+                                      {t.assetAction === 'sell' && <span style={{ color: '#FF9466' }}>?? Jual: </span>}
                                       {t.note || c.label}
                                     </span>
                                     <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{new Date(t.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
@@ -1794,12 +1806,12 @@ export default function Dashboard({ user, onLogout }) {
                                       <button
                                         onClick={() => { setEditingPriceTxId(t.id); setEditingUnitsValue(''); }}
                                         style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#FF9466', fontSize: 10.5, padding: '2px 0', display: 'flex', alignItems: 'center', gap: 3 }}
-                                      >⚠️ Belum ada jumlah {c.asset_type === 'gold' ? 'gram' : 'unit'} — klik untuk isi manual</button>
+                                      >?? Belum ada jumlah {c.asset_type === 'gold' ? 'gram' : 'unit'} — klik untuk isi manual</button>
                                     ) : (
                                       <button
                                         onClick={() => { setEditingPriceTxId(t.id); setEditingUnitsValue(''); }}
                                         style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#6FB7E8', fontSize: 10.5, padding: '2px 0', display: 'flex', alignItems: 'center', gap: 3 }}
-                                      >✏️ Jumlah {c.asset_type === 'gold' ? 'gram' : 'unit'} masih estimasi — klik untuk isi angka aktual</button>
+                                      >?? Jumlah {c.asset_type === 'gold' ? 'gram' : 'unit'} masih estimasi — klik untuk isi angka aktual</button>
                                     )
                                   )}
                                 </div>
@@ -1807,7 +1819,7 @@ export default function Dashboard({ user, onLogout }) {
                             })}
                             {subTx.length > 3 && (
                               <button onClick={() => toggleCatExpanded(c.id)} style={{ ...styles.linkBtn, alignSelf: 'flex-start', marginTop: 2, fontSize: 11.5 }}>
-                                {expandedCatIds.has(c.id) ? '▲ Sembunyikan' : `▼ Tampilkan semua (${subTx.length})`}
+                                {expandedCatIds.has(c.id) ? '? Sembunyikan' : `? Tampilkan semua (${subTx.length})`}
                               </button>
                             )}
                           </div>
@@ -2044,7 +2056,7 @@ export default function Dashboard({ user, onLogout }) {
                               ))}
                               {section.data.length > 3 && (
                                 <button onClick={() => toggleCatExpanded(pieKey)} style={{ ...styles.linkBtn, alignSelf: 'flex-start', marginTop: 2, fontSize: 11.5 }}>
-                                  {isExpanded ? '▲ Sembunyikan' : `▼ Tampilkan semua (${section.data.length})`}
+                                  {isExpanded ? '? Sembunyikan' : `? Tampilkan semua (${section.data.length})`}
                                 </button>
                               )}
                             </>
@@ -2402,7 +2414,7 @@ export default function Dashboard({ user, onLogout }) {
                   background: 'transparent', border: 'none',
                   color: 'var(--text-muted)', fontSize: 12,
                   cursor: 'pointer', padding: '2px 6px', borderRadius: 6,
-                }}>✕</button>
+                }}>?</button>
               </div>
 
               {/* Judul (versi normal saja — versi compact sudah ditaruh di baris header) */}
@@ -2430,7 +2442,7 @@ export default function Dashboard({ user, onLogout }) {
                     flex: 1, padding: '8px 0', borderRadius: 10,
                     border: '1px solid var(--border)', background: 'transparent',
                     color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer',
-                  }}>←</button>
+                  }}>?</button>
                 )}
                 <button onClick={nextStep} style={{
                   flex: 3, padding: '9px 0', borderRadius: 10, border: 'none',
@@ -2438,7 +2450,7 @@ export default function Dashboard({ user, onLogout }) {
                   fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
                   boxShadow: `0 4px 12px ${step.color}44`,
                 }}>
-                  {isLast ? '🚀 Mulai!' : (step.action && obActionPhase === 0) ? 'Buka →' : 'Lanjut →'}
+                  {isLast ? '?? Mulai!' : (step.action && obActionPhase === 0) ? 'Buka ?' : 'Lanjut ?'}
                 </button>
               </div>
 
@@ -2550,7 +2562,7 @@ export default function Dashboard({ user, onLogout }) {
 
               {isSaving && hasAsset && (
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: isSell ? '#FF9466' : '#6FB7E8', background: isSell ? '#FF946622' : '#6FB7E822', padding: '4px 10px', borderRadius: 20, marginBottom: 14 }}>
-                  {isSell ? '🔻 Transaksi Jual Aset' : '📈 Transaksi Beli Aset'}
+                  {isSell ? '?? Transaksi Jual Aset' : '?? Transaksi Beli Aset'}
                 </div>
               )}
 
@@ -2577,7 +2589,7 @@ export default function Dashboard({ user, onLogout }) {
                     <button
                       onClick={() => setEditingDetailAsset(true)}
                       style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#6FB7E8', fontSize: 11, padding: '2px 0', marginTop: -6, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 3 }}
-                    >✏️ Koreksi harga/unit transaksi ini</button>
+                    >?? Koreksi harga/unit transaksi ini</button>
                   ) : (
                     <div style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginTop: -6, marginBottom: 14 }}>
                       <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 8 }}>
@@ -2732,7 +2744,7 @@ export default function Dashboard({ user, onLogout }) {
                   {cat.asset_type === 'reksadana_syariah' && <>Nilai investasi saat ini: <b style={{ color: 'var(--text-primary)' }}>{formatRupiah(invest.currentValue)}</b></>}
                 </div>
               ) : (
-                <div style={{ fontSize: 11, color: '#F5C95D', marginBottom: 12 }}>⚠️ Belum ada data kepemilikan yang bisa dihitung untuk kategori ini.</div>
+                <div style={{ fontSize: 11, color: '#F5C95D', marginBottom: 12 }}>?? Belum ada data kepemilikan yang bisa dihitung untuk kategori ini.</div>
               )}
 
               {invest && !invest.noDataYet && invest.heldUnits > 0 && (
@@ -2838,7 +2850,7 @@ export default function Dashboard({ user, onLogout }) {
 
             <label style={styles.formLabel}>Kategori</label>
             <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-              {[['bug', '🐛 Bug'], ['saran', '💡 Saran'], ['lainnya', '💬 Lainnya']].map(([val, label]) => (
+              {[['bug', '?? Bug'], ['saran', '?? Saran'], ['lainnya', '?? Lainnya']].map(([val, label]) => (
                 <button key={val} onClick={() => setFeedbackForm((f) => ({ ...f, category: val }))}
                   style={{
                     flex: 1, padding: '8px 0', borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: 'pointer',
@@ -2854,7 +2866,7 @@ export default function Dashboard({ user, onLogout }) {
               {[1, 2, 3, 4, 5].map((n) => (
                 <button key={n} onClick={() => setFeedbackForm((f) => ({ ...f, rating: f.rating === n ? 0 : n }))}
                   style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 22, padding: 0, opacity: feedbackForm.rating >= n ? 1 : 0.3 }}>
-                  ⭐
+                  ?
                 </button>
               ))}
             </div>
@@ -2882,7 +2894,7 @@ export default function Dashboard({ user, onLogout }) {
           padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 10,
           boxShadow: '0 8px 24px rgba(0,0,0,0.35)', zIndex: 60, maxWidth: 'calc(100vw - 32px)',
         }}>
-          <span style={{ fontSize: 18 }}>✅</span>
+          <span style={{ fontSize: 18 }}>?</span>
           <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>Makasih! Masukan kamu sudah terkirim.</span>
         </div>
       )}
@@ -3004,8 +3016,8 @@ export default function Dashboard({ user, onLogout }) {
                           <div style={{ display: 'flex', gap: 6 }}>
                             {[
                               { id: null, label: 'Tidak ada' },
-                              { id: 'gold', label: '🥇 Emas' },
-                              { id: 'reksadana_syariah', label: '📈 Reksadana Syariah' },
+                              { id: 'gold', label: '?? Emas' },
+                              { id: 'reksadana_syariah', label: '?? Reksadana Syariah' },
                             ].map((opt) => (
                               <button key={opt.label} onClick={() => setEditingCatAssetType(opt.id)}
                                 style={{
@@ -3073,8 +3085,8 @@ export default function Dashboard({ user, onLogout }) {
               <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
                 {[
                   { id: null, label: 'Tidak ada' },
-                  { id: 'gold', label: '🥇 Emas' },
-                  { id: 'reksadana_syariah', label: '📈 Reksadana Syariah' },
+                  { id: 'gold', label: '?? Emas' },
+                  { id: 'reksadana_syariah', label: '?? Reksadana Syariah' },
                 ].map((opt) => (
                   <button key={opt.label} onClick={() => setNewCatAssetType(opt.id)}
                     style={{
