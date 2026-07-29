@@ -1755,7 +1755,14 @@ export default function Dashboard({ user, onLogout }) {
                         {subTx.length > 0 && (
                           <div style={{ marginTop: 10, borderTop: '1px solid #22291F', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
                             {(expandedCatIds.has(c.id) ? subTx : subTx.slice(0, 3)).map((t) => {
-                              const needsPrice = !!c.asset_type && !t.assetPriceAtTx && !t.assetUnitsOverride;
+                              // Tampilkan opsi isi manual selama unit BELUM dikonfirmasi manual —
+                              // termasuk saat harga sudah otomatis kesisi (dari cron harian) tapi itu cuma
+                              // ESTIMASI. Unit aktual dari Ajaib/Pluang biasanya baru muncul 2-3 hari setelah
+                              // transaksi (khususnya buat transaksi berulang), jadi tombol ini tetap perlu
+                              // ada sampai dikoreksi manual ke angka pasti.
+                              const hasConfirmedUnits = !!c.asset_type && t.assetUnitsOverride != null;
+                              const needsPrice = !!c.asset_type && !hasConfirmedUnits && !t.assetPriceAtTx; // benar-benar belum ada data sama sekali
+                              const isEstimateOnly = !!c.asset_type && !hasConfirmedUnits && !!t.assetPriceAtTx; // sudah ada estimasi dari harga otomatis, menunggu angka aktual
                               return (
                                 <div key={t.id}>
                                   <div onClick={() => openTxDetail(t)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, cursor: 'pointer' }}>
@@ -1769,7 +1776,7 @@ export default function Dashboard({ user, onLogout }) {
                                     </span>
                                     <button onClick={(e) => { e.stopPropagation(); deleteTransaction(t.id); }} style={styles.deleteBtn}><Trash2 size={12} color="#6B7568" /></button>
                                   </div>
-                                  {needsPrice && (
+                                  {(needsPrice || isEstimateOnly) && (
                                     editingPriceTxId === t.id ? (
                                       <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
                                         <input
@@ -1783,11 +1790,16 @@ export default function Dashboard({ user, onLogout }) {
                                         <button onClick={() => saveHistoricalAssetUnits(t.id)} style={{ ...styles.smallIconBtn, background: '#7FE8A4' }}><Check size={13} color="#0F1410" /></button>
                                         <button onClick={() => { setEditingPriceTxId(null); setEditingUnitsValue(''); }} style={styles.smallIconBtn}><X size={13} color="#9CA89F" /></button>
                                       </div>
-                                    ) : (
+                                    ) : needsPrice ? (
                                       <button
                                         onClick={() => { setEditingPriceTxId(t.id); setEditingUnitsValue(''); }}
                                         style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#FF9466', fontSize: 10.5, padding: '2px 0', display: 'flex', alignItems: 'center', gap: 3 }}
                                       >⚠️ Belum ada jumlah {c.asset_type === 'gold' ? 'gram' : 'unit'} — klik untuk isi manual</button>
+                                    ) : (
+                                      <button
+                                        onClick={() => { setEditingPriceTxId(t.id); setEditingUnitsValue(''); }}
+                                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#6FB7E8', fontSize: 10.5, padding: '2px 0', display: 'flex', alignItems: 'center', gap: 3 }}
+                                      >✏️ Jumlah {c.asset_type === 'gold' ? 'gram' : 'unit'} masih estimasi — klik untuk isi angka aktual</button>
                                     )
                                   )}
                                 </div>
