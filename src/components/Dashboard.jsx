@@ -11,7 +11,8 @@ import {
   Vault, BadgeDollarSign, WalletCards, Building2, HandCoins, BadgePercent,
   Coins, PiggyBank as PiggyBankIcon, Clock, Globe, Umbrella, Lock,
   QrCode, Nfc, BarChart2, TrendingDown as TrendingDownIcon, Package,
-  Download, Upload, Sun, Moon, Target, HelpCircle, MessageSquare
+  Download, Upload, Sun, Moon, Target, HelpCircle, MessageSquare,
+  ChevronDown, ChevronUp, Hand, Search, Repeat, PartyPopper, Rocket, Bug, Lightbulb
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -117,7 +118,7 @@ function summaryCardActiveStyle(isActive, color) {
 
 const ONBOARDING_STEPS = [
   {
-    emoji: '??',
+    icon: Hand,
     title: 'Selamat datang!',
     desc: 'Yuk kenalan dulu sama Dompet — aplikasi buat catat keuangan kamu sehari-hari. Cuma butuh beberapa langkah singkat untuk mulai.',
     color: '#7FE8A4',
@@ -125,7 +126,7 @@ const ONBOARDING_STEPS = [
     tab: 'overview',
   },
   {
-    emoji: '??',
+    icon: Settings,
     title: 'Buat kategori dulu',
     desc: 'Klik ikon pengaturan ini untuk bikin kategori Expense (pengeluaran) & Saving (tabungan) sesuai kebutuhan kamu.',
     color: '#C99FE8',
@@ -134,7 +135,7 @@ const ONBOARDING_STEPS = [
     action: 'openCategoryModal',
   },
   {
-    emoji: '??',
+    icon: Wallet,
     title: 'Catat transaksi pertama',
     desc: 'Tekan tombol + ini untuk catat Income, Expense, atau Saving. Kategori sekarang opsional — bisa langsung simpan walau belum pilih kategori.',
     color: '#7FE8A4',
@@ -143,7 +144,7 @@ const ONBOARDING_STEPS = [
     action: 'openAddModal',
   },
   {
-    emoji: '??',
+    icon: Search,
     title: 'Klik kartu buat filter cepat',
     desc: 'Klik kartu Expense ini buat langsung lihat semua transaksi Expense di tab Transaksi — jadi shortcut, nggak perlu atur filter manual.',
     color: '#FF9466',
@@ -151,7 +152,7 @@ const ONBOARDING_STEPS = [
     tab: 'overview',
   },
   {
-    emoji: '??',
+    icon: Search,
     title: 'Cari, filter & export/import',
     desc: 'Di tab Transaksi ini, kamu bisa cari transaksi, filter per tipe, dan export/import data ke Excel — enak buat backup atau input transaksi banyak sekaligus.',
     color: '#6FB7E8',
@@ -159,7 +160,7 @@ const ONBOARDING_STEPS = [
     tab: 'transactions', // otomatis pindah ke tab Transaksi
   },
   {
-    emoji: '??',
+    icon: BarChart2,
     title: 'Atur budget & target saving',
     desc: 'Klik "Atur budget" di kartu Budget Expense untuk tentukan batas pengeluaran per kategori. Ada juga "Atur target" buat goal saving jangka panjang (misal beli motor) lengkap dengan estimasi tercapainya.',
     color: '#F5C95D',
@@ -168,7 +169,7 @@ const ONBOARDING_STEPS = [
     action: 'openBudgetModal',
   },
   {
-    emoji: '??',
+    icon: Repeat,
     title: 'Transaksi berulang',
     desc: 'Punya tagihan rutin kayak gaji, wifi, atau cicilan? Klik "Kelola" di sini buat atur transaksi yang otomatis tercatat sendiri tiap bulan.',
     color: '#C99FE8',
@@ -177,7 +178,7 @@ const ONBOARDING_STEPS = [
     action: 'openRecurringModal',
   },
   {
-    emoji: '??',
+    icon: Target,
     title: 'Baca laporan bulanan',
     desc: 'Klik tab Laporan ini buat lihat pie chart dan tren 6 bulan keuangan kamu — enak dipantau tiap akhir bulan.',
     color: '#6FB7E8',
@@ -185,7 +186,7 @@ const ONBOARDING_STEPS = [
     tab: 'reports',
   },
   {
-    emoji: '??',
+    icon: Coins,
     title: 'Lacak investasi Emas & Reksadana',
     desc: 'Klik ikon pengaturan ini, lalu tandai kategori saving sebagai "Emas" atau "Reksadana Syariah". Setelah ditandai, harga emas & NAV reksadana otomatis ter-update tiap hari — nggak perlu isi manual, kecuali mau lebih presisi.',
     color: '#F5C95D',
@@ -194,7 +195,7 @@ const ONBOARDING_STEPS = [
     action: 'openCategoryModal',
   },
   {
-    emoji: '??',
+    icon: Banknote,
     title: 'Jual aset? Pakai tombol khusus',
     desc: 'Buat kategori Emas/Reksadana, klik ikon panah oranye di sini (bukan tombol + biasa) buat catat penjualan — kalau pakai tombol + biasa, nanti nggak kehitung sebagai penjualan. Kalau jual SEMUA aset sekaligus, centang "Jual Semua Aset" biar sisa gram/unit otomatis pas ke 0.',
     color: '#FF9466',
@@ -306,6 +307,7 @@ export default function Dashboard({ user, onLogout }) {
     setEditingDetailAsset(false);
     setDetailPriceValue('');
     setDetailUnitsValue('');
+    setDetailAmountValue('');
   }
   const [sellingCatId, setSellingCatId] = useState(null); // id kategori yang sedang dijual asetnya
   const [sellForm, setSellForm] = useState({ amount: '', date: todayStr(), note: '', isFullSale: false, unitsOverride: '' });
@@ -952,7 +954,7 @@ export default function Dashboard({ user, onLogout }) {
     // bukan sekadar total kas masuk-keluar historis. Ini penting supaya sinkron dengan
     // card investasi di bawahnya — kalau aset sudah full terjual (currentValue = 0),
     // progress goal-nya ikut balik ke 0, bukan nyangkut di angka rugi yang sudah terealisasi.
-    // (Sebelumnya: cumulative = total beli - total jual secara kas, jadi kalau pernah rugi
+    // (Sebelumnya: cumulative = total beli − total jual secara kas, jadi kalau pernah rugi
     // saat jual, "uang yang hilang karena rugi" itu tetap kehitung sebagai progress — padahal
     // aset fisiknya sudah tidak ada.)
     let cumulative = stat?.cumulative || 0;
@@ -1028,15 +1030,19 @@ export default function Dashboard({ user, onLogout }) {
     setEditingUnitsValue('');
   }
 
-  // Koreksi harga/unit dari modal Detail Transaksi — dipakai untuk MEMPERBAIKI transaksi yang
-  // SUDAH punya harga/unit tapi salah ketik (beda dengan quick-fix di atas yang hanya muncul
+  const [detailAmountValue, setDetailAmountValue] = useState(''); // koreksi nominal (Rp) transaksi kalau ternyata salah input dari awal
+
+  // Koreksi harga/unit/NOMINAL dari modal Detail Transaksi — dipakai untuk MEMPERBAIKI transaksi
+  // yang SUDAH punya data tapi salah ketik (beda dengan quick-fix di atas yang hanya muncul
   // saat transaksi belum ada data sama sekali).
   async function saveDetailAssetOverride(txId) {
     const priceVal = detailPriceValue.trim() ? parseFloat(detailPriceValue) : null;
     const unitsVal = detailUnitsValue.trim() ? parseFloat(detailUnitsValue) : null;
+    const amountVal = detailAmountValue.trim() ? parseFloat(detailAmountValue) : null;
     const updates = {};
     if (unitsVal && unitsVal > 0) updates.asset_units_override = unitsVal;
     if (priceVal && priceVal > 0) updates.asset_price_at_tx = priceVal;
+    if (amountVal && amountVal > 0) updates.amount = amountVal;
     if (Object.keys(updates).length === 0) return;
 
     const { error } = await supabase.from('transactions').update(updates).eq('id', txId);
@@ -1044,11 +1050,13 @@ export default function Dashboard({ user, onLogout }) {
     const patch = {};
     if (updates.asset_units_override !== undefined) patch.assetUnitsOverride = updates.asset_units_override;
     if (updates.asset_price_at_tx !== undefined) patch.assetPriceAtTx = updates.asset_price_at_tx;
+    if (updates.amount !== undefined) patch.amount = updates.amount;
     setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...t, ...patch } : t)));
     setSelectedTxDetail((prev) => (prev && prev.id === txId ? { ...prev, ...patch } : prev));
     setEditingDetailAsset(false);
     setDetailPriceValue('');
     setDetailUnitsValue('');
+    setDetailAmountValue('');
   }
 
   // Catat penjualan aset (emas/reksadana) — dicatat sebagai transaksi saving dengan
@@ -1567,7 +1575,7 @@ export default function Dashboard({ user, onLogout }) {
                             ))}
                             {subTx.length > 3 && (
                               <button onClick={() => toggleCatExpanded(c.id)} style={{ ...styles.linkBtn, alignSelf: 'flex-start', marginTop: 2, fontSize: 11.5 }}>
-                                {expandedCatIds.has(c.id) ? '? Sembunyikan' : `? Tampilkan semua (${subTx.length})`}
+                                {expandedCatIds.has(c.id) ? (<><ChevronUp size={12} style={{ display: 'inline', verticalAlign: -2 }} /> Sembunyikan</>) : (<><ChevronDown size={12} style={{ display: 'inline', verticalAlign: -2 }} /> Tampilkan semua ({subTx.length})</>)}
                               </button>
                             )}
                           </div>
@@ -1646,8 +1654,8 @@ export default function Dashboard({ user, onLogout }) {
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
                               {c.label}
-                              {c.asset_type === 'gold' && <span style={{ marginLeft: 6, fontSize: 10, color: '#F5C95D' }}>?? Emas</span>}
-                              {c.asset_type === 'reksadana_syariah' && <span style={{ marginLeft: 6, fontSize: 10, color: '#6FB7E8' }}>?? Reksadana</span>}
+                              {c.asset_type === 'gold' && <span style={{ marginLeft: 6, fontSize: 10, color: '#F5C95D', display: 'inline-flex', alignItems: 'center', gap: 3 }}><Coins size={11} color="#F5C95D" />Emas</span>}
+                              {c.asset_type === 'reksadana_syariah' && <span style={{ marginLeft: 6, fontSize: 10, color: '#6FB7E8', display: 'inline-flex', alignItems: 'center', gap: 3 }}><TrendingUp size={11} color="#6FB7E8" />Reksadana</span>}
                             </div>
                             <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
                               {goal
@@ -1692,20 +1700,20 @@ export default function Dashboard({ user, onLogout }) {
                             {goal.onTrack !== null && (
                               <span style={{ color: goal.onTrack ? '#7FE8A4' : '#FF9466' }}>
                                 {goal.onTrack
-                                  ? '? Sesuai target tanggal'
-                                  : `? Perlu nabung ${formatRupiah(goal.neededPerMonth)}/bulan biar sesuai target tanggal`}
+                                  ? (<><Check size={12} style={{ display: 'inline', verticalAlign: -2 }} /> Sesuai target tanggal</>)
+                                  : (<><AlertTriangle size={11} style={{ display: 'inline', verticalAlign: -2, marginRight: 3 }} />Perlu nabung {formatRupiah(goal.neededPerMonth)}/bulan biar sesuai target tanggal</>)}
                               </span>
                             )}
                           </div>
                         )}
                         {goal && goal.achieved && (
-                          <div style={{ marginTop: 8, fontSize: 11.5, color: '#7FE8A4', fontWeight: 600 }}>?? Target tercapai!</div>
+                          <div style={{ marginTop: 8, fontSize: 11.5, color: '#7FE8A4', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}><PartyPopper size={13} />Target tercapai!</div>
                         )}
 
                         {/* Nilai investasi sekarang + untung/rugi, khusus kategori Emas/Reksadana Syariah */}
                         {invest && invest.noDataYet ? (
                           <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 10, background: '#2A2410', border: '1px solid #5A4A20', fontSize: 11, color: '#F5C95D' }}>
-                            ?? Semua transaksi di kategori ini belum ada data harga emas saat beli. Isi manual dulu di daftar transaksi bawah biar untung/ruginya bisa dihitung.
+                            <AlertTriangle size={11} style={{ display: 'inline', verticalAlign: -2, marginRight: 3 }} />Semua transaksi di kategori ini belum ada data harga emas saat beli. Isi manual dulu di daftar transaksi bawah biar untung/ruginya bisa dihitung.
                           </div>
                         ) : invest && (
                           <div style={{
@@ -1728,7 +1736,7 @@ export default function Dashboard({ user, onLogout }) {
                             <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 3 }}>
                               {c.asset_type === 'gold' && invest.heldUnits > 0 && (
                                 <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                                  ?? {invest.heldUnits.toFixed(6)} gram · rata-rata beli {formatRupiah(invest.avgBuyPrice)}/gram
+                                  <Coins size={11} style={{ display: 'inline', verticalAlign: -2, marginRight: 3 }} />{invest.heldUnits.toFixed(6)} gram · rata-rata beli {formatRupiah(invest.avgBuyPrice)}/gram
                                 </div>
                               )}
                               <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
@@ -1736,7 +1744,7 @@ export default function Dashboard({ user, onLogout }) {
                               </div>
                               {invest.realizedGain !== 0 && (
                                 <div style={{ fontSize: 11, fontWeight: 600, color: invest.realizedGain >= 0 ? '#7FE8A4' : '#FF6B6B' }}>
-                                  {invest.realizedGain >= 0 ? '? Realized untung ' : '? Realized rugi '}
+                                  <Check size={12} style={{ display: 'inline', verticalAlign: -2 }} />{invest.realizedGain >= 0 ? ' Realized untung ' : ' Realized rugi '}
                                   {formatRupiah(Math.abs(invest.realizedGain))} (dari penjualan)
                                 </div>
                               )}
@@ -1757,7 +1765,7 @@ export default function Dashboard({ user, onLogout }) {
                               )}
                               {invest.unpricedAmount > 0 && (
                                 <div style={{ fontSize: 10, color: '#F5C95D' }}>
-                                  ?? {formatRupiah(invest.unpricedAmount)} dari transaksi belum ada harga/NAV historis, belum ikut dihitung di atas — isi manual di daftar transaksi bawah.
+                                  <AlertTriangle size={11} style={{ display: 'inline', verticalAlign: -2, marginRight: 3 }} />{formatRupiah(invest.unpricedAmount)} dari transaksi belum ada harga/NAV historis, belum ikut dihitung di atas — isi manual di daftar transaksi bawah.
                                 </div>
                               )}
                             </div>
@@ -1779,7 +1787,7 @@ export default function Dashboard({ user, onLogout }) {
                                 <div key={t.id}>
                                   <div onClick={() => openTxDetail(t)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, cursor: 'pointer' }}>
                                     <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                      {t.assetAction === 'sell' && <span style={{ color: '#FF9466' }}>?? Jual: </span>}
+                                      {t.assetAction === 'sell' && <span style={{ color: '#FF9466', display: 'inline-flex', alignItems: 'center', gap: 2 }}><TrendingDown size={11} />Jual: </span>}
                                       {t.note || c.label}
                                     </span>
                                     <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{new Date(t.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
@@ -1806,12 +1814,12 @@ export default function Dashboard({ user, onLogout }) {
                                       <button
                                         onClick={() => { setEditingPriceTxId(t.id); setEditingUnitsValue(''); }}
                                         style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#FF9466', fontSize: 10.5, padding: '2px 0', display: 'flex', alignItems: 'center', gap: 3 }}
-                                      >?? Belum ada jumlah {c.asset_type === 'gold' ? 'gram' : 'unit'} — klik untuk isi manual</button>
+                                      ><AlertTriangle size={11} style={{ display: 'inline', verticalAlign: -2, marginRight: 3 }} />Belum ada jumlah {c.asset_type === 'gold' ? 'gram' : 'unit'} — klik untuk isi manual</button>
                                     ) : (
                                       <button
                                         onClick={() => { setEditingPriceTxId(t.id); setEditingUnitsValue(''); }}
                                         style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#6FB7E8', fontSize: 10.5, padding: '2px 0', display: 'flex', alignItems: 'center', gap: 3 }}
-                                      >?? Jumlah {c.asset_type === 'gold' ? 'gram' : 'unit'} masih estimasi — klik untuk isi angka aktual</button>
+                                      ><Pencil size={11} style={{ display: 'inline', verticalAlign: -2, marginRight: 3 }} />Jumlah {c.asset_type === 'gold' ? 'gram' : 'unit'} masih estimasi — klik untuk isi angka aktual</button>
                                     )
                                   )}
                                 </div>
@@ -1819,7 +1827,7 @@ export default function Dashboard({ user, onLogout }) {
                             })}
                             {subTx.length > 3 && (
                               <button onClick={() => toggleCatExpanded(c.id)} style={{ ...styles.linkBtn, alignSelf: 'flex-start', marginTop: 2, fontSize: 11.5 }}>
-                                {expandedCatIds.has(c.id) ? '? Sembunyikan' : `? Tampilkan semua (${subTx.length})`}
+                                {expandedCatIds.has(c.id) ? (<><ChevronUp size={12} style={{ display: 'inline', verticalAlign: -2 }} /> Sembunyikan</>) : (<><ChevronDown size={12} style={{ display: 'inline', verticalAlign: -2 }} /> Tampilkan semua ({subTx.length})</>)}
                               </button>
                             )}
                           </div>
@@ -2056,7 +2064,7 @@ export default function Dashboard({ user, onLogout }) {
                               ))}
                               {section.data.length > 3 && (
                                 <button onClick={() => toggleCatExpanded(pieKey)} style={{ ...styles.linkBtn, alignSelf: 'flex-start', marginTop: 2, fontSize: 11.5 }}>
-                                  {isExpanded ? '? Sembunyikan' : `? Tampilkan semua (${section.data.length})`}
+                                  {isExpanded ? (<><ChevronUp size={12} style={{ display: 'inline', verticalAlign: -2 }} /> Sembunyikan</>) : (<><ChevronDown size={12} style={{ display: 'inline', verticalAlign: -2 }} /> Tampilkan semua ({section.data.length})</>)}
                                 </button>
                               )}
                             </>
@@ -2388,7 +2396,7 @@ export default function Dashboard({ user, onLogout }) {
               {arrowStyle && <div style={arrowStyle} />}
               {/* Header: emoji + dots + skip */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: compactMobilePhase1 ? 0 : 10 }}>
-                <span style={{ fontSize: compactMobilePhase1 ? 20 : 28 }}>{step.emoji}</span>
+                <step.icon size={compactMobilePhase1 ? 20 : 26} color={step.color} />
                 {compactMobilePhase1 && (
                   <div style={{
                     fontFamily: "'Space Grotesk', sans-serif",
@@ -2414,7 +2422,7 @@ export default function Dashboard({ user, onLogout }) {
                   background: 'transparent', border: 'none',
                   color: 'var(--text-muted)', fontSize: 12,
                   cursor: 'pointer', padding: '2px 6px', borderRadius: 6,
-                }}>?</button>
+                }}><X size={13} /></button>
               </div>
 
               {/* Judul (versi normal saja — versi compact sudah ditaruh di baris header) */}
@@ -2442,7 +2450,7 @@ export default function Dashboard({ user, onLogout }) {
                     flex: 1, padding: '8px 0', borderRadius: 10,
                     border: '1px solid var(--border)', background: 'transparent',
                     color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer',
-                  }}>?</button>
+                  }}>←</button>
                 )}
                 <button onClick={nextStep} style={{
                   flex: 3, padding: '9px 0', borderRadius: 10, border: 'none',
@@ -2450,7 +2458,7 @@ export default function Dashboard({ user, onLogout }) {
                   fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
                   boxShadow: `0 4px 12px ${step.color}44`,
                 }}>
-                  {isLast ? '?? Mulai!' : (step.action && obActionPhase === 0) ? 'Buka ?' : 'Lanjut ?'}
+                  {isLast ? (<><Rocket size={13} style={{ display: 'inline', verticalAlign: -2, marginRight: 3 }} />Mulai!</>) : (step.action && obActionPhase === 0) ? 'Buka →' : 'Lanjut →'}
                 </button>
               </div>
 
@@ -2562,7 +2570,7 @@ export default function Dashboard({ user, onLogout }) {
 
               {isSaving && hasAsset && (
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: isSell ? '#FF9466' : '#6FB7E8', background: isSell ? '#FF946622' : '#6FB7E822', padding: '4px 10px', borderRadius: 20, marginBottom: 14 }}>
-                  {isSell ? '?? Transaksi Jual Aset' : '?? Transaksi Beli Aset'}
+                  {isSell ? (<><TrendingDown size={12} style={{ display: 'inline', verticalAlign: -2 }} /> Transaksi Jual Aset</>) : (<><TrendingUp size={12} style={{ display: 'inline', verticalAlign: -2 }} /> Transaksi Beli Aset</>)}
                 </div>
               )}
 
@@ -2589,13 +2597,21 @@ export default function Dashboard({ user, onLogout }) {
                     <button
                       onClick={() => setEditingDetailAsset(true)}
                       style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#6FB7E8', fontSize: 11, padding: '2px 0', marginTop: -6, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 3 }}
-                    >?? Koreksi harga/unit transaksi ini</button>
+                    ><Pencil size={11} style={{ display: 'inline', verticalAlign: -2, marginRight: 3 }} />Koreksi nominal/harga/unit transaksi ini</button>
                   ) : (
                     <div style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginTop: -6, marginBottom: 14 }}>
                       <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 8 }}>
-                        Salah isi kolom (mis. kolom "harga" ke-isi jumlah unit)? Betulkan salah satu kolom di bawah — kolom yang dikosongkan tidak akan diubah.
+                        Salah isi kolom (mis. nominal ke-input kebesaran/gram ketuker harga)? Betulkan kolom yang salah saja di bawah — kolom yang dikosongkan tidak akan diubah.
                       </div>
-                      <label style={{ ...styles.formLabel, marginTop: 0, fontSize: 11 }}>Jumlah gram/unit yang benar</label>
+                      <label style={{ ...styles.formLabel, marginTop: 0, fontSize: 11 }}>Nominal (Rp) yang benar</label>
+                      <input
+                        type="number" inputMode="numeric"
+                        placeholder={`Nominal sekarang: ${formatRupiah(t.amount)}`}
+                        value={detailAmountValue}
+                        onChange={(e) => setDetailAmountValue(e.target.value)}
+                        style={{ ...styles.input, fontSize: 12, padding: '8px 10px' }}
+                      />
+                      <label style={{ ...styles.formLabel, fontSize: 11 }}>Jumlah gram/unit yang benar</label>
                       <input
                         type="number" inputMode="decimal"
                         placeholder={cat.asset_type === 'gold' ? 'Contoh: 0.343380' : 'Contoh: 56.4905'}
@@ -2613,7 +2629,7 @@ export default function Dashboard({ user, onLogout }) {
                       />
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button onClick={() => saveDetailAssetOverride(t.id)} style={{ ...styles.submitBtn, marginTop: 0, padding: '9px 0', fontSize: 12.5 }}>Simpan koreksi</button>
-                        <button onClick={() => { setEditingDetailAsset(false); setDetailPriceValue(''); setDetailUnitsValue(''); }} style={{ ...styles.submitBtn, marginTop: 0, padding: '9px 0', fontSize: 12.5, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}>Batal</button>
+                        <button onClick={() => { setEditingDetailAsset(false); setDetailPriceValue(''); setDetailUnitsValue(''); setDetailAmountValue(''); }} style={{ ...styles.submitBtn, marginTop: 0, padding: '9px 0', fontSize: 12.5, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}>Batal</button>
                       </div>
                     </div>
                   )}
@@ -2744,7 +2760,7 @@ export default function Dashboard({ user, onLogout }) {
                   {cat.asset_type === 'reksadana_syariah' && <>Nilai investasi saat ini: <b style={{ color: 'var(--text-primary)' }}>{formatRupiah(invest.currentValue)}</b></>}
                 </div>
               ) : (
-                <div style={{ fontSize: 11, color: '#F5C95D', marginBottom: 12 }}>?? Belum ada data kepemilikan yang bisa dihitung untuk kategori ini.</div>
+                <div style={{ fontSize: 11, color: '#F5C95D', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 4 }}><AlertTriangle size={12} />Belum ada data kepemilikan yang bisa dihitung untuk kategori ini.</div>
               )}
 
               {invest && !invest.noDataYet && invest.heldUnits > 0 && (
@@ -2850,14 +2866,14 @@ export default function Dashboard({ user, onLogout }) {
 
             <label style={styles.formLabel}>Kategori</label>
             <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-              {[['bug', '?? Bug'], ['saran', '?? Saran'], ['lainnya', '?? Lainnya']].map(([val, label]) => (
+              {[['bug', Bug, 'Bug'], ['saran', Lightbulb, 'Saran'], ['lainnya', MessageSquare, 'Lainnya']].map(([val, Icon, label]) => (
                 <button key={val} onClick={() => setFeedbackForm((f) => ({ ...f, category: val }))}
                   style={{
                     flex: 1, padding: '8px 0', borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: 'pointer',
                     border: `1px solid ${feedbackForm.category === val ? '#7FE8A4' : 'var(--border)'}`,
                     background: feedbackForm.category === val ? '#7FE8A422' : 'transparent',
                     color: feedbackForm.category === val ? '#7FE8A4' : 'var(--text-secondary)',
-                  }}>{label}</button>
+                  }}><Icon size={13} style={{ display: 'inline', verticalAlign: -2, marginRight: 4 }} />{label}</button>
               ))}
             </div>
 
@@ -2866,7 +2882,7 @@ export default function Dashboard({ user, onLogout }) {
               {[1, 2, 3, 4, 5].map((n) => (
                 <button key={n} onClick={() => setFeedbackForm((f) => ({ ...f, rating: f.rating === n ? 0 : n }))}
                   style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 22, padding: 0, opacity: feedbackForm.rating >= n ? 1 : 0.3 }}>
-                  ?
+                  <Star size={20} fill={feedbackForm.rating >= n ? 'currentColor' : 'none'} />
                 </button>
               ))}
             </div>
@@ -2894,7 +2910,7 @@ export default function Dashboard({ user, onLogout }) {
           padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 10,
           boxShadow: '0 8px 24px rgba(0,0,0,0.35)', zIndex: 60, maxWidth: 'calc(100vw - 32px)',
         }}>
-          <span style={{ fontSize: 18 }}>?</span>
+          <Check size={18} color="#7FE8A4" />
           <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>Makasih! Masukan kamu sudah terkirim.</span>
         </div>
       )}
@@ -3016,8 +3032,8 @@ export default function Dashboard({ user, onLogout }) {
                           <div style={{ display: 'flex', gap: 6 }}>
                             {[
                               { id: null, label: 'Tidak ada' },
-                              { id: 'gold', label: '?? Emas' },
-                              { id: 'reksadana_syariah', label: '?? Reksadana Syariah' },
+                              { id: 'gold', label: 'Emas' },
+                              { id: 'reksadana_syariah', label: 'Reksadana Syariah' },
                             ].map((opt) => (
                               <button key={opt.label} onClick={() => setEditingCatAssetType(opt.id)}
                                 style={{
@@ -3085,8 +3101,8 @@ export default function Dashboard({ user, onLogout }) {
               <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
                 {[
                   { id: null, label: 'Tidak ada' },
-                  { id: 'gold', label: '?? Emas' },
-                  { id: 'reksadana_syariah', label: '?? Reksadana Syariah' },
+                  { id: 'gold', label: 'Emas' },
+                  { id: 'reksadana_syariah', label: 'Reksadana Syariah' },
                 ].map((opt) => (
                   <button key={opt.label} onClick={() => setNewCatAssetType(opt.id)}
                     style={{
