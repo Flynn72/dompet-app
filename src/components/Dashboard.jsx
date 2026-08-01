@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
+import { isPushSupported, getNotificationPermissionStatus, enablePushNotifications, disablePushNotifications, checkExistingSubscription } from '../lib/pushClient';
 import * as XLSX from 'xlsx';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend, Dot } from 'recharts';
 import {
@@ -12,7 +13,7 @@ import {
   Coins, PiggyBank as PiggyBankIcon, Clock, Globe, Umbrella, Lock,
   QrCode, Nfc, BarChart2, TrendingDown as TrendingDownIcon, Package,
   Download, Upload, Sun, Moon, Target, HelpCircle, MessageSquare,
-  ChevronDown, ChevronUp, Hand, Search, Repeat, PartyPopper, Rocket, Bug, Lightbulb
+  ChevronDown, ChevronUp, Hand, Search, Repeat, PartyPopper, Rocket, Bug, Lightbulb, Bell, BellOff
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -219,7 +220,7 @@ export default function Dashboard({ user, onLogout }) {
   const [recurringList, setRecurringList] = useState([]);
   const [latestGoldPrice, setLatestGoldPrice] = useState(null); // harga emas per gram terbaru, dari asset_prices via RPC
   const [latestReksadanaNav, setLatestReksadanaNav] = useState(null); // NAV reksadana Insight Money Syariah terbaru, dari asset_prices via RPC
-  const [recurringForm, setRecurringForm] = useState({ type: 'expense', categoryId: null, amount: '', note: '', dayOfMonth: '1' });
+  const [recurringForm, setRecurringForm] = useState({ type: 'expense', categoryId: null, amount: '', note: '', dayOfMonth: '1', notifyEnabled: false, notifyDaysBefore: [3, 1, 0] });
   const [savingRecurring, setSavingRecurring] = useState(false);
   const [themeMode, setThemeMode] = useState(() => localStorage.getItem('dompet_theme') || 'system'); // system | dark | light
   const [tab, setTab] = useState('overview');
@@ -228,6 +229,29 @@ export default function Dashboard({ user, onLogout }) {
   const [txSearch, setTxSearch] = useState('');
   const [txTypeFilter, setTxTypeFilter] = useState('all'); // all | income | expense | saving
   const [pendingDelete, setPendingDelete] = useState(null); // { tx, timeoutId } — untuk fitur undo hapus
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+
+  useEffect(() => {
+    checkExistingSubscription().then(setPushEnabled);
+  }, []);
+
+  async function togglePushNotifications() {
+    if (pushLoading) return;
+    setPushLoading(true);
+    try {
+      if (pushEnabled) {
+        await disablePushNotifications();
+        setPushEnabled(false);
+      } else {
+        await enablePushNotifications(user.id);
+        setPushEnabled(true);
+      }
+    } catch (err) {
+      alert(err.message || 'Gagal mengubah pengaturan notifikasi.');
+    }
+    setPushLoading(false);
+  }
   const [selectedTxDetail, setSelectedTxDetail] = useState(null); // transaksi yang lagi dilihat detailnya (klik dari history)
   const [importing, setImporting] = useState(false);
   const [importSummary, setImportSummary] = useState(null); // { success, failed, errors: [] }
@@ -792,18 +816,30 @@ export default function Dashboard({ user, onLogout }) {
       note: recurringForm.note.trim(),
       day_of_month: day,
       is_active: true,
+      notify_enabled: recurringForm.notifyEnabled,
+      notify_days_before: recurringForm.notifyEnabled ? recurringForm.notifyDaysBefore : [],
     }).select().single();
     setSavingRecurring(false);
 
     if (error) { setSaveError(true); return; }
     setRecurringList((prev) => [...prev, data]);
-    setRecurringForm({ type: 'expense', categoryId: null, amount: '', note: '', dayOfMonth: '1' });
+    setRecurringForm({ type: 'expense', categoryId: null, amount: '', note: '', dayOfMonth: '1', notifyEnabled: false, notifyDaysBefore: [3, 1, 0] });
   }
 
   async function toggleRecurringActive(id, current) {
     const { error } = await supabase.from('recurring_transactions').update({ is_active: !current }).eq('id', id);
     if (error) { setSaveError(true); return; }
     setRecurringList((prev) => prev.map((r) => (r.id === id ? { ...r, is_active: !current } : r)));
+  }
+
+  // Toggle notifikasi ON/OFF untuk 1 transaksi berulang (dipakai buat reminder tagihan).
+  // Kalau baru dinyalakan dan belum pernah diatur, default-nya H-3/H-1/Hari-H.
+  async function toggleRecurringNotify(id, current, existingDays) {
+    const newEnabled = !current;
+    const daysBefore = newEnabled && (!existingDays || existingDays.length === 0) ? [3, 1, 0] : (existingDays || []);
+    const { error } = await supabase.from('recurring_transactions').update({ notify_enabled: newEnabled, notify_days_before: daysBefore }).eq('id', id);
+    if (error) { setSaveError(true); return; }
+    setRecurringList((prev) => prev.map((r) => (r.id === id ? { ...r, notify_enabled: newEnabled, notify_days_before: daysBefore } : r)));
   }
 
   async function deleteRecurring(id) {
@@ -1459,6 +1495,9 @@ export default function Dashboard({ user, onLogout }) {
           </button>
           <button onClick={cycleTheme} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Ganti tema" title={themeMode === 'system' ? 'Tema: Ikuti sistem' : themeMode === 'dark' ? 'Tema: Gelap' : 'Tema: Terang'}>
             {themeMode === 'system' ? <Monitor size={16} color="#9CA89F" /> : themeMode === 'dark' ? <Moon size={16} color="#9CA89F" /> : <Sun size={16} color="#9CA89F" />}
+          </button>
+          <button onClick={togglePushNotifications} disabled={pushLoading} style={{ ...styles.settingsBtn, marginLeft: 0, opacity: pushLoading ? 0.6 : 1 }} aria-label="Pengingat notifikasi" title={pushEnabled ? 'Pengingat notifikasi aktif — klik untuk matikan' : 'Aktifkan pengingat notifikasi'}>
+            {pushEnabled ? <Bell size={16} color="#7FE8A4" /> : <BellOff size={16} color="#9CA89F" />}
           </button>
           <button onClick={() => setShowFeedbackModal(true)} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Kasih masukan" title="Kasih masukan buat Dompet App"><MessageSquare size={16} color="#9CA89F" /></button>
           <button ref={settingsBtnRef} onClick={() => setShowCategoryModal(true)} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Kelola kategori"><Settings size={16} color="#9CA89F" /></button>
@@ -2929,7 +2968,7 @@ export default function Dashboard({ user, onLogout }) {
               {recurringList.map((r) => {
                 const cat = r.category_id ? catLookup(r.category_id) : null;
                 return (
-                  <div key={r.id} style={{ ...styles.budgetInputRow, opacity: r.is_active ? 1 : 0.5 }}>
+                  <div key={r.id} style={{ ...styles.budgetInputRow, opacity: r.is_active ? 1 : 0.5, flexWrap: 'wrap' }}>
                     <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
                       <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {r.note || cat?.label || (r.type === 'income' ? 'Income' : '-')}
@@ -2938,6 +2977,9 @@ export default function Dashboard({ user, onLogout }) {
                         {r.type === 'income' ? 'Income' : `${r.type === 'expense' ? 'Expense' : 'Saving'} · ${cat?.label || '-'}`} · Tgl {r.day_of_month} · {formatRupiah(r.amount)}
                       </span>
                     </span>
+                    <button onClick={() => toggleRecurringNotify(r.id, r.notify_enabled, r.notify_days_before)} style={{ ...styles.linkBtn, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4, color: r.notify_enabled ? '#7FE8A4' : 'var(--text-muted)' }} title={r.notify_enabled ? 'Pengingat aktif — klik untuk matikan' : 'Aktifkan pengingat sebelum jatuh tempo'}>
+                      {r.notify_enabled ? <Bell size={13} /> : <BellOff size={13} />}
+                    </button>
                     <button onClick={() => toggleRecurringActive(r.id, r.is_active)} style={{ ...styles.linkBtn, whiteSpace: 'nowrap' }}>
                       {r.is_active ? 'Nonaktifkan' : 'Aktifkan'}
                     </button>
@@ -2988,6 +3030,45 @@ export default function Dashboard({ user, onLogout }) {
               <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -6, marginBottom: 12 }}>
                 Kalau bulan tidak punya tanggal itu (mis. tanggal 31 di bulan 30 hari), otomatis dipakai tanggal terakhir bulan itu.
               </div>
+
+              <div
+                onClick={() => setRecurringForm((f) => ({ ...f, notifyEnabled: !f.notifyEnabled }))}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: recurringForm.notifyEnabled ? 8 : 12 }}
+              >
+                {recurringForm.notifyEnabled ? <Bell size={15} color="#7FE8A4" /> : <BellOff size={15} color="#9CA89F" />}
+                <span style={{ fontSize: 12.5, color: recurringForm.notifyEnabled ? '#7FE8A4' : 'var(--text-secondary)', fontWeight: 600 }}>
+                  Ingatkan lewat notifikasi sebelum jatuh tempo
+                </span>
+              </div>
+
+              {recurringForm.notifyEnabled && (
+                <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+                  {[{ v: 7, l: 'H-7' }, { v: 3, l: 'H-3' }, { v: 1, l: 'H-1' }, { v: 0, l: 'Hari-H' }].map((opt) => {
+                    const active = recurringForm.notifyDaysBefore.includes(opt.v);
+                    return (
+                      <button
+                        key={opt.v}
+                        onClick={() => setRecurringForm((f) => ({
+                          ...f,
+                          notifyDaysBefore: active ? f.notifyDaysBefore.filter((d) => d !== opt.v) : [...f.notifyDaysBefore, opt.v],
+                        }))}
+                        style={{
+                          padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                          border: `1px solid ${active ? '#7FE8A4' : 'var(--border)'}`,
+                          background: active ? '#7FE8A422' : 'transparent',
+                          color: active ? '#7FE8A4' : 'var(--text-secondary)',
+                        }}
+                      >{opt.l}</button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {recurringForm.notifyEnabled && !pushEnabled && (
+                <div style={{ fontSize: 10.5, color: '#F5C95D', marginTop: -6, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <AlertTriangle size={11} />Nyalakan dulu ikon bel di header supaya notifikasi bisa terkirim ke browser ini.
+                </div>
+              )}
 
               <button onClick={addRecurring} disabled={savingRecurring} style={{ ...styles.submitBtn, opacity: savingRecurring ? 0.6 : 1 }}>
                 <Check size={16} color="#0F1410" />{savingRecurring ? 'Menyimpan...' : 'Tambah'}
