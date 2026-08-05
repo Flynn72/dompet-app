@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Navigate } from 'react-router-dom'; // 1. Tambahkan import Navigate
+
 import { supabase } from '../lib/supabaseClient';
 import { LogOut, Trash2, Shield, Users, Clock, AlertTriangle, RefreshCw, ChevronDown, ChevronUp, UserPlus, Activity, BarChart3, Trophy, MessageSquare } from 'lucide-react';
 
@@ -24,7 +24,7 @@ function formatDate(dateStr) {
 export default function AdminPanel({ user, onLogout }) {
   // 2. GUARD CLAUSE: Mencegah render komponen jika user null/logout
   if (!user) {
-    return <Navigate to="/" replace />;
+    return null;
   }
 
   const [users, setUsers] = useState([]);
