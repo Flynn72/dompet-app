@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-
 import { supabase } from '../lib/supabaseClient';
 import { LogOut, Trash2, Shield, Users, Clock, AlertTriangle, RefreshCw, ChevronDown, ChevronUp, UserPlus, Activity, BarChart3, Trophy, MessageSquare } from 'lucide-react';
 
@@ -22,11 +21,6 @@ function formatDate(dateStr) {
 }
 
 export default function AdminPanel({ user, onLogout }) {
-  // 2. GUARD CLAUSE: Mencegah render komponen jika user null/logout
-  if (!user) {
-    return null;
-  }
-
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -38,10 +32,10 @@ export default function AdminPanel({ user, onLogout }) {
   const [search, setSearch] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [lastUpdate, setLastUpdate] = useState(new Date());
-  const isFetchingRef = useRef(false);
+  const isFetchingRef = useRef(false); // guard: cegah loadUsers() tumpang tindih saat interval cepat (500ms)
   const [feedbackList, setFeedbackList] = useState([]);
   const [feedbackLoading, setFeedbackLoading] = useState(true);
-  const [feedbackFilter, setFeedbackFilter] = useState('semua');
+  const [feedbackFilter, setFeedbackFilter] = useState('semua'); // 'semua' | 'bug' | 'saran' | 'lainnya'
   const [feedbackExpanded, setFeedbackExpanded] = useState(false);
 
   async function loadFeedback() {
@@ -54,78 +48,102 @@ export default function AdminPanel({ user, onLogout }) {
     setFeedbackLoading(false);
   }
 
-  async function loadUsers() {
-    if (isFetchingRef.current) return;
-    isFetchingRef.current = true;
+async function loadUsers() {
+  // Kalau masih ada request sebelumnya yang belum selesai, lewati siklus ini
+  if (isFetchingRef.current) return;
+  isFetchingRef.current = true;
 
-    const { data, error } = await supabase.rpc('admin_get_all_users');
+  const { data, error } = await supabase.rpc('admin_get_all_users');
 
-    if (error) {
-      setError(error.message);
-      setLoading(false);
-      isFetchingRef.current = false;
-      return;
-    }
-
-    setUsers(data || []);
-    setLastUpdate(new Date());
+  if (error) {
+    setError(error.message);
     setLoading(false);
     isFetchingRef.current = false;
+    return;
   }
 
-  useEffect(() => {
-    async function init() {
-      // 3. Pengecekan aman menggunakan optional chaining (user?.id)
-      if (user?.id) {
-        const { error } = await supabase.rpc("update_last_login", { user_id: user.id });
-        if (error) {
-          console.error('[AdminPanel] Gagal update last_login:', error.message);
-        }
-      }
+  // .filter(Boolean) — buang baris null/kosong kalau-kalau RPC-nya sesekali balikin data cacat,
+  // supaya 1 baris rusak tidak bikin SELURUH panel admin crash (defensive, bukan asumsi data selalu bersih)
+  setUsers((data || []).filter(Boolean));
+  setLastUpdate(new Date());
+  setLoading(false);
+  isFetchingRef.current = false;
+}
+  
+useEffect(() => {
+  if (!user?.id) return; // jaga-jaga: jangan lanjut kalau prop user belum siap (mis. saat transisi login/logout)
 
-      await loadUsers();
-      await loadFeedback();
+  async function init() {
+    const { error } = await supabase.rpc(
+      "update_last_login",
+      { user_id: user.id }
+    );
+
+    if (error) {
+      console.error('[AdminPanel] Gagal update last_login:', error.message);
     }
 
-    init();
+    await loadUsers();
+    await loadFeedback();
+  }
 
-    const transactionChannel = supabase
-      .channel("admin-transactions")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "transactions" },
-        () => { loadUsers(); }
-      )
-      .subscribe((status) => {
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error('[AdminPanel] Gagal subscribe realtime transactions:', status);
-        }
-      });
+  init();
 
-    const categoryChannel = supabase
-      .channel("admin-categories")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "categories" },
-        () => { loadUsers(); }
-      )
-      .subscribe((status) => {
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error('[AdminPanel] Gagal subscribe realtime categories:', status);
-        }
-      });
+  // Realtime transaksi — auto-refresh instan saat ada user yang input/ubah transaksi
+  const transactionChannel = supabase
+    .channel("admin-transactions")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "transactions",
+      },
+      () => {
+        loadUsers();
+      }
+    )
+    .subscribe((status) => {
+      // Kalau status tidak pernah "SUBSCRIBED", berarti Realtime belum diaktifkan
+      // untuk tabel "transactions" di Supabase (Database > Replication).
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.error('[AdminPanel] Gagal subscribe realtime transactions:', status, '— cek Database > Replication di Supabase.');
+      }
+    });
 
-    const interval = setInterval(() => {
-      loadUsers();
-    }, 500);
+  // Realtime kategori
+  const categoryChannel = supabase
+    .channel("admin-categories")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "categories",
+      },
+      () => {
+        loadUsers();
+      }
+    )
+    .subscribe((status) => {
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.error('[AdminPanel] Gagal subscribe realtime categories:', status, '— cek Database > Replication di Supabase.');
+      }
+    });
 
-    return () => {
-      clearInterval(interval);
-      supabase.removeChannel(transactionChannel);
-      supabase.removeChannel(categoryChannel);
-    };
-  }, []);
+  // Fallback: kalau tidak ada transaksi berjalan, tetap refresh tiap 500ms
+  const interval = setInterval(() => {
+    loadUsers();
+  }, 500);
 
+  return () => {
+    clearInterval(interval);
+
+    supabase.removeChannel(transactionChannel);
+    supabase.removeChannel(categoryChannel);
+  };
+}, []);
+  
   async function deleteUser(targetId, username) {
     setDeleting(targetId);
     try {
@@ -169,6 +187,7 @@ export default function AdminPanel({ user, onLogout }) {
 
   const inactiveCount = users.filter((u) => new Date(u.last_login).getTime() < inactiveThreshold).length;
 
+  // ===== Widget statistik cepat (dihitung dari data yang sudah ada, tidak perlu query baru) =====
   const now = Date.now();
   const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
   const newUsersThisWeek = users.filter((u) => new Date(u.created_at).getTime() >= sevenDaysAgo).length;
@@ -188,6 +207,7 @@ export default function AdminPanel({ user, onLogout }) {
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap');
         * { box-sizing: border-box; }
 
+        /* ===== CSS VARIABLES — TEMA NAVY (sama dengan Dashboard) ===== */
         :root {
           --bg-base: #0B0F1A;
           --bg-card: #131929;
@@ -198,11 +218,12 @@ export default function AdminPanel({ user, onLogout }) {
           --text-primary: #E8EDF8;
           --text-secondary: #7A90B8;
           --text-muted: #4A5A7A;
-          --accent: #7FE8A4;
+          --accent: #b6c6f0;
           --accent-text: #0B0F1A;
           --scrollbar: #1E2D4A;
         }
 
+        /* Light mode — mengikuti setting sistem/browser user, sama seperti Dashboard */
         @media (prefers-color-scheme: light) {
           :root {
             --bg-base: #EEF2FA;
@@ -214,7 +235,7 @@ export default function AdminPanel({ user, onLogout }) {
             --text-primary: #0D1B3E;
             --text-secondary: #3D5A8A;
             --text-muted: #7A90B8;
-            --accent: #1A6B4A;
+            --accent: #3d4d80;
             --accent-text: #FFFFFF;
             --scrollbar: #C8D4EC;
           }
@@ -234,9 +255,7 @@ export default function AdminPanel({ user, onLogout }) {
             <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Dompet App</div>
           </div>
         </div>
-        <button onClick={async () => { await supabase.auth.signOut(); onLogout(); }} style={s.logoutBtn}>
-          <LogOut size={15} color="var(--text-secondary)" />
-        </button>
+        <button onClick={async () => { await supabase.auth.signOut(); onLogout(); }} style={s.logoutBtn}><LogOut size={15} color="var(--text-secondary)" /></button>
       </div>
 
       <div style={s.content}>
@@ -287,7 +306,7 @@ export default function AdminPanel({ user, onLogout }) {
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '18px 18px', marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, cursor: 'pointer' }} onClick={() => setFeedbackExpanded((v) => !v)}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <MessageSquare size={18} color="#7FE8A4" />
+              <MessageSquare size={18} color="#b6c6f0" />
               <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 15 }}>Feedback dari user ({feedbackList.length})</span>
             </div>
             {feedbackExpanded ? <ChevronUp size={16} color="var(--text-secondary)" /> : <ChevronDown size={16} color="var(--text-secondary)" />}
@@ -316,7 +335,7 @@ export default function AdminPanel({ user, onLogout }) {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>{f.username || 'User tanpa nama'}</span>
-                            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: f.category === 'bug' ? '#2A1010' : f.category === 'saran' ? '#0D2A1A' : 'var(--bg-base)', color: f.category === 'bug' ? '#FF9466' : f.category === 'saran' ? '#7FE8A4' : 'var(--text-secondary)' }}>
+                            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: f.category === 'bug' ? '#2A1010' : f.category === 'saran' ? '#0D2A1A' : 'var(--bg-base)', color: f.category === 'bug' ? '#FF9466' : f.category === 'saran' ? '#b6c6f0' : 'var(--text-secondary)' }}>
                               {f.category === 'bug' ? '🐛 Bug' : f.category === 'saran' ? '💡 Saran' : '💬 Lainnya'}
                             </span>
                             {f.rating > 0 && <span style={{ fontSize: 11, color: '#F5C95D' }}>{'⭐'.repeat(f.rating)}</span>}
@@ -422,7 +441,7 @@ export default function AdminPanel({ user, onLogout }) {
                         {(u.email || '').replace('@dompetapp.local', '')}
                       </td>
                       <td style={{ ...s.td, textAlign: 'center' }}>
-                        <span style={{ fontSize: 13, color: u.total_transactions > 0 ? '#7FE8A4' : 'var(--text-secondary)' }}>
+                        <span style={{ fontSize: 13, color: u.total_transactions > 0 ? '#b6c6f0' : 'var(--text-secondary)' }}>
                           {u.total_transactions}
                         </span>
                       </td>
@@ -442,7 +461,7 @@ export default function AdminPanel({ user, onLogout }) {
                         <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{formatDate(u.created_at)}</div>
                       </td>
                       <td style={s.td}>
-                        {u.id !== user?.id && !u.is_admin && (
+                        {u.id !== user.id && !u.is_admin && (
                           isConfirming ? (
                             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                               <span style={{ fontSize: 11, color: '#FF9466' }}>Yakin hapus?</span>
@@ -461,8 +480,8 @@ export default function AdminPanel({ user, onLogout }) {
                             </button>
                           )
                         )}
-                        {u.id === user?.id && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Akun ini</span>}
-                        {u.is_admin && u.id !== user?.id && <span style={{ fontSize: 11, color: '#C99FE8' }}>Admin</span>}
+                        {u.id === user.id && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Akun ini</span>}
+                        {u.is_admin && u.id !== user.id && <span style={{ fontSize: 11, color: '#C99FE8' }}>Admin</span>}
                       </td>
                     </tr>
                   );
@@ -472,27 +491,31 @@ export default function AdminPanel({ user, onLogout }) {
           </div>
         )}
         <div
-          style={{
-            display: "flex",
-            justify: "space-between",
-            alignItems: "center",
-            marginTop: 12,
-            fontSize: 12,
-            color: "var(--text-secondary)",
-          }}
-        >
-          <span>
-            Menampilkan {filtered.length} dari {users.length} user
-          </span>
-          <span>
-            Terakhir diperbarui : {lastUpdate.toLocaleTimeString("id-ID")}
-          </span>
-        </div>
+  style={{
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 12,
+    fontSize: 12,
+    color: "var(--text-secondary)",
+  }}
+>
+  <span>
+    Menampilkan {filtered.length} dari {users.length} user
+  </span>
+
+  <span>
+    Terakhir diperbarui :
+    {" "}
+    {lastUpdate.toLocaleTimeString("id-ID")}
+  </span>
+</div>
       </div>
     </div>
   );
 }
 
+// Komponen Check icon kecil
 function Check({ size = 14 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
