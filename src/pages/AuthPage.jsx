@@ -1,210 +1,549 @@
-import React, { useState } from 'react';
-import { Wallet, Eye, EyeOff, AlertCircle } from 'lucide-react';
-import { supabase, usernameToEmail } from '../lib/supabaseClient';
+import React, { useState, useEffect, useRef } from 'react';
+import { supabase } from '../lib/supabaseClient';
+import { LogOut, Trash2, Shield, Users, Clock, AlertTriangle, RefreshCw, ChevronDown, ChevronUp, UserPlus, Activity, BarChart3, Trophy, MessageSquare } from 'lucide-react';
 
-export default function AuthPage({ onAuthSuccess }) {
-  const [mode, setMode] = useState('login'); // login | register
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+function timeAgo(dateStr) {
+  if (!dateStr) return 'Tidak diketahui';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const days = Math.floor(diff / 86400000);
+  const hours = Math.floor(diff / 3600000);
+  const mins = Math.floor(diff / 60000);
+  if (days > 30) return `${Math.floor(days / 30)} bulan lalu`;
+  if (days > 0) return `${days} hari lalu`;
+  if (hours > 0) return `${hours} jam lalu`;
+  if (mins > 0) return `${mins} menit lalu`;
+  return 'Baru saja';
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '-';
+  return new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+export default function AdminPanel({ user, onLogout }) {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [deleting, setDeleting] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [sortBy, setSortBy] = useState('last_login');
+  const [sortDir, setSortDir] = useState('desc');
+  const [filterInactive, setFilterInactive] = useState(false);
+  const [search, setSearch] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [lastUpdate, setLastUpdate] = useState(new Date());
+  const isFetchingRef = useRef(false); // guard: cegah loadUsers() tumpang tindih saat interval cepat (500ms)
+  const [feedbackList, setFeedbackList] = useState([]);
+  const [feedbackLoading, setFeedbackLoading] = useState(true);
+  const [feedbackFilter, setFeedbackFilter] = useState('semua'); // 'semua' | 'bug' | 'saran' | 'lainnya'
+  const [feedbackExpanded, setFeedbackExpanded] = useState(false);
 
-  function validateUsername(u) {
-    return /^[a-zA-Z0-9_]{3,20}$/.test(u);
+  async function loadFeedback() {
+    const { data, error } = await supabase.rpc('admin_get_all_feedback');
+    if (error) {
+      console.error('[AdminPanel] Gagal ambil feedback:', error.message, error);
+    } else {
+      setFeedbackList(data || []);
+    }
+    setFeedbackLoading(false);
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setError('');
+async function loadUsers() {
+  // Kalau masih ada request sebelumnya yang belum selesai, lewati siklus ini
+  if (isFetchingRef.current) return;
+  isFetchingRef.current = true;
 
-    if (!validateUsername(username)) {
-      setError('Username 3-20 karakter, hanya huruf, angka, dan underscore.');
-      return;
-    }
-    if (password.length < 6) {
-      setError('Password minimal 6 karakter.');
-      return;
-    }
-    if (mode === 'register' && password !== confirmPassword) {
-      setError('Konfirmasi password tidak cocok.');
-      return;
-    }
+  const { data, error } = await supabase.rpc('admin_get_all_users');
 
-    setLoading(true);
-    const email = usernameToEmail(username);
-
-    try {
-      if (mode === 'register') {
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { username } },
-        });
-        if (signUpError) {
-          if (signUpError.message.toLowerCase().includes('already registered')) {
-            setError('Username sudah dipakai. Coba username lain.');
-          } else {
-            setError(signUpError.message);
-          }
-          setLoading(false);
-          return;
-        }
-        if (data.session) {
-          onAuthSuccess();
-        } else {
-          setError('Pendaftaran berhasil. Silakan login.');
-          setMode('login');
-        }
-      } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-        if (signInError) {
-          setError('Username atau password salah.');
-          setLoading(false);
-          return;
-        }
-        onAuthSuccess();
-      }
-    } catch (err) {
-      setError('Terjadi kesalahan. Periksa koneksi internet.');
-    }
+  if (error) {
+    setError(error.message);
     setLoading(false);
+    isFetchingRef.current = false;
+    return;
   }
+
+  setUsers(data || []);
+  setLastUpdate(new Date());
+  setLoading(false);
+  isFetchingRef.current = false;
+}
+  
+useEffect(() => {
+  async function init() {
+    const { error } = await supabase.rpc(
+      "update_last_login",
+      { user_id: user.id }
+    );
+
+    if (error) {
+      console.error('[AdminPanel] Gagal update last_login:', error.message);
+    }
+
+    await loadUsers();
+    await loadFeedback();
+  }
+
+  init();
+
+  // Realtime transaksi — auto-refresh instan saat ada user yang input/ubah transaksi
+  const transactionChannel = supabase
+    .channel("admin-transactions")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "transactions",
+      },
+      () => {
+        loadUsers();
+      }
+    )
+    .subscribe((status) => {
+      // Kalau status tidak pernah "SUBSCRIBED", berarti Realtime belum diaktifkan
+      // untuk tabel "transactions" di Supabase (Database > Replication).
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.error('[AdminPanel] Gagal subscribe realtime transactions:', status, '— cek Database > Replication di Supabase.');
+      }
+    });
+
+  // Realtime kategori
+  const categoryChannel = supabase
+    .channel("admin-categories")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "categories",
+      },
+      () => {
+        loadUsers();
+      }
+    )
+    .subscribe((status) => {
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.error('[AdminPanel] Gagal subscribe realtime categories:', status, '— cek Database > Replication di Supabase.');
+      }
+    });
+
+  // Fallback: kalau tidak ada transaksi berjalan, tetap refresh tiap 500ms
+  const interval = setInterval(() => {
+    loadUsers();
+  }, 500);
+
+  return () => {
+    clearInterval(interval);
+
+    supabase.removeChannel(transactionChannel);
+    supabase.removeChannel(categoryChannel);
+  };
+}, []);
+  
+  async function deleteUser(targetId, username) {
+    setDeleting(targetId);
+    try {
+      const { error: err } = await supabase.rpc('admin_delete_user', { target_user_id: targetId });
+      if (err) throw err;
+      setUsers((prev) => prev.filter((u) => u.id !== targetId));
+      setSuccessMsg(`Akun "${username}" berhasil dihapus.`);
+      setTimeout(() => setSuccessMsg(''), 4000);
+    } catch (e) {
+      setError('Gagal hapus user: ' + (e.message || 'Unknown error'));
+    }
+    setDeleting(null);
+    setConfirmDelete(null);
+  }
+
+  function toggleSort(col) {
+    if (sortBy === col) setSortDir((d) => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(col); setSortDir('desc'); }
+  }
+
+  const inactiveDays = 30;
+  const inactiveThreshold = Date.now() - inactiveDays * 86400000;
+
+  const filtered = users
+    .filter((u) => {
+      const matchSearch = !search ||
+        (u.username || '').toLowerCase().includes(search.toLowerCase()) ||
+        (u.email || '').toLowerCase().includes(search.toLowerCase());
+      const matchInactive = !filterInactive || new Date(u.last_login).getTime() < inactiveThreshold;
+      return matchSearch && matchInactive;
+    })
+    .sort((a, b) => {
+      let va = a[sortBy], vb = b[sortBy];
+      if (sortBy === 'last_login' || sortBy === 'created_at') {
+        va = new Date(va || 0).getTime();
+        vb = new Date(vb || 0).getTime();
+      }
+      if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+      return sortDir === 'asc' ? va - vb : vb - va;
+    });
+
+  const inactiveCount = users.filter((u) => new Date(u.last_login).getTime() < inactiveThreshold).length;
+
+  // ===== Widget statistik cepat (dihitung dari data yang sudah ada, tidak perlu query baru) =====
+  const now = Date.now();
+  const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+  const newUsersThisWeek = users.filter((u) => new Date(u.created_at).getTime() >= sevenDaysAgo).length;
+  const totalTransactionsAll = users.reduce((sum, u) => sum + (Number(u.total_transactions) || 0), 0);
+  const avgTxPerUser = users.length > 0 ? (totalTransactionsAll / users.length) : 0;
+  const mostActiveUser = users.reduce((top, u) => (
+    (Number(u.total_transactions) || 0) > (Number(top?.total_transactions) || 0) ? u : top
+  ), null);
+
+  const SortIcon = ({ col }) => sortBy === col
+    ? (sortDir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />)
+    : null;
 
   return (
-    <div style={styles.page}>
+    <div style={s.page}>
       <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap');
-      *{
-        box-sizing:border-box;
-      }
-      
-      :root{
-        --bg-base:#0B0F1A;
-        --bg-card:#131929;
-        --bg-input:#0B0F1A;
-        --border:#1E2D4A;
-        --text-primary:#E8EDF8;
-        --text-secondary:#7A90B8;
-        --accent:#b6c6f0;
-      }
-      
-      @media(prefers-color-scheme:light){
-        :root{
-        --bg-base:#EEF2FA;
-        --bg-card:#FFFFFF;
-        --bg-input:#F6F8FD;
-        --border:#C8D4EC;
-        --text-primary:#0D1B3E;
-        --text-secondary:#6079A3;
-        --accent:#3d4d80;
-      }
-    }
-    
-    input{
-      font-family:'Inter',sans-serif;
-    }
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap');
+        * { box-sizing: border-box; }
+
+        /* ===== CSS VARIABLES — TEMA NAVY (sama dengan Dashboard) ===== */
+        :root {
+          --bg-base: #0B0F1A;
+          --bg-card: #131929;
+          --bg-card2: #1A2238;
+          --bg-input: #0B0F1A;
+          --border: #1E2D4A;
+          --border2: #2A3B5C;
+          --text-primary: #E8EDF8;
+          --text-secondary: #7A90B8;
+          --text-muted: #4A5A7A;
+          --accent: #b6c6f0;
+          --accent-text: #0B0F1A;
+          --scrollbar: #1E2D4A;
+        }
+
+        /* Light mode — mengikuti setting sistem/browser user, sama seperti Dashboard */
+        @media (prefers-color-scheme: light) {
+          :root {
+            --bg-base: #EEF2FA;
+            --bg-card: #FFFFFF;
+            --bg-card2: #F0F4FF;
+            --bg-input: #F5F7FF;
+            --border: #C8D4EC;
+            --border2: #A8BCDC;
+            --text-primary: #0D1B3E;
+            --text-secondary: #3D5A8A;
+            --text-muted: #7A90B8;
+            --accent: #3d4d80;
+            --accent-text: #FFFFFF;
+            --scrollbar: #C8D4EC;
+          }
+        }
+
+        body { margin: 0; background: var(--bg-base); font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 3px; }
+        input, select, button { font-family: 'Inter', sans-serif; }
       `}</style>
-      <div style={styles.card}>
-        <div style={styles.logoWrap}>
-          <div style={styles.logoMark}><Wallet size={22} color="#1f3051" /></div>
-          <span style={styles.logoText}>Dompet</span>
+
+      {/* Header */}
+      <div style={s.header}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={s.logoMark}><Shield size={18} color="var(--accent-text)" /></div>
+          <div>
+            <div style={s.logoText}>Admin Panel</div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Dompet App</div>
+          </div>
         </div>
-        <p style={styles.subtitle}>
-          {mode === 'login' ? 'Kelola dana Anda dengan lebih mudah' : 'Buat akun baru untuk mulai mencatat'}
-        </p>
+        <button onClick={async () => { await supabase.auth.signOut(); onLogout(); }} style={s.logoutBtn}><LogOut size={15} color="var(--text-secondary)" /></button>
+      </div>
 
-        <form onSubmit={handleSubmit}>
-          <label style={styles.label}>Username</label>
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="Masukan Username"
-            style={styles.input}
-            autoCapitalize="none"
-            autoCorrect="off"
-          />
+      <div style={s.content}>
+        {/* Stats */}
+        <div style={s.statsGrid}>
+          <div style={s.statCard}>
+            <Users size={20} color="var(--accent)" />
+            <div style={s.statVal}>{users.length}</div>
+            <div style={s.statLabel}>Total User</div>
+          </div>
+          <div style={s.statCard}>
+            <Clock size={20} color="#FF9466" />
+            <div style={{ ...s.statVal, color: '#FF9466' }}>{inactiveCount}</div>
+            <div style={s.statLabel}>Tidak aktif {inactiveDays}+ hari</div>
+          </div>
+          <div style={s.statCard}>
+            <Shield size={20} color="#C99FE8" />
+            <div style={{ ...s.statVal, color: '#C99FE8' }}>{users.filter((u) => u.is_admin).length}</div>
+            <div style={s.statLabel}>Admin</div>
+          </div>
+          <div style={s.statCard}>
+            <UserPlus size={20} color="#6FB7E8" />
+            <div style={{ ...s.statVal, color: '#6FB7E8' }}>{newUsersThisWeek}</div>
+            <div style={s.statLabel}>User baru minggu ini</div>
+          </div>
+          <div style={s.statCard}>
+            <Activity size={20} color="var(--accent)" />
+            <div style={s.statVal}>{totalTransactionsAll}</div>
+            <div style={s.statLabel}>Total transaksi semua user</div>
+          </div>
+          <div style={s.statCard}>
+            <BarChart3 size={20} color="#F5C95D" />
+            <div style={{ ...s.statVal, color: '#F5C95D' }}>{avgTxPerUser.toFixed(1)}</div>
+            <div style={s.statLabel}>Rata-rata transaksi/user</div>
+          </div>
+        </div>
 
-          <label style={styles.label}>Password</label>
-          <div style={{ position: 'relative' }}>
-            <input
-              type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Masukan Password"
-              style={{ ...styles.input, paddingRight: 40 }}
-            />
-            <button type="button" onClick={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
-              {showPassword ? <EyeOff size={16} color="#9CA89F" /> : <Eye size={16} color="#9CA89F" />}
-            </button>
+        {mostActiveUser && mostActiveUser.total_transactions > 0 && (
+          <div style={{ ...s.statCard, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 24, marginTop: -8 }}>
+            <Trophy size={18} color="#F5C95D" style={{ flexShrink: 0 }} />
+            <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
+              User paling aktif: <b style={{ color: 'var(--text-primary)' }}>{mostActiveUser.username}</b> ({mostActiveUser.total_transactions} transaksi)
+            </div>
+          </div>
+        )}
+
+        {/* Feedback dari user */}
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '18px 18px', marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, cursor: 'pointer' }} onClick={() => setFeedbackExpanded((v) => !v)}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <MessageSquare size={18} color="#b6c6f0" />
+              <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 15 }}>Feedback dari user ({feedbackList.length})</span>
+            </div>
+            {feedbackExpanded ? <ChevronUp size={16} color="var(--text-secondary)" /> : <ChevronDown size={16} color="var(--text-secondary)" />}
           </div>
 
-          {mode === 'register' && (
+          {feedbackExpanded && (
             <>
-              <label style={styles.label}>Konfirmasi Password</label>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Ulangi password"
-                style={styles.input}
-              />
+              <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+                {['semua', 'bug', 'saran', 'lainnya'].map((f) => (
+                  <button key={f} onClick={() => setFeedbackFilter(f)} style={{ ...s.filterBtn, ...(feedbackFilter === f ? s.filterBtnActive : {}) }}>
+                    {f === 'semua' ? 'Semua' : f === 'bug' ? '🐛 Bug' : f === 'saran' ? '💡 Saran' : '💬 Lainnya'}
+                  </button>
+                ))}
+              </div>
+
+              {feedbackLoading ? (
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Memuat feedback...</div>
+              ) : feedbackList.length === 0 ? (
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Belum ada feedback masuk.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 400, overflowY: 'auto' }}>
+                  {feedbackList
+                    .filter((f) => feedbackFilter === 'semua' || f.category === feedbackFilter)
+                    .map((f) => (
+                      <div key={f.id} style={{ background: 'var(--bg-card2, var(--bg-base))', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>{f.username || 'User tanpa nama'}</span>
+                            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: f.category === 'bug' ? '#2A1010' : f.category === 'saran' ? '#0D2A1A' : 'var(--bg-base)', color: f.category === 'bug' ? '#FF9466' : f.category === 'saran' ? '#b6c6f0' : 'var(--text-secondary)' }}>
+                              {f.category === 'bug' ? '🐛 Bug' : f.category === 'saran' ? '💡 Saran' : '💬 Lainnya'}
+                            </span>
+                            {f.rating > 0 && <span style={{ fontSize: 11, color: '#F5C95D' }}>{'⭐'.repeat(f.rating)}</span>}
+                          </div>
+                          <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{timeAgo(f.created_at)}</span>
+                        </div>
+                        <div style={{ fontSize: 13, color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{f.message}</div>
+                      </div>
+                    ))}
+                </div>
+              )}
             </>
           )}
+        </div>
 
-          {error && (
-            <div style={styles.errorBox}>
-              <AlertCircle size={14} color="#FF9466" style={{ flexShrink: 0, marginTop: 1 }} />
-              <span>{error}</span>
-            </div>
-          )}
+        {/* Alerts */}
+        {error && (
+          <div style={s.errorBanner}>
+            <AlertTriangle size={14} /><span>{error}</span>
+            <button onClick={() => setError('')} style={{ ...s.iconBtn, marginLeft: 'auto' }}><span style={{ fontSize: 16 }}>×</span></button>
+          </div>
+        )}
+        {successMsg && (
+          <div style={s.successBanner}><Check size={14} /><span>{successMsg}</span></div>
+        )}
 
-          <button type="submit" disabled={loading} style={{ ...styles.submitBtn, opacity: loading ? 0.6 : 1 }}>
-            {loading ? 'Memproses...' : mode === 'login' ? 'Masuk' : 'Daftar'}
-          </button>
-        </form>
+        {/* Toolbar */}
+        <div style={s.toolbar}>
+          <input
+            type="text"
+            placeholder="Cari username atau email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={s.searchInput}
+          />
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setFilterInactive(!filterInactive)}
+              style={{ ...s.filterBtn, ...(filterInactive ? s.filterBtnActive : {}) }}
+            >
+              <Clock size={13} />
+              Tidak aktif {inactiveDays}+ hari {inactiveCount > 0 && `(${inactiveCount})`}
+            </button>
+            <button onClick={loadUsers} style={s.filterBtn}>
+              <RefreshCw size={13} />
+              Refresh
+            </button>
+          </div>
+        </div>
 
-        <p style={styles.switchText}>
-          {mode === 'login' ? (
-            <>Belum punya akun? <span style={styles.switchLink} onClick={() => { setMode('register'); setError(''); }}>Daftar di sini</span></>
-          ) : (
-            <>Sudah punya akun? <span style={styles.switchLink} onClick={() => { setMode('login'); setError(''); }}>Masuk di sini</span></>
-          )}
-        </p>
+        {/* Tabel */}
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-secondary)' }}>Memuat data user...</div>
+        ) : (
+          <div style={s.tableWrap}>
+            <table style={s.table}>
+              <thead>
+                <tr>
+                  {[
+                    { key: 'username', label: 'Username' },
+                    { key: 'email', label: 'Email' },
+                    { key: 'total_transactions', label: 'Transaksi' },
+                    { key: 'total_categories', label: 'Kategori' },
+                    { key: 'last_login', label: 'Login terakhir' },
+                    { key: 'created_at', label: 'Daftar' },
+                    { key: null, label: 'Aksi' },
+                  ].map((col) => (
+                    <th
+                      key={col.label}
+                      style={{ ...s.th, cursor: col.key ? 'pointer' : 'default' }}
+                      onClick={() => col.key && toggleSort(col.key)}
+                    >
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        {col.label}{col.key && <SortIcon col={col.key} />}
+                      </span>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 && (
+                  <tr><td colSpan={7} style={{ ...s.td, textAlign: 'center', color: 'var(--text-secondary)', padding: '32px 0' }}>
+                    {search || filterInactive ? 'Tidak ada user yang cocok.' : 'Belum ada user.'}
+                  </td></tr>
+                )}
+                {filtered.map((u) => {
+                  const isInactive = new Date(u.last_login).getTime() < inactiveThreshold;
+                  const isConfirming = confirmDelete === u.id;
+                  return (
+                    <tr key={u.id} style={{ background: isInactive ? '#1A0F0F' : 'transparent' }}>
+                      <td style={s.td}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ ...s.avatar, background: u.is_admin ? '#C99FE855' : 'var(--bg-card2)' }}>
+                            {u.is_admin ? <Shield size={12} color="#C99FE8" /> : (u.username?.[0] || '?').toUpperCase()}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>{u.username || '-'}</div>
+                            {u.is_admin && <div style={{ fontSize: 10, color: '#C99FE8', fontWeight: 700 }}>ADMIN</div>}
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ ...s.td, fontSize: 12, color: 'var(--text-secondary)' }}>
+                        {(u.email || '').replace('@dompetapp.local', '')}
+                      </td>
+                      <td style={{ ...s.td, textAlign: 'center' }}>
+                        <span style={{ fontSize: 13, color: u.total_transactions > 0 ? '#b6c6f0' : 'var(--text-secondary)' }}>
+                          {u.total_transactions}
+                        </span>
+                      </td>
+                      <td style={{ ...s.td, textAlign: 'center' }}>
+                        <span style={{ fontSize: 13, color: u.total_categories > 0 ? '#6FB7E8' : 'var(--text-secondary)' }}>
+                          {u.total_categories}
+                        </span>
+                      </td>
+                      <td style={s.td}>
+                        <div style={{ fontSize: 12, color: isInactive ? '#FF9466' : 'var(--text-secondary)' }}>
+                          {timeAgo(u.last_login)}
+                          {isInactive && <span style={{ marginLeft: 6, fontSize: 10, background: '#FF946622', color: '#FF9466', padding: '1px 6px', borderRadius: 4 }}>Tidak aktif</span>}
+                        </div>
+                        <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{formatDate(u.last_login)}</div>
+                      </td>
+                      <td style={s.td}>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{formatDate(u.created_at)}</div>
+                      </td>
+                      <td style={s.td}>
+                        {u.id !== user.id && !u.is_admin && (
+                          isConfirming ? (
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                              <span style={{ fontSize: 11, color: '#FF9466' }}>Yakin hapus?</span>
+                              <button
+                                onClick={() => deleteUser(u.id, u.username)}
+                                disabled={deleting === u.id}
+                                style={{ ...s.deleteConfirmBtn, opacity: deleting === u.id ? 0.5 : 1 }}
+                              >
+                                {deleting === u.id ? '...' : 'Ya, hapus'}
+                              </button>
+                              <button onClick={() => setConfirmDelete(null)} style={s.cancelBtn}>Batal</button>
+                            </div>
+                          ) : (
+                            <button onClick={() => setConfirmDelete(u.id)} style={s.deleteBtn}>
+                              <Trash2 size={14} />
+                            </button>
+                          )
+                        )}
+                        {u.id === user.id && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Akun ini</span>}
+                        {u.is_admin && u.id !== user.id && <span style={{ fontSize: 11, color: '#C99FE8' }}>Admin</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div
+  style={{
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 12,
+    fontSize: 12,
+    color: "var(--text-secondary)",
+  }}
+>
+  <span>
+    Menampilkan {filtered.length} dari {users.length} user
+  </span>
+
+  <span>
+    Terakhir diperbarui :
+    {" "}
+    {lastUpdate.toLocaleTimeString("id-ID")}
+  </span>
+</div>
       </div>
     </div>
   );
 }
 
-const styles = {
-  page: {
-    minHeight: '100vh', background: 'var(--bg-base)', fontFamily: "'Inter', sans-serif", color: 'var(--text-primary)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
-  },
-  card: { width: '100%', maxWidth: 380, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 20, padding: '32px 24px' },
-  logoWrap: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 8 },
-  logoMark: { width: 38, height: 38, borderRadius: 10, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  logoText: { fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 22, color:'var(--text-primary)', letterSpacing: '-0.02em' },
-  subtitle: { textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 28 },
-  label: { display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6, marginTop: 14 },
-  input: {
-    width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px',
-    color: 'var(--text-primary)', fontSize: 14, outline: 'none',
-  },
-  eyeBtn: {
-    position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'transparent',
-    border: 'none', cursor: 'pointer', display: 'flex', padding: 4,
-  },
-  errorBox: {
-    display: 'flex', gap: 8, background: '#3A2418', color: '#FF9466', fontSize: 12.5, padding: '10px 12px',
-    borderRadius: 8, marginTop: 16, lineHeight: 1.4,
-  },
-  submitBtn: {
-    width: '100%', marginTop: 24, padding: '13px 0', borderRadius: 12, border: 'none', background: '#b6c6f0',
-    color: '#1f3051', fontSize: 14, fontWeight: 700, cursor: 'pointer',
-  },
-  switchText: { textAlign: 'center', fontSize: 13, color: '#9CA89F', marginTop: 20 },
-  switchLink: { color: '#b6c6f0', cursor: 'pointer', fontWeight: 600 },
+// Komponen Check icon kecil
+function Check({ size = 14 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+const s = {
+  page: { minHeight: '100vh', background: 'var(--bg-base)', color: 'var(--text-primary)', fontFamily: "'Inter', sans-serif" },
+  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid var(--border)', background: 'var(--bg-base)' },
+  logoMark: { width: 36, height: 36, borderRadius: 10, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  logoText: { fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 16, color: 'var(--text-primary)' },
+  logoutBtn: { width: 34, height: 34, borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
+  content: { padding: '24px', maxWidth: 1200, margin: '0 auto' },
+  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 },
+  statCard: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 8 },
+  statVal: { fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 28, color: 'var(--accent)' },
+  statLabel: { fontSize: 12, color: 'var(--text-secondary)' },
+  errorBanner: { background: '#2A1010', border: '1px solid #5A2020', color: '#FF9466', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, fontSize: 13 },
+  successBanner: { background: '#0D2A1A', border: '1px solid #1A5A3A', color: 'var(--accent)', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, fontSize: 13 },
+  toolbar: { display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' },
+  searchInput: { flex: 1, minWidth: 200, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', color: 'var(--text-primary)', fontSize: 13, outline: 'none' },
+  filterBtn: { display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer' },
+  filterBtnActive: { background: '#FF946622', borderColor: '#FF9466', color: '#FF9466' },
+  tableWrap: { overflowX: 'auto', background: 'var(--bg-card)', borderRadius: 14, border: '1px solid var(--border)' },
+  table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
+  th: { padding: '12px 16px', textAlign: 'left', fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' },
+  td: { padding: '12px 16px', borderBottom: '1px solid var(--border)', verticalAlign: 'middle', color: 'var(--text-primary)' },
+  avatar: { width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', flexShrink: 0 },
+  deleteBtn: { width: 32, height: 32, borderRadius: 8, background: '#2A1010', border: '1px solid #5A2020', color: '#FF9466', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
+  deleteConfirmBtn: { padding: '5px 10px', borderRadius: 7, background: '#FF9466', border: 'none', color: '#0B0F1A', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
+  cancelBtn: { padding: '5px 10px', borderRadius: 7, background: 'transparent', border: '1px solid var(--border2)', color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer' },
+  iconBtn: { background: 'transparent', border: 'none', cursor: 'pointer', color: '#FF9466', display: 'flex', padding: 2 },
 };
