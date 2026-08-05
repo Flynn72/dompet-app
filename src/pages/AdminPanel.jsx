@@ -21,6 +21,11 @@ function formatDate(dateStr) {
 }
 
 export default function AdminPanel({ user, onLogout }) {
+  // --- TAMBAHKAN BARIS INI (GUARD CLAUSE) ---
+  if (!user) {
+    return null;
+  }
+  // ------------------------------------------
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
