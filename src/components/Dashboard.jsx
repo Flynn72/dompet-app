@@ -103,6 +103,29 @@ function monthKey(dateStr) {
 function lastDayOfMonth(year, month /* 1-12 */) {
   return new Date(year, month, 0).getDate();
 }
+// Badge status buat kartu budget kategori — dipakai di redesign Anggaran & Tagihan
+function budgetStatusBadge(pct) {
+  if (pct >= 100) return { label: 'Hampir Habis', color: '#FF9466' };
+  if (pct > 70) return { label: 'Waspada', color: '#F5C95D' };
+  return { label: 'Aman', color: '#b6c6f0' };
+}
+// Hitung status tagihan berulang (Lunas / Hampir Jatuh Tempo / Belum Dibayar) buat preview
+// di halaman utama — "Lunas" dideteksi dari ada-tidaknya transaksi bulan ini yang recurringId-nya cocok.
+function computeBillStatus(rule, transactions) {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const dueDay = Math.min(rule.day_of_month, lastDayOfMonth(y, m + 1));
+  const dueDate = new Date(y, m, dueDay);
+  dueDate.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((dueDate - now) / (1000 * 60 * 60 * 24));
+  const thisMonthKey = `${y}-${String(m + 1).padStart(2, '0')}`;
+  const paid = transactions.some((t) => t.recurringId === rule.id && monthKey(t.date) === thisMonthKey);
+  if (paid) return { status: 'paid', diffDays, label: 'Lunas', color: '#b6c6f0' };
+  if (diffDays <= 3) return { status: 'due_soon', diffDays, label: diffDays <= 0 ? 'Jatuh Tempo Hari Ini' : `Hampir Jatuh Tempo (H-${diffDays})`, color: '#F5C95D' };
+  return { status: 'unpaid', diffDays, label: 'Belum Dibayar', color: 'var(--text-muted)' };
+}
 function pad2(n) { return String(n).padStart(2, '0'); }
 
 // Gaya "aktif" untuk card ringkasan yang berfungsi sebagai shortcut filter (Income/Expense/Saving).
@@ -1597,6 +1620,33 @@ export default function Dashboard({ user, onLogout }) {
                 </div>
               </div>
 
+              {/* Total Anggaran Bulanan — hero card, gaya Navy/Stitch */}
+              {expenseCategories.length > 0 && (() => {
+                const totalBudgetLimit = expenseCategories.reduce((s, c) => s + getExpenseBudget(c.id), 0);
+                const totalBudgetSpent = expenseCategories.reduce((s, c) => s + (expenseSpend[c.id] || 0), 0);
+                if (totalBudgetLimit === 0) return null;
+                const totalPct = Math.min(100, (totalBudgetSpent / totalBudgetLimit) * 100);
+                const badge = budgetStatusBadge(totalPct);
+                const sisa = totalBudgetLimit - totalBudgetSpent;
+                return (
+                  <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 20, padding: '22px 24px', marginTop: 24, marginBottom: 4, background: 'var(--bg-card2)', border: '1px solid rgba(182,198,240,0.14)' }}>
+                    <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', letterSpacing: '0.03em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 8 }}>Total Anggaran Bulanan</div>
+                    <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 800, fontSize: 28, color: 'var(--text-primary)' }}>{formatRupiah(totalBudgetSpent)}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 14 }}>dari batas {formatRupiah(totalBudgetLimit)}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 6 }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Terpakai {totalPct.toFixed(0)}%</span>
+                      <span style={{ color: badge.color, fontWeight: 700 }}>{badge.label}</span>
+                    </div>
+                    <div style={styles.barTrack}>
+                      <div style={{ ...styles.barFill, width: totalPct + '%', background: badge.color }} />
+                    </div>
+                    <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 8, textAlign: 'right' }}>
+                      {sisa >= 0 ? `Sisa ${formatRupiah(sisa)} buat bulan ini` : `Lewat ${formatRupiah(Math.abs(sisa))} dari batas`}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Kartu budget expense per kategori + sub-transaksi */}
               <div style={{ ...styles.sectionHeader, marginTop: 24 }}>
                 <span style={styles.sectionTitle}>Budget expense</span>
@@ -1619,6 +1669,7 @@ export default function Dashboard({ user, onLogout }) {
                     if (pct >= 100) barColor = '#FF9466';
                     const CatIcon = getIconComponent(c.icon);
                     const subTx = txByCat(c.id);
+                    const badge = budget > 0 ? budgetStatusBadge(pct) : null;
                     return (
                       <div key={c.id} style={styles.budgetCard}>
                         {/* Header kategori */}
@@ -1627,7 +1678,12 @@ export default function Dashboard({ user, onLogout }) {
                             <CatIcon size={16} color={c.color} />
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{c.label}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{c.label}</span>
+                              {badge && (
+                                <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 7px', borderRadius: 6, color: badge.color, background: badge.color + '22', flexShrink: 0 }}>{badge.label}</span>
+                              )}
+                            </div>
                             <div style={{ fontSize: 11, color: over ? '#FF9466' : 'var(--text-muted)' }}>
                               {formatRupiah(spent)}{budget > 0 ? ` / ${formatRupiah(budget)}` : ''}
                               {over && ' — Lewat!'}
@@ -1707,6 +1763,56 @@ export default function Dashboard({ user, onLogout }) {
                   })()}
                 </div>
               )}
+
+              {/* Tagihan Mendatang — preview dari Transaksi Berulang (expense), gaya Navy/Stitch */}
+              {(() => {
+                const bills = recurringList
+                  .filter((r) => r.type === 'expense' && r.is_active)
+                  .map((r) => ({ r, status: computeBillStatus(r, transactions) }))
+                  .sort((a, b) => a.status.diffDays - b.status.diffDays)
+                  .slice(0, 5);
+                if (bills.length === 0) return null;
+                return (
+                  <>
+                    <div style={{ ...styles.sectionHeader, marginTop: 24 }}>
+                      <span style={styles.sectionTitle}>Tagihan Mendatang</span>
+                      <button onClick={() => setShowRecurringModal(true)} style={styles.linkBtn}>Kelola</button>
+                    </div>
+                    <div style={{ ...styles.budgetCard, padding: 0, overflow: 'hidden' }}>
+                      {bills.map(({ r, status }, i) => {
+                        const cat = r.category_id ? catLookup(r.category_id) : null;
+                        const CatIcon = cat ? getIconComponent(cat.icon) : Wallet;
+                        return (
+                          <div
+                            key={r.id}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
+                              borderTop: i === 0 ? 'none' : '1px solid #22291F',
+                              opacity: status.status === 'paid' ? 0.6 : 1,
+                            }}
+                          >
+                            <div style={{ width: 36, height: 36, borderRadius: '50%', background: (cat?.color || '#8F9099') + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <CatIcon size={16} color={cat?.color || '#8F9099'} />
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', textDecoration: status.status === 'paid' ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {r.note || cat?.label || 'Tagihan'}
+                              </div>
+                              <div style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>
+                                {status.status === 'paid' ? 'Sudah tercatat bulan ini' : status.diffDays === 0 ? 'Jatuh tempo hari ini' : status.diffDays > 0 ? `Jatuh tempo ${status.diffDays} hari lagi` : `Terlambat ${Math.abs(status.diffDays)} hari`}
+                              </div>
+                            </div>
+                            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                              <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', fontFamily: "'Space Grotesk', sans-serif" }}>{formatRupiah(r.amount)}</div>
+                              <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 5, color: status.color, background: status.color + '22', display: 'inline-block', marginTop: 3 }}>{status.label}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
 
             {/* Kolom kanan: kartu budget saving per kategori + sub-transaksi */}
