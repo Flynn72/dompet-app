@@ -79,7 +79,7 @@ if (!session?.user) {
   return <AuthPage onAuthSuccess={() => {}} />;
 }
 
-if (isAdmin) {
+if (isAdmin && session?.user) {
   return <AdminPanel user={session.user} onLogout={handleLogout} />;
 }
 
