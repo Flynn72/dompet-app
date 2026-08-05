@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Navigate } from 'react-router-dom'; // 1. Tambahkan import Navigate
 import { supabase } from '../lib/supabaseClient';
 import { LogOut, Trash2, Shield, Users, Clock, AlertTriangle, RefreshCw, ChevronDown, ChevronUp, UserPlus, Activity, BarChart3, Trophy, MessageSquare } from 'lucide-react';
 
@@ -21,6 +22,11 @@ function formatDate(dateStr) {
 }
 
 export default function AdminPanel({ user, onLogout }) {
+  // 2. GUARD CLAUSE: Mencegah render komponen jika user null/logout
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
+
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -32,10 +38,10 @@ export default function AdminPanel({ user, onLogout }) {
   const [search, setSearch] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [lastUpdate, setLastUpdate] = useState(new Date());
-  const isFetchingRef = useRef(false); // guard: cegah loadUsers() tumpang tindih saat interval cepat (500ms)
+  const isFetchingRef = useRef(false);
   const [feedbackList, setFeedbackList] = useState([]);
   const [feedbackLoading, setFeedbackLoading] = useState(true);
-  const [feedbackFilter, setFeedbackFilter] = useState('semua'); // 'semua' | 'bug' | 'saran' | 'lainnya'
+  const [feedbackFilter, setFeedbackFilter] = useState('semua');
   const [feedbackExpanded, setFeedbackExpanded] = useState(false);
 
   async function loadFeedback() {
@@ -48,98 +54,78 @@ export default function AdminPanel({ user, onLogout }) {
     setFeedbackLoading(false);
   }
 
-async function loadUsers() {
-  // Kalau masih ada request sebelumnya yang belum selesai, lewati siklus ini
-  if (isFetchingRef.current) return;
-  isFetchingRef.current = true;
+  async function loadUsers() {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
 
-  const { data, error } = await supabase.rpc('admin_get_all_users');
-
-  if (error) {
-    setError(error.message);
-    setLoading(false);
-    isFetchingRef.current = false;
-    return;
-  }
-
-  setUsers(data || []);
-  setLastUpdate(new Date());
-  setLoading(false);
-  isFetchingRef.current = false;
-}
-  
-useEffect(() => {
-  async function init() {
-    const { error } = await supabase.rpc(
-      "update_last_login",
-      { user_id: user.id }
-    );
+    const { data, error } = await supabase.rpc('admin_get_all_users');
 
     if (error) {
-      console.error('[AdminPanel] Gagal update last_login:', error.message);
+      setError(error.message);
+      setLoading(false);
+      isFetchingRef.current = false;
+      return;
     }
 
-    await loadUsers();
-    await loadFeedback();
+    setUsers(data || []);
+    setLastUpdate(new Date());
+    setLoading(false);
+    isFetchingRef.current = false;
   }
 
-  init();
-
-  // Realtime transaksi — auto-refresh instan saat ada user yang input/ubah transaksi
-  const transactionChannel = supabase
-    .channel("admin-transactions")
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "transactions",
-      },
-      () => {
-        loadUsers();
+  useEffect(() => {
+    async function init() {
+      // 3. Pengecekan aman menggunakan optional chaining (user?.id)
+      if (user?.id) {
+        const { error } = await supabase.rpc("update_last_login", { user_id: user.id });
+        if (error) {
+          console.error('[AdminPanel] Gagal update last_login:', error.message);
+        }
       }
-    )
-    .subscribe((status) => {
-      // Kalau status tidak pernah "SUBSCRIBED", berarti Realtime belum diaktifkan
-      // untuk tabel "transactions" di Supabase (Database > Replication).
-      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        console.error('[AdminPanel] Gagal subscribe realtime transactions:', status, '— cek Database > Replication di Supabase.');
-      }
-    });
 
-  // Realtime kategori
-  const categoryChannel = supabase
-    .channel("admin-categories")
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "categories",
-      },
-      () => {
-        loadUsers();
-      }
-    )
-    .subscribe((status) => {
-      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        console.error('[AdminPanel] Gagal subscribe realtime categories:', status, '— cek Database > Replication di Supabase.');
-      }
-    });
+      await loadUsers();
+      await loadFeedback();
+    }
 
-  // Fallback: kalau tidak ada transaksi berjalan, tetap refresh tiap 500ms
-  const interval = setInterval(() => {
-    loadUsers();
-  }, 500);
+    init();
 
-  return () => {
-    clearInterval(interval);
+    const transactionChannel = supabase
+      .channel("admin-transactions")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "transactions" },
+        () => { loadUsers(); }
+      )
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error('[AdminPanel] Gagal subscribe realtime transactions:', status);
+        }
+      });
 
-    supabase.removeChannel(transactionChannel);
-    supabase.removeChannel(categoryChannel);
-  };
-}, []);
-  
+    const categoryChannel = supabase
+      .channel("admin-categories")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "categories" },
+        () => { loadUsers(); }
+      )
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error('[AdminPanel] Gagal subscribe realtime categories:', status);
+        }
+      });
+
+    const interval = setInterval(() => {
+      loadUsers();
+    }, 500);
+
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(transactionChannel);
+      supabase.removeChannel(categoryChannel);
+    };
+  }, []);
+
   async function deleteUser(targetId, username) {
     setDeleting(targetId);
     try {
@@ -183,7 +169,6 @@ useEffect(() => {
 
   const inactiveCount = users.filter((u) => new Date(u.last_login).getTime() < inactiveThreshold).length;
 
-  // ===== Widget statistik cepat (dihitung dari data yang sudah ada, tidak perlu query baru) =====
   const now = Date.now();
   const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
   const newUsersThisWeek = users.filter((u) => new Date(u.created_at).getTime() >= sevenDaysAgo).length;
@@ -203,7 +188,6 @@ useEffect(() => {
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap');
         * { box-sizing: border-box; }
 
-        /* ===== CSS VARIABLES — TEMA NAVY (sama dengan Dashboard) ===== */
         :root {
           --bg-base: #0B0F1A;
           --bg-card: #131929;
@@ -219,7 +203,6 @@ useEffect(() => {
           --scrollbar: #1E2D4A;
         }
 
-        /* Light mode — mengikuti setting sistem/browser user, sama seperti Dashboard */
         @media (prefers-color-scheme: light) {
           :root {
             --bg-base: #EEF2FA;
@@ -251,7 +234,9 @@ useEffect(() => {
             <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Dompet App</div>
           </div>
         </div>
-        <button onClick={async () => { await supabase.auth.signOut(); onLogout(); }} style={s.logoutBtn}><LogOut size={15} color="var(--text-secondary)" /></button>
+        <button onClick={async () => { await supabase.auth.signOut(); onLogout(); }} style={s.logoutBtn}>
+          <LogOut size={15} color="var(--text-secondary)" />
+        </button>
       </div>
 
       <div style={s.content}>
@@ -457,7 +442,7 @@ useEffect(() => {
                         <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{formatDate(u.created_at)}</div>
                       </td>
                       <td style={s.td}>
-                        {u.id !== user.id && !u.is_admin && (
+                        {u.id !== user?.id && !u.is_admin && (
                           isConfirming ? (
                             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                               <span style={{ fontSize: 11, color: '#FF9466' }}>Yakin hapus?</span>
@@ -476,8 +461,8 @@ useEffect(() => {
                             </button>
                           )
                         )}
-                        {u.id === user.id && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Akun ini</span>}
-                        {u.is_admin && u.id !== user.id && <span style={{ fontSize: 11, color: '#C99FE8' }}>Admin</span>}
+                        {u.id === user?.id && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Akun ini</span>}
+                        {u.is_admin && u.id !== user?.id && <span style={{ fontSize: 11, color: '#C99FE8' }}>Admin</span>}
                       </td>
                     </tr>
                   );
@@ -487,31 +472,27 @@ useEffect(() => {
           </div>
         )}
         <div
-  style={{
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 12,
-    fontSize: 12,
-    color: "var(--text-secondary)",
-  }}
->
-  <span>
-    Menampilkan {filtered.length} dari {users.length} user
-  </span>
-
-  <span>
-    Terakhir diperbarui :
-    {" "}
-    {lastUpdate.toLocaleTimeString("id-ID")}
-  </span>
-</div>
+          style={{
+            display: "flex",
+            justify: "space-between",
+            alignItems: "center",
+            marginTop: 12,
+            fontSize: 12,
+            color: "var(--text-secondary)",
+          }}
+        >
+          <span>
+            Menampilkan {filtered.length} dari {users.length} user
+          </span>
+          <span>
+            Terakhir diperbarui : {lastUpdate.toLocaleTimeString("id-ID")}
+          </span>
+        </div>
       </div>
     </div>
   );
 }
 
-// Komponen Check icon kecil
 function Check({ size = 14 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
