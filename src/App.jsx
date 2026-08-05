@@ -9,50 +9,53 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [checking, setChecking] = useState(true);
 
-async function checkAdmin(userId) {
-  const { data, error } = await supabase
-    .from("user_profiles")
-    .select("*")
-    .eq("id", userId)
-    .single();
-
-  if (error) {
-    console.error('[App] Gagal ambil profil user:', error.message);
-  }
-
-  return data?.is_admin ?? false;
-}
-
-async function handleSession(s) {
-  setSession(s);
-
-  if (s?.user) {
-
-    const { error } = await supabase.rpc(
-      "update_last_login",
-      {
-        user_id: s.user.id
-      }
-    );
+  async function checkAdmin(userId) {
+    const { data, error } = await supabase
+      .from("user_profiles")
+      .select("*")
+      .eq("id", userId)
+      .single();
 
     if (error) {
-      console.error('[App] Gagal update last_login:', error.message);
+      console.error('[App] Gagal ambil profil user:', error.message);
     }
 
-    const admin = await checkAdmin(s.user.id);
-    setIsAdmin(admin);
-  } else {
-    setIsAdmin(false);
+    return data?.is_admin ?? false;
   }
-}
 
-async function handleLogout() {
-  await supabase.auth.signOut();
-  // Sengaja TIDAK panggil setSession(null)/setIsAdmin(false) di sini secara langsung —
-  // biar cuma ada 1 sumber kebenaran (onAuthStateChange listener di useEffect bawah),
-  // supaya tidak ada 2 tempat yang bisa mengubah state auth secara terpisah dan
-  // berpotensi tidak sinkron (salah satu penyebab layar blank/error setelah logout).
-}
+  async function handleSession(s) {
+    setSession(s);
+
+    if (s?.user) {
+      const { error } = await supabase.rpc(
+        "update_last_login",
+        {
+          user_id: s.user.id
+        }
+      );
+
+      if (error) {
+        console.error('[App] Gagal update last_login:', error.message);
+      }
+
+      const admin = await checkAdmin(s.user.id);
+      setIsAdmin(admin);
+    } else {
+      setIsAdmin(false);
+    }
+  }
+
+  async function handleLogout() {
+    // 1. Reset state UI secara langsung agar tidak terjadi race condition / black screen
+    setSession(null);
+    setIsAdmin(false);
+
+    // 2. Hapus sisa kredensial di localStorage (jika ada)
+    localStorage.removeItem('isAdmin');
+
+    // 3. Panggil proses signOut Supabase
+    await supabase.auth.signOut();
+  }
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session: s } }) => {
@@ -75,13 +78,16 @@ async function handleLogout() {
     );
   }
 
-if (!session?.user) {
-  return <AuthPage onAuthSuccess={() => {}} />;
-}
+  // Jika session atau user tidak ada, tampilkan Halaman Auth/Login
+  if (!session?.user) {
+    return <AuthPage onAuthSuccess={() => {}} />;
+  }
 
-if (isAdmin && session?.user) {
-  return <AdminPanel user={session.user} onLogout={handleLogout} />;
-}
+  // Jika user bernilai admin DAN session user masih valid
+  if (isAdmin && session?.user) {
+    return <AdminPanel user={session.user} onLogout={handleLogout} />;
+  }
 
-return <Dashboard user={session.user} onLogout={handleLogout} />;
-};
+  // Tampilan pengguna biasa (non-admin)
+  return <Dashboard user={session.user} onLogout={handleLogout} />;
+}
