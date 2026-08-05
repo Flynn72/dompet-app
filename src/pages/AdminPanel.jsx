@@ -485,8 +485,8 @@ useEffect(() => {
                             </button>
                           )
                         )}
-                        {u.id === user.id && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Akun ini</span>}
-                        {u.is_admin && u.id !== user.id && <span style={{ fontSize: 11, color: '#C99FE8' }}>Admin</span>}
+                          {u.id === user?.id && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Akun ini</span>}
+                          {u.is_admin && u.id !== user?.id && <span style={{ fontSize: 11, color: '#C99FE8' }}>Admin</span>}
                       </td>
                     </tr>
                   );
