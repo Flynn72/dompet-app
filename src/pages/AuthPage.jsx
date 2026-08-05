@@ -87,7 +87,7 @@ export default function AuthPage({ onAuthSuccess }) {
         --border:#1E2D4A;
         --text-primary:#E8EDF8;
         --text-secondary:#7A90B8;
-        --accent:#7FE8A4;
+        --accent:#b6c6f0;
       }
       
       @media(prefers-color-scheme:light){
@@ -98,7 +98,7 @@ export default function AuthPage({ onAuthSuccess }) {
         --border:#C8D4EC;
         --text-primary:#0D1B3E;
         --text-secondary:#6079A3;
-        --accent:#1A6B4A;
+        --accent:#3d4d80;
       }
     }
     
@@ -108,7 +108,7 @@ export default function AuthPage({ onAuthSuccess }) {
       `}</style>
       <div style={styles.card}>
         <div style={styles.logoWrap}>
-          <div style={styles.logoMark}><Wallet size={22} color="#0F1410" /></div>
+          <div style={styles.logoMark}><Wallet size={22} color="#1f3051" /></div>
           <span style={styles.logoText}>Dompet</span>
         </div>
         <p style={styles.subtitle}>
@@ -202,9 +202,9 @@ const styles = {
     borderRadius: 8, marginTop: 16, lineHeight: 1.4,
   },
   submitBtn: {
-    width: '100%', marginTop: 24, padding: '13px 0', borderRadius: 12, border: 'none', background: '#7FE8A4',
-    color: '#0F1410', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+    width: '100%', marginTop: 24, padding: '13px 0', borderRadius: 12, border: 'none', background: '#b6c6f0',
+    color: '#1f3051', fontSize: 14, fontWeight: 700, cursor: 'pointer',
   },
   switchText: { textAlign: 'center', fontSize: 13, color: '#9CA89F', marginTop: 20 },
-  switchLink: { color: '#7FE8A4', cursor: 'pointer', fontWeight: 600 },
+  switchLink: { color: '#b6c6f0', cursor: 'pointer', fontWeight: 600 },
 };
