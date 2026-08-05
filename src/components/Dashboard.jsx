@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
-const COLOR_PALETTE = ['#7FE8A4','#6FB7E8','#F5C95D','#C99FE8','#FF9466','#6FE8D4','#E89FC9','#E8846F','#A8A89C','#E8C26F'];
+const COLOR_PALETTE = ['#b6c6f0','#6FB7E8','#F5C95D','#C99FE8','#FF9466','#6FE8D4','#E89FC9','#E8846F','#A8A89C','#E8C26F'];
 const MONTHS_ID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
 const chartTheme = { bg: 'var(--chart-bg)', grid: 'var(--chart-grid)', tooltip: 'var(--chart-tooltip)', text: 'var(--chart-text)', subtext: 'var(--chart-subtext)' };
 
@@ -122,7 +122,7 @@ const ONBOARDING_STEPS = [
     icon: Hand,
     title: 'Selamat datang!',
     desc: 'Yuk kenalan dulu sama Dompet — aplikasi buat catat keuangan kamu sehari-hari. Cuma butuh beberapa langkah singkat untuk mulai.',
-    color: '#7FE8A4',
+    color: '#b6c6f0',
     target: null, // tidak ada spotlight, pop-up di tengah
     tab: 'overview',
   },
@@ -139,7 +139,7 @@ const ONBOARDING_STEPS = [
     icon: Wallet,
     title: 'Catat transaksi pertama',
     desc: 'Tekan tombol + ini untuk catat Income, Expense, atau Saving. Kategori sekarang opsional — bisa langsung simpan walau belum pilih kategori.',
-    color: '#7FE8A4',
+    color: '#b6c6f0',
     target: 'fab', // ref ke tombol tambah transaksi
     tab: 'overview',
     action: 'openAddModal',
@@ -1203,6 +1203,21 @@ export default function Dashboard({ user, onLogout }) {
     });
   }, [transactions, activeMonth]);
 
+  // Titik-titik sparkline buat kartu hero "Sisa Saldo" — pakai net cashflow (income - expense)
+  // 6 bulan terakhir dari trendData yang sudah ada, biar tidak perlu hitung ulang dari nol.
+  const heroSparkPoints = useMemo(() => {
+    const vals = trendData.map((d) => d.inc - d.exp);
+    const max = Math.max(...vals, 1);
+    const min = Math.min(...vals, 0);
+    const range = max - min || 1;
+    const w = 200, h = 56, pad = 6;
+    return vals.map((v, i) => {
+      const x = vals.length > 1 ? (i / (vals.length - 1)) * w : w / 2;
+      const y = h - pad - ((v - min) / range) * (h - pad * 2);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+  }, [trendData]);
+
   async function handleLogout() { await supabase.auth.signOut(); onLogout(); }
 
   function finishOnboarding() {
@@ -1336,7 +1351,7 @@ export default function Dashboard({ user, onLogout }) {
   if (!loaded) {
     return (
       <div style={{ minHeight: '100vh', background: '#0F1410', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: '#7FE8A4', animation: 'pulse 1.2s ease-in-out infinite' }} />
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: '#b6c6f0', animation: 'pulse 1.2s ease-in-out infinite' }} />
         <p style={{ color: '#9CA89F', marginTop: 16, fontFamily: 'Inter, sans-serif' }}>Memuat data...</p>
         <style>{`@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}`}</style>
       </div>
@@ -1362,8 +1377,8 @@ export default function Dashboard({ user, onLogout }) {
           --text-primary: #E8EDF8;
           --text-secondary: #7A90B8;
           --text-muted: #4A5A7A;
-          --accent: #7FE8A4;
-          --accent-text: #0B0F1A;
+          --accent: #b6c6f0;
+          --accent-text: #1f3051;
           --scrollbar: #1E2D4A;
           /* ===== CHART ===== */
           --chart-bg: #131929;
@@ -1385,7 +1400,7 @@ export default function Dashboard({ user, onLogout }) {
             --text-primary: #0D1B3E;
             --text-secondary: #3D5A8A;
             --text-muted: #7A90B8;
-            --accent: #1A6B4A;
+            --accent: #3d4d80;
             --accent-text: #FFFFFF;
             --scrollbar: #C8D4EC;
 
@@ -1402,14 +1417,14 @@ export default function Dashboard({ user, onLogout }) {
         :root.theme-dark {
           --bg-base: #0B0F1A; --bg-card: #131929; --bg-card2: #1A2238; --bg-input: #0B0F1A;
           --border: #1E2D4A; --border2: #2A3B5C; --text-primary: #E8EDF8; --text-secondary: #7A90B8;
-          --text-muted: #4A5A7A; --accent: #7FE8A4; --accent-text: #0B0F1A; --scrollbar: #1E2D4A;
+          --text-muted: #4A5A7A; --accent: #b6c6f0; --accent-text: #1f3051; --scrollbar: #1E2D4A;
           --chart-bg: #131929; --chart-grid: #24314D; --chart-tooltip: #182238;
           --chart-text: #E8EDF8; --chart-subtext: #9CB2D8;
         }
         :root.theme-light {
           --bg-base: #EEF2FA; --bg-card: #FFFFFF; --bg-card2: #F0F4FF; --bg-input: #F5F7FF;
           --border: #C8D4EC; --border2: #A8BCDC; --text-primary: #0D1B3E; --text-secondary: #3D5A8A;
-          --text-muted: #7A90B8; --accent: #1A6B4A; --accent-text: #FFFFFF; --scrollbar: #C8D4EC;
+          --text-muted: #7A90B8; --accent: #3d4d80; --accent-text: #FFFFFF; --scrollbar: #C8D4EC;
           --chart-bg: #FFFFFF; --chart-grid: #D6E1F5; --chart-tooltip: #FFFFFF;
           --chart-text: #10254F; --chart-subtext: #6079A3;
         }
@@ -1461,7 +1476,7 @@ export default function Dashboard({ user, onLogout }) {
       <div className="dompet-sticky-top">
         <div className="dompet-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={styles.logoMark}><Wallet size={18} color="#0F1410" /></div>
+            <div style={styles.logoMark}><Wallet size={18} color="#1f3051" /></div>
             <span style={styles.logoText}>Dompet</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1497,7 +1512,7 @@ export default function Dashboard({ user, onLogout }) {
             {themeMode === 'system' ? <Monitor size={16} color="#9CA89F" /> : themeMode === 'dark' ? <Moon size={16} color="#9CA89F" /> : <Sun size={16} color="#9CA89F" />}
           </button>
           <button onClick={togglePushNotifications} disabled={pushLoading} style={{ ...styles.settingsBtn, marginLeft: 0, opacity: pushLoading ? 0.6 : 1 }} aria-label="Pengingat notifikasi" title={pushEnabled ? 'Pengingat notifikasi aktif — klik untuk matikan' : 'Aktifkan pengingat notifikasi'}>
-            {pushEnabled ? <Bell size={16} color="#7FE8A4" /> : <BellOff size={16} color="#9CA89F" />}
+            {pushEnabled ? <Bell size={16} color="#b6c6f0" /> : <BellOff size={16} color="#9CA89F" />}
           </button>
           <button onClick={() => setShowFeedbackModal(true)} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Kasih masukan" title="Kasih masukan buat Dompet App"><MessageSquare size={16} color="#9CA89F" /></button>
           <button ref={settingsBtnRef} onClick={() => setShowCategoryModal(true)} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Kelola kategori"><Settings size={16} color="#9CA89F" /></button>
@@ -1512,25 +1527,51 @@ export default function Dashboard({ user, onLogout }) {
           <div className="dompet-columns">
             {/* Kolom kiri: ringkasan + kartu budget expense */}
             <div className="dompet-col-left">
-              {/* Ringkasan saldo */}
-              <div style={styles.summaryGrid}>
-                <div style={{ ...styles.summaryCard, gridColumn: '1 / -1' }}>
-                  <span style={styles.summaryLabel}>Sisa saldo bulan ini</span>
-                  <span style={{ ...styles.balanceNumber, color: balance >= 0 ? '#7FE8A4' : '#FF9466' }}>{formatRupiah(balance)}</span>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Income dikurangi expense dan saving/investasi</span>
+              {/* Ringkasan saldo — HERO card menonjol + kartu pendukung, gaya Navy/Stitch */}
+              <div
+                style={{
+                  position: 'relative', overflow: 'hidden', borderRadius: 20, padding: '24px 26px',
+                  marginBottom: 14,
+                  background: 'radial-gradient(120% 140% at 100% -10%, rgba(182,198,240,0.16) 0%, rgba(182,198,240,0) 55%), radial-gradient(90% 120% at -10% 120%, rgba(0,227,253,0.10) 0%, rgba(0,227,253,0) 60%), var(--bg-card2)',
+                  border: '1px solid rgba(182,198,240,0.16)',
+                  boxShadow: '0 20px 50px -20px rgba(0,0,0,0.5)',
+                }}
+              >
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, position: 'relative', zIndex: 1 }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                      <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(182,198,240,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Wallet size={15} color="#b6c6f0" />
+                      </div>
+                      <span style={{ fontSize: 11.5, color: 'var(--text-secondary)', letterSpacing: '0.03em', textTransform: 'uppercase', fontWeight: 600 }}>Sisa saldo bulan ini</span>
+                    </div>
+                    <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 800, fontSize: 34, letterSpacing: '-0.02em', color: balance >= 0 ? 'var(--text-primary)' : '#FF9466' }}>
+                      {formatRupiah(balance)}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Income dikurangi expense dan saving/investasi</div>
+                  </div>
+                  <svg width="180" height="56" viewBox="0 0 200 56" style={{ flexShrink: 0 }}>
+                    <defs>
+                      <linearGradient id="heroSparkFill" x1="0" x2="0" y1="0" y2="1">
+                        <stop offset="0%" stopColor="#b6c6f0" stopOpacity="0.35" />
+                        <stop offset="100%" stopColor="#b6c6f0" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+                    <polygon points={`0,56 ${heroSparkPoints} 200,56`} fill="url(#heroSparkFill)" />
+                    <polyline points={heroSparkPoints} fill="none" stroke="#b6c6f0" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                 </div>
+                <div style={{ position: 'absolute', right: -60, top: -60, width: 200, height: 200, background: 'rgba(182,198,240,0.08)', borderRadius: '50%', filter: 'blur(40px)', pointerEvents: 'none' }} />
+              </div>
+
+              <div style={{ ...styles.summaryGrid, gridTemplateColumns: '1fr 1fr 1fr' }}>
                 <div
                   onClick={() => { setTxTypeFilter('income'); setTab('transactions'); }}
                   className="dompet-filter-card"
-                  style={{ ...styles.summaryCard, ...summaryCardActiveStyle(tab === 'transactions' && txTypeFilter === 'income', '#7FE8A4') }}
+                  style={{ ...styles.summaryCard, ...summaryCardActiveStyle(tab === 'transactions' && txTypeFilter === 'income', '#00daf3') }}
                 >
-                  <div style={styles.summaryIconRow}><TrendingUp size={14} color="#7FE8A4" /><span style={styles.summaryLabel}>Income</span></div>
-                  <span style={{ ...styles.summaryNumber, color: '#7FE8A4' }}>{formatRupiah(totalIncome)}</span>
-                </div>
-                <div style={styles.summaryCard}>
-                  <span style={styles.summaryLabel}>Total terpakai</span>
-                  <span style={{ ...styles.summaryNumber, color: 'var(--text-primary)' }}>{formatRupiah(totalUsed)}</span>
-                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Expense + saving</span>
+                  <div style={styles.summaryIconRow}><TrendingUp size={14} color="#00daf3" /><span style={styles.summaryLabel}>Income</span></div>
+                  <span style={{ ...styles.summaryNumber, color: '#00daf3' }}>{formatRupiah(totalIncome)}</span>
                 </div>
                 <div
                   ref={expenseCardRef}
@@ -1548,6 +1589,11 @@ export default function Dashboard({ user, onLogout }) {
                 >
                   <div style={styles.summaryIconRow}><PiggyBank size={14} color="#6FB7E8" /><span style={styles.summaryLabel}>Saving</span></div>
                   <span style={{ ...styles.summaryNumber, color: '#6FB7E8' }}>{formatRupiah(totalSaving)}</span>
+                </div>
+                <div style={{ ...styles.summaryCard, gridColumn: '1 / -1' }}>
+                  <span style={styles.summaryLabel}>Total terpakai</span>
+                  <span style={{ ...styles.summaryNumber, color: 'var(--text-primary)' }}>{formatRupiah(totalUsed)}</span>
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Expense + saving</span>
                 </div>
               </div>
 
@@ -1568,7 +1614,7 @@ export default function Dashboard({ user, onLogout }) {
                     const budget = getExpenseBudget(c.id);
                     const pct = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
                     const over = budget > 0 && spent > budget;
-                    let barColor = '#7FE8A4';
+                    let barColor = '#b6c6f0';
                     if (pct > 70) barColor = '#F5C95D';
                     if (pct >= 100) barColor = '#FF9466';
                     const CatIcon = getIconComponent(c.icon);
@@ -1723,7 +1769,7 @@ export default function Dashboard({ user, onLogout }) {
                         {/* Progress bar: pakai goal kumulatif kalau ada, kalau tidak fallback ke target bulanan lama */}
                         {goal ? (
                           <div style={styles.barTrack}>
-                            <div style={{ ...styles.barFill, width: goal.pct + '%', background: goal.achieved ? '#7FE8A4' : '#6FB7E8' }} />
+                            <div style={{ ...styles.barFill, width: goal.pct + '%', background: goal.achieved ? '#b6c6f0' : '#6FB7E8' }} />
                           </div>
                         ) : target > 0 && (
                           <div style={styles.barTrack}>
@@ -1737,7 +1783,7 @@ export default function Dashboard({ user, onLogout }) {
                             <span>Sisa {formatRupiah(goal.remaining)} lagi ({goal.pct.toFixed(0)}%)</span>
                             {goal.projectedDateLabel && <span>Estimasi tercapai: <b style={{ color: 'var(--text-primary)' }}>{goal.projectedDateLabel}</b> (pace saat ini)</span>}
                             {goal.onTrack !== null && (
-                              <span style={{ color: goal.onTrack ? '#7FE8A4' : '#FF9466' }}>
+                              <span style={{ color: goal.onTrack ? '#b6c6f0' : '#FF9466' }}>
                                 {goal.onTrack
                                   ? (<><Check size={12} style={{ display: 'inline', verticalAlign: -2 }} /> Sesuai target tanggal</>)
                                   : (<><AlertTriangle size={11} style={{ display: 'inline', verticalAlign: -2, marginRight: 3 }} />Perlu nabung {formatRupiah(goal.neededPerMonth)}/bulan biar sesuai target tanggal</>)}
@@ -1746,7 +1792,7 @@ export default function Dashboard({ user, onLogout }) {
                           </div>
                         )}
                         {goal && goal.achieved && (
-                          <div style={{ marginTop: 8, fontSize: 11.5, color: '#7FE8A4', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}><PartyPopper size={13} />Target tercapai!</div>
+                          <div style={{ marginTop: 8, fontSize: 11.5, color: '#b6c6f0', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}><PartyPopper size={13} />Target tercapai!</div>
                         )}
 
                         {/* Nilai investasi sekarang + untung/rugi, khusus kategori Emas/Reksadana Syariah */}
@@ -1766,7 +1812,7 @@ export default function Dashboard({ user, onLogout }) {
                             </div>
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 3, flexWrap: 'wrap' }}>
                               <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Total Return</span>
-                              <span style={{ fontSize: 13, fontWeight: 700, color: invest.gain >= 0 ? '#7FE8A4' : '#FF6B6B' }}>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: invest.gain >= 0 ? '#b6c6f0' : '#FF6B6B' }}>
                                 {invest.gain >= 0 ? '+' : '-'}{formatRupiah(Math.abs(invest.gain))} ({invest.gainPct >= 0 ? '+' : ''}{invest.gainPct.toFixed(2)}%)
                               </span>
                             </div>
@@ -1782,13 +1828,13 @@ export default function Dashboard({ user, onLogout }) {
                                 Modal aktif: {formatRupiah(invest.totalInvested)}
                               </div>
                               {invest.realizedGain !== 0 && (
-                                <div style={{ fontSize: 11, fontWeight: 600, color: invest.realizedGain >= 0 ? '#7FE8A4' : '#FF6B6B' }}>
+                                <div style={{ fontSize: 11, fontWeight: 600, color: invest.realizedGain >= 0 ? '#b6c6f0' : '#FF6B6B' }}>
                                   <Check size={12} style={{ display: 'inline', verticalAlign: -2 }} />{invest.realizedGain >= 0 ? ' Realized untung ' : ' Realized rugi '}
                                   {formatRupiah(Math.abs(invest.realizedGain))} (dari penjualan)
                                 </div>
                               )}
                               {invest.realizedGain !== 0 && (
-                                <div style={{ fontSize: 11, fontWeight: 700, color: invest.totalGain >= 0 ? '#7FE8A4' : '#FF6B6B' }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: invest.totalGain >= 0 ? '#b6c6f0' : '#FF6B6B' }}>
                                   Total {invest.totalGain >= 0 ? 'untung' : 'kerugian'} keseluruhan: {formatRupiah(Math.abs(invest.totalGain))}
                                 </div>
                               )}
@@ -1846,7 +1892,7 @@ export default function Dashboard({ user, onLogout }) {
                                           onKeyDown={(e) => { if (e.key === 'Enter') saveHistoricalAssetUnits(t.id); }}
                                           style={{ ...styles.input, marginBottom: 0, fontSize: 11, padding: '5px 8px', flex: 1 }}
                                         />
-                                        <button onClick={() => saveHistoricalAssetUnits(t.id)} style={{ ...styles.smallIconBtn, background: '#7FE8A4' }}><Check size={13} color="#0F1410" /></button>
+                                        <button onClick={() => saveHistoricalAssetUnits(t.id)} style={{ ...styles.smallIconBtn, background: '#b6c6f0' }}><Check size={13} color="#1f3051" /></button>
                                         <button onClick={() => { setEditingPriceTxId(null); setEditingUnitsValue(''); }} style={styles.smallIconBtn}><X size={13} color="#9CA89F" /></button>
                                       </div>
                                     ) : needsPrice ? (
@@ -1965,7 +2011,7 @@ export default function Dashboard({ user, onLogout }) {
               <div style={{
                 ...styles.errorBox, marginBottom: 12,
                 background: importSummary.failed > 0 ? '#3A2418' : '#0D2A1A',
-                color: importSummary.failed > 0 ? '#FF9466' : '#7FE8A4',
+                color: importSummary.failed > 0 ? '#FF9466' : '#b6c6f0',
                 flexDirection: 'column', alignItems: 'flex-start', gap: 4,
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
@@ -2008,7 +2054,7 @@ export default function Dashboard({ user, onLogout }) {
                       padding: '7px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer',
                       border: `1px solid ${txTypeFilter === f.id ? 'var(--accent)' : 'var(--border)'}`,
                       background: txTypeFilter === f.id ? 'var(--accent)' : 'transparent',
-                      color: txTypeFilter === f.id ? 'var(--accent-text, #0F1410)' : 'var(--text-secondary)',
+                      color: txTypeFilter === f.id ? 'var(--accent-text, #1f3051)' : 'var(--text-secondary)',
                       fontWeight: txTypeFilter === f.id ? 700 : 500,
                     }}
                   >{f.label}</button>
@@ -2032,12 +2078,12 @@ export default function Dashboard({ user, onLogout }) {
             <div style={{ ...styles.summaryGrid, marginBottom: 28 }}>
               <div style={{ ...styles.summaryCard, gridColumn: '1 / -1' }}>
                 <span style={styles.summaryLabel}>Sisa saldo bulan ini</span>
-                <span style={{ ...styles.balanceNumber, color: balance >= 0 ? '#7FE8A4' : '#FF9466' }}>{formatRupiah(balance)}</span>
+                <span style={{ ...styles.balanceNumber, color: balance >= 0 ? '#b6c6f0' : '#FF9466' }}>{formatRupiah(balance)}</span>
                 <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Income dikurangi expense dan saving/investasi</span>
               </div>
               <div style={styles.summaryCard}>
-                <div style={styles.summaryIconRow}><TrendingUp size={14} color="#7FE8A4" /><span style={styles.summaryLabel}>Income</span></div>
-                <span style={{ ...styles.summaryNumber, color: '#7FE8A4' }}>{formatRupiah(totalIncome)}</span>
+                <div style={styles.summaryIconRow}><TrendingUp size={14} color="#00daf3" /><span style={styles.summaryLabel}>Income</span></div>
+                <span style={{ ...styles.summaryNumber, color: '#00daf3' }}>{formatRupiah(totalIncome)}</span>
               </div>
               <div style={styles.summaryCard}>
                 <span style={styles.summaryLabel}>Total terpakai</span>
@@ -2058,7 +2104,7 @@ export default function Dashboard({ user, onLogout }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20, marginBottom: 32 }} className="pie-grid">
               <style>{`.pie-grid { } @media(min-width:900px){.pie-grid{grid-template-columns:1fr 1fr 1fr !important;}}`}</style>
               {[
-                { label: 'Income', color: '#7FE8A4', total: totalIncome, data: totalIncome > 0 ? [{ name: 'Income', value: totalIncome, color: '#7FE8A4' }] : [] },
+                { label: 'Income', color: '#00daf3', total: totalIncome, data: totalIncome > 0 ? [{ name: 'Income', value: totalIncome, color: '#00daf3' }] : [] },
                 { label: 'Expense', color: '#FF9466', total: totalExpense, data: pieData },
                 { label: 'Saving', color: '#6FB7E8', total: totalSaving, data: savingPieData, isSaving: true },
               ].map((section) => {
@@ -2125,7 +2171,7 @@ export default function Dashboard({ user, onLogout }) {
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                           <span style={{ color: 'var(--text-secondary)' }}>Total jual/tarik</span>
-                          <span style={{ color: '#7FE8A4', fontWeight: 700 }}>+{formatRupiah(savingGrossSell)} (masuk ke saldo)</span>
+                          <span style={{ color: '#b6c6f0', fontWeight: 700 }}>+{formatRupiah(savingGrossSell)} (masuk ke saldo)</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 2 }}>
                           <span style={{ color: 'var(--text-secondary)' }}>Netto saving bulan ini</span>
@@ -2199,11 +2245,11 @@ export default function Dashboard({ user, onLogout }) {
                           <Line
                             type="monotone"
                             dataKey="inc"
-                            stroke="#7FE8A4"
+                            stroke="#00daf3"
                             strokeWidth={2.5}
                             name="Income"
-                            dot={{ r: 5, fill: '#7FE8A4', stroke: '#0F1410', strokeWidth: 2 }}
-                            activeDot={{ r: 7, fill: '#7FE8A4', stroke: '#0F1410', strokeWidth: 2 }}
+                            dot={{ r: 5, fill: '#00daf3', stroke: '#1f3051', strokeWidth: 2 }}
+                            activeDot={{ r: 7, fill: '#00daf3', stroke: '#1f3051', strokeWidth: 2 }}
                           />
                           <Line
                             type="monotone"
@@ -2211,8 +2257,8 @@ export default function Dashboard({ user, onLogout }) {
                             stroke="#FF9466"
                             strokeWidth={2.5}
                             name="Expense"
-                            dot={{ r: 5, fill: '#FF9466', stroke: '#0F1410', strokeWidth: 2 }}
-                            activeDot={{ r: 7, fill: '#FF9466', stroke: '#0F1410', strokeWidth: 2 }}
+                            dot={{ r: 5, fill: '#FF9466', stroke: '#1f3051', strokeWidth: 2 }}
+                            activeDot={{ r: 7, fill: '#FF9466', stroke: '#1f3051', strokeWidth: 2 }}
                           />
                           <Line
                             type="monotone"
@@ -2220,8 +2266,8 @@ export default function Dashboard({ user, onLogout }) {
                             stroke="#6FB7E8"
                             strokeWidth={2.5}
                             name="Saving"
-                            dot={{ r: 5, fill: '#6FB7E8', stroke: '#0F1410', strokeWidth: 2 }}
-                            activeDot={{ r: 7, fill: '#6FB7E8', stroke: '#0F1410', strokeWidth: 2 }}
+                            dot={{ r: 5, fill: '#6FB7E8', stroke: '#1f3051', strokeWidth: 2 }}
+                            activeDot={{ r: 7, fill: '#6FB7E8', stroke: '#1f3051', strokeWidth: 2 }}
                           />
                         </LineChart>
                       </ResponsiveContainer>
@@ -2230,7 +2276,7 @@ export default function Dashboard({ user, onLogout }) {
                 );
               })()}
               <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginTop: 12, flexWrap: 'wrap' }}>
-                {[['#7FE8A4','Income'],['#FF9466','Expense'],['#6FB7E8','Saving']].map(([color, name]) => (
+                {[['#00daf3','Income'],['#FF9466','Expense'],['#6FB7E8','Saving']].map(([color, name]) => (
                   <span key={name} style={styles.legendItem2}><span style={{ width: 9, height: 9, borderRadius: 2, background: color, display: 'inline-block' }} />{name}</span>
                 ))}
               </div>
@@ -2240,7 +2286,7 @@ export default function Dashboard({ user, onLogout }) {
       </div>
 
       {/* FAB */}
-      <button ref={fabRef} onClick={() => setShowAddModal(true)} className="dompet-fab" aria-label="Tambah transaksi"><Plus size={24} color="#0F1410" /></button>
+      <button ref={fabRef} onClick={() => setShowAddModal(true)} className="dompet-fab" aria-label="Tambah transaksi"><Plus size={24} color="#1f3051" /></button>
 
       {/* ====== SNACKBAR UNDO HAPUS TRANSAKSI ====== */}
       {pendingDelete && (
@@ -2573,7 +2619,7 @@ export default function Dashboard({ user, onLogout }) {
             <input type="text" placeholder="Contoh: bayar wifi bulan ini" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} style={styles.input} />
             <label style={styles.formLabel}>Tanggal</label>
             <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} style={styles.input} />
-            <button onClick={addTransaction} style={styles.submitBtn}><Check size={16} color="#0F1410" />Simpan transaksi</button>
+            <button onClick={addTransaction} style={styles.submitBtn}><Check size={16} color="#1f3051" />Simpan transaksi</button>
           </div>
         </div>
       )}
@@ -2614,7 +2660,7 @@ export default function Dashboard({ user, onLogout }) {
               )}
 
               <label style={styles.formLabel}>Jumlah (Rp)</label>
-              <div style={{ ...styles.input, display: 'flex', alignItems: 'center', color: isIncome || isSell ? '#7FE8A4' : (isSaving ? '#6FB7E8' : '#FF9466'), fontWeight: 700 }}>
+              <div style={{ ...styles.input, display: 'flex', alignItems: 'center', color: isIncome || isSell ? '#00daf3' : (isSaving ? '#6FB7E8' : '#FF9466'), fontWeight: 700 }}>
                 {isIncome || isSell ? '+' : isSaving ? '' : '-'}{formatRupiah(t.amount)}
               </div>
 
@@ -2748,7 +2794,7 @@ export default function Dashboard({ user, onLogout }) {
                 </>
               )}
             </div>
-            <button onClick={() => setShowBudgetModal(null)} style={styles.submitBtn}><Check size={16} color="#0F1410" />Selesai</button>
+            <button onClick={() => setShowBudgetModal(null)} style={styles.submitBtn}><Check size={16} color="#1f3051" />Selesai</button>
           </div>
         </div>
       )}
@@ -2775,7 +2821,7 @@ export default function Dashboard({ user, onLogout }) {
               onChange={(e) => setGoalForm((f) => ({ ...f, date: e.target.value }))} style={styles.input} />
 
             <button onClick={saveCategoryGoal} disabled={savingGoal} style={{ ...styles.submitBtn, opacity: savingGoal ? 0.6 : 1 }}>
-              <Check size={16} color="#0F1410" />{savingGoal ? 'Menyimpan...' : 'Simpan'}
+              <Check size={16} color="#1f3051" />{savingGoal ? 'Menyimpan...' : 'Simpan'}
             </button>
           </div>
         </div>
@@ -2851,7 +2897,7 @@ export default function Dashboard({ user, onLogout }) {
               </div>
 
               <button onClick={sellAsset} disabled={savingSell} style={{ ...styles.submitBtn, background: '#FF9466', opacity: savingSell ? 0.6 : 1 }}>
-                <TrendingDown size={16} color="#0F1410" />{savingSell ? 'Menyimpan...' : 'Catat Penjualan'}
+                <TrendingDown size={16} color="#1f3051" />{savingSell ? 'Menyimpan...' : 'Catat Penjualan'}
               </button>
             </div>
           </div>
@@ -2909,9 +2955,9 @@ export default function Dashboard({ user, onLogout }) {
                 <button key={val} onClick={() => setFeedbackForm((f) => ({ ...f, category: val }))}
                   style={{
                     flex: 1, padding: '8px 0', borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                    border: `1px solid ${feedbackForm.category === val ? '#7FE8A4' : 'var(--border)'}`,
-                    background: feedbackForm.category === val ? '#7FE8A422' : 'transparent',
-                    color: feedbackForm.category === val ? '#7FE8A4' : 'var(--text-secondary)',
+                    border: `1px solid ${feedbackForm.category === val ? '#b6c6f0' : 'var(--border)'}`,
+                    background: feedbackForm.category === val ? '#b6c6f022' : 'transparent',
+                    color: feedbackForm.category === val ? '#b6c6f0' : 'var(--text-secondary)',
                   }}><Icon size={13} style={{ display: 'inline', verticalAlign: -2, marginRight: 4 }} />{label}</button>
               ))}
             </div>
@@ -2945,11 +2991,11 @@ export default function Dashboard({ user, onLogout }) {
       {feedbackSentMsg && (
         <div style={{
           position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)',
-          background: 'var(--bg-card)', border: '1px solid #7FE8A4', borderRadius: 12,
+          background: 'var(--bg-card)', border: '1px solid #b6c6f0', borderRadius: 12,
           padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 10,
           boxShadow: '0 8px 24px rgba(0,0,0,0.35)', zIndex: 60, maxWidth: 'calc(100vw - 32px)',
         }}>
-          <Check size={18} color="#7FE8A4" />
+          <Check size={18} color="#b6c6f0" />
           <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>Makasih! Masukan kamu sudah terkirim.</span>
         </div>
       )}
@@ -2977,7 +3023,7 @@ export default function Dashboard({ user, onLogout }) {
                         {r.type === 'income' ? 'Income' : `${r.type === 'expense' ? 'Expense' : 'Saving'} · ${cat?.label || '-'}`} · Tgl {r.day_of_month} · {formatRupiah(r.amount)}
                       </span>
                     </span>
-                    <button onClick={() => toggleRecurringNotify(r.id, r.notify_enabled, r.notify_days_before)} style={{ ...styles.linkBtn, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4, color: r.notify_enabled ? '#7FE8A4' : 'var(--text-muted)' }} title={r.notify_enabled ? 'Pengingat aktif — klik untuk matikan' : 'Aktifkan pengingat sebelum jatuh tempo'}>
+                    <button onClick={() => toggleRecurringNotify(r.id, r.notify_enabled, r.notify_days_before)} style={{ ...styles.linkBtn, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4, color: r.notify_enabled ? '#b6c6f0' : 'var(--text-muted)' }} title={r.notify_enabled ? 'Pengingat aktif — klik untuk matikan' : 'Aktifkan pengingat sebelum jatuh tempo'}>
                       {r.notify_enabled ? <Bell size={13} /> : <BellOff size={13} />}
                     </button>
                     <button onClick={() => toggleRecurringActive(r.id, r.is_active)} style={{ ...styles.linkBtn, whiteSpace: 'nowrap' }}>
@@ -3035,8 +3081,8 @@ export default function Dashboard({ user, onLogout }) {
                 onClick={() => setRecurringForm((f) => ({ ...f, notifyEnabled: !f.notifyEnabled }))}
                 style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: recurringForm.notifyEnabled ? 8 : 12 }}
               >
-                {recurringForm.notifyEnabled ? <Bell size={15} color="#7FE8A4" /> : <BellOff size={15} color="#9CA89F" />}
-                <span style={{ fontSize: 12.5, color: recurringForm.notifyEnabled ? '#7FE8A4' : 'var(--text-secondary)', fontWeight: 600 }}>
+                {recurringForm.notifyEnabled ? <Bell size={15} color="#b6c6f0" /> : <BellOff size={15} color="#9CA89F" />}
+                <span style={{ fontSize: 12.5, color: recurringForm.notifyEnabled ? '#b6c6f0' : 'var(--text-secondary)', fontWeight: 600 }}>
                   Ingatkan lewat notifikasi sebelum jatuh tempo
                 </span>
               </div>
@@ -3054,9 +3100,9 @@ export default function Dashboard({ user, onLogout }) {
                         }))}
                         style={{
                           padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                          border: `1px solid ${active ? '#7FE8A4' : 'var(--border)'}`,
-                          background: active ? '#7FE8A422' : 'transparent',
-                          color: active ? '#7FE8A4' : 'var(--text-secondary)',
+                          border: `1px solid ${active ? '#b6c6f0' : 'var(--border)'}`,
+                          background: active ? '#b6c6f022' : 'transparent',
+                          color: active ? '#b6c6f0' : 'var(--text-secondary)',
                         }}
                       >{opt.l}</button>
                     );
@@ -3071,7 +3117,7 @@ export default function Dashboard({ user, onLogout }) {
               )}
 
               <button onClick={addRecurring} disabled={savingRecurring} style={{ ...styles.submitBtn, opacity: savingRecurring ? 0.6 : 1 }}>
-                <Check size={16} color="#0F1410" />{savingRecurring ? 'Menyimpan...' : 'Tambah'}
+                <Check size={16} color="#1f3051" />{savingRecurring ? 'Menyimpan...' : 'Tambah'}
               </button>
             </div>
           </div>
@@ -3106,7 +3152,7 @@ export default function Dashboard({ user, onLogout }) {
                           </button>
                           <span style={styles.iconNameTag}>{ICON_LIST.find((i) => i.id === editingCatIcon)?.label || 'Ikon'}</span>
                           <input type="text" value={editingCatLabel} onChange={(e) => setEditingCatLabel(e.target.value)} style={{ ...styles.input, marginBottom: 0, flex: 1 }} autoFocus />
-                          <button onClick={saveEditCategory} style={styles.smallIconBtn}><Check size={15} color="#7FE8A4" /></button>
+                          <button onClick={saveEditCategory} style={styles.smallIconBtn}><Check size={15} color="#b6c6f0" /></button>
                           <button onClick={() => { setEditingCatId(null); setShowEditIconPicker(false); }} style={styles.smallIconBtn}><X size={15} color="#9CA89F" /></button>
                         </div>
                         {catEditType === 'saving' && (
@@ -3137,9 +3183,9 @@ export default function Dashboard({ user, onLogout }) {
                                   onMouseEnter={() => setPreviewIconLabel(ic.label)}
                                   onMouseLeave={() => setPreviewIconLabel(null)}
                                   onTouchStart={() => setPreviewIconLabel(ic.label)}
-                                  style={{ ...styles.iconChip, borderColor: editingCatIcon === ic.id ? '#7FE8A4' : '#2A332C', background: editingCatIcon === ic.id ? '#7FE8A422' : 'transparent' }}
+                                  style={{ ...styles.iconChip, borderColor: editingCatIcon === ic.id ? '#b6c6f0' : '#2A332C', background: editingCatIcon === ic.id ? '#b6c6f022' : 'transparent' }}
                                   title={ic.label}>
-                                  <ic.Icon size={16} color={editingCatIcon === ic.id ? '#7FE8A4' : 'var(--text-muted)'} />
+                                  <ic.Icon size={16} color={editingCatIcon === ic.id ? '#b6c6f0' : 'var(--text-muted)'} />
                                 </button>
                               ))}
                             </div>
@@ -3176,7 +3222,7 @@ export default function Dashboard({ user, onLogout }) {
               </button>
               <span style={styles.iconNameTag}>{ICON_LIST.find((i) => i.id === newCatIcon)?.label || 'Pilih ikon'}</span>
               <input type="text" placeholder={catEditType === 'saving' ? 'Contoh: Emergency Fund' : 'Contoh: Belanja Bulanan'} value={newCatLabel} onChange={(e) => setNewCatLabel(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addCategory(); }} style={{ ...styles.input, marginBottom: 0, flex: 1 }} />
-              <button onClick={addCategory} style={{ ...styles.smallIconBtn, width: 38, height: 38, background: '#7FE8A4', flexShrink: 0 }}><Plus size={18} color="#0F1410" /></button>
+              <button onClick={addCategory} style={{ ...styles.smallIconBtn, width: 38, height: 38, background: '#b6c6f0', flexShrink: 0 }}><Plus size={18} color="#1f3051" /></button>
             </div>
             {catEditType === 'saving' && (
               <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
@@ -3206,16 +3252,16 @@ export default function Dashboard({ user, onLogout }) {
                       onMouseEnter={() => setPreviewIconLabel(ic.label)}
                       onMouseLeave={() => setPreviewIconLabel(null)}
                       onTouchStart={() => setPreviewIconLabel(ic.label)}
-                      style={{ ...styles.iconChip, borderColor: newCatIcon === ic.id ? '#7FE8A4' : '#2A332C', background: newCatIcon === ic.id ? '#7FE8A422' : 'transparent' }}
+                      style={{ ...styles.iconChip, borderColor: newCatIcon === ic.id ? '#b6c6f0' : '#2A332C', background: newCatIcon === ic.id ? '#b6c6f022' : 'transparent' }}
                       title={ic.label}>
-                      <ic.Icon size={16} color={newCatIcon === ic.id ? '#7FE8A4' : 'var(--text-muted)'} />
+                      <ic.Icon size={16} color={newCatIcon === ic.id ? '#b6c6f0' : 'var(--text-muted)'} />
                     </button>
                   ))}
                 </div>
               </>
             )}
 
-            <button onClick={() => { setShowCategoryModal(false); setEditingCatId(null); setNewCatLabel(''); setShowIconPicker(false); setShowEditIconPicker(false); }} style={styles.submitBtn}><Check size={16} color="#0F1410" />Selesai</button>
+            <button onClick={() => { setShowCategoryModal(false); setEditingCatId(null); setNewCatLabel(''); setShowIconPicker(false); setShowEditIconPicker(false); }} style={styles.submitBtn}><Check size={16} color="#1f3051" />Selesai</button>
           </div>
         </div>
       )}
@@ -3231,12 +3277,12 @@ function TxRow({ t, onDelete, catLookup, onSelect }) {
   let iconEl = <TrendingDown size={15} color={cat ? cat.color : '#A8A89C'} />;
   let iconBg = cat ? cat.color + '22' : '#A8A89C22';
   let amountColor = '#FF9466'; let sign = '-';
-  if (isIncome) { iconEl = <TrendingUp size={15} color="#7FE8A4" />; iconBg = '#7FE8A422'; amountColor = '#7FE8A4'; sign = '+'; }
+  if (isIncome) { iconEl = <TrendingUp size={15} color="#b6c6f0" />; iconBg = '#b6c6f022'; amountColor = '#b6c6f0'; sign = '+'; }
   else if (isSaving) {
     iconEl = <PiggyBank size={15} color={cat ? cat.color : '#6FB7E8'} />;
     if (t.assetAction === 'sell') {
       // Jual aset = uang MASUK (dari investasi kembali ke saldo utama), bukan keluar
-      amountColor = '#7FE8A4'; sign = '+';
+      amountColor = '#b6c6f0'; sign = '+';
     } else {
       amountColor = '#6FB7E8';
     }
@@ -3299,7 +3345,7 @@ const styles = {
   typeBtn: { flex: 1, padding: '10px 0', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12.5, fontWeight: 500, cursor: 'pointer' },
   typeBtnExpenseActive: { background: '#FF946622', borderColor: '#FF9466', color: '#FF9466' },
   typeBtnSavingActive: { background: '#6FB7E822', borderColor: '#6FB7E8', color: '#6FB7E8' },
-  typeBtnIncomeActive: { background: '#7FE8A422', borderColor: '#7FE8A4', color: '#7FE8A4' },
+  typeBtnIncomeActive: { background: '#b6c6f022', borderColor: '#b6c6f0', color: '#b6c6f0' },
   formLabel: { display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6, marginTop: 14 },
   input: { width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', marginBottom: 4 },
   catGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 },
