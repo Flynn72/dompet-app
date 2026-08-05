@@ -46,6 +46,14 @@ async function handleSession(s) {
   }
 }
 
+async function handleLogout() {
+  await supabase.auth.signOut();
+  // Sengaja TIDAK panggil setSession(null)/setIsAdmin(false) di sini secara langsung —
+  // biar cuma ada 1 sumber kebenaran (onAuthStateChange listener di useEffect bawah),
+  // supaya tidak ada 2 tempat yang bisa mengubah state auth secara terpisah dan
+  // berpotensi tidak sinkron (salah satu penyebab layar blank/error setelah logout).
+}
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       handleSession(s).finally(() => setChecking(false));
@@ -67,13 +75,13 @@ async function handleSession(s) {
     );
   }
 
-if (!session) {
+if (!session?.user) {
   return <AuthPage onAuthSuccess={() => {}} />;
 }
 
 if (isAdmin) {
-  return <AdminPanel user={session.user} onLogout={async () => { await supabase.auth.signOut(); setSession(null); }} />;
+  return <AdminPanel user={session.user} onLogout={handleLogout} />;
 }
 
-return <Dashboard user={session.user} onLogout={async () => { await supabase.auth.signOut(); setSession(null); }} />;
+return <Dashboard user={session.user} onLogout={handleLogout} />;
 };
