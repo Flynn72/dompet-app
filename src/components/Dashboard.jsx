@@ -1812,7 +1812,7 @@ export default function Dashboard({ user, onLogout }) {
                             </div>
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 3, flexWrap: 'wrap' }}>
                               <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Total Return</span>
-                              <span style={{ fontSize: 13, fontWeight: 700, color: invest.gain >= 0 ? '#b6c6f0' : '#FF6B6B' }}>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: invest.gain >= 0 ? '#7FE8A4' : '#ffb4ab' }}>
                                 {invest.gain >= 0 ? '+' : '-'}{formatRupiah(Math.abs(invest.gain))} ({invest.gainPct >= 0 ? '+' : ''}{invest.gainPct.toFixed(2)}%)
                               </span>
                             </div>
@@ -1828,13 +1828,13 @@ export default function Dashboard({ user, onLogout }) {
                                 Modal aktif: {formatRupiah(invest.totalInvested)}
                               </div>
                               {invest.realizedGain !== 0 && (
-                                <div style={{ fontSize: 11, fontWeight: 600, color: invest.realizedGain >= 0 ? '#b6c6f0' : '#FF6B6B' }}>
+                                <div style={{ fontSize: 11, fontWeight: 600, color: invest.realizedGain >= 0 ? '#7FE8A4' : '#ffb4ab' }}>
                                   <Check size={12} style={{ display: 'inline', verticalAlign: -2 }} />{invest.realizedGain >= 0 ? ' Realized untung ' : ' Realized rugi '}
                                   {formatRupiah(Math.abs(invest.realizedGain))} (dari penjualan)
                                 </div>
                               )}
                               {invest.realizedGain !== 0 && (
-                                <div style={{ fontSize: 11, fontWeight: 700, color: invest.totalGain >= 0 ? '#b6c6f0' : '#FF6B6B' }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: invest.totalGain >= 0 ? '#7FE8A4' : '#ffb4ab' }}>
                                   Total {invest.totalGain >= 0 ? 'untung' : 'kerugian'} keseluruhan: {formatRupiah(Math.abs(invest.totalGain))}
                                 </div>
                               )}
