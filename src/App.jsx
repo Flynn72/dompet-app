@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './lib/supabaseClient';
 import AuthPage from './pages/AuthPage';
-// Jalur disesuaikan ke src/Dashboard.jsx (karena posisi App.jsx dan Dashboard.jsx sejajar di folder src)
 import Dashboard from './Dashboard'; 
 import AdminPanel from './pages/AdminPanel';
 
