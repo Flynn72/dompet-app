@@ -191,32 +191,41 @@ function TransactionItem({ icon, title, category, date, amount, negative }) {
 function HistoryTab() {
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-bold">Budgets & Bills</h2>
-      <p className="text-xs text-gray-400">Manage your spending limits and upcoming bills.</p>
+      <h2 className="text-lg font-bold">Anggaran & Tagihan</h2>
+      <p className="text-xs text-gray-400">Atur batas pengeluaran dan pemantauan tagihan bulanan.</p>
 
+      {/* Card Total Monthly Budget */}
       <div className="p-4 rounded-2xl bg-[#161B22] border border-gray-800 space-y-2">
-        <span className="text-xs font-mono text-gray-400">Total Monthly Budget</span>
-        <h3 className="text-2xl font-bold">$2,450 <span className="text-xs text-gray-500 font-normal">of $3,000 limit</span></h3>
+        <span className="text-xs font-mono text-gray-400">Total Anggaran Bulanan</span>
+        <h3 className="text-2xl font-bold">
+          Rp 3.800.000 <span className="text-xs text-gray-500 font-normal">dari batas Rp 4.500.000</span>
+        </h3>
         <div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden mt-2">
           <div className="bg-rose-400 h-full w-[81%]"></div>
         </div>
         <div className="flex justify-between text-[10px] font-mono mt-1">
-          <span className="text-gray-400">Spent 81%</span>
-          <span className="text-rose-400 font-bold">Warning</span>
+          <span className="text-gray-400">Terpakai 81%</span>
+          <span className="text-rose-400 font-bold">Peringatan</span>
         </div>
       </div>
 
+      {/* Card Category Limit */}
       <div className="p-4 rounded-2xl bg-[#161B22] border border-gray-800 space-y-2">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
             <Utensils size={16} className="text-gray-400" />
-            <span className="text-xs font-semibold">Food & Dining</span>
+            <span className="text-xs font-semibold">Makanan & Minuman</span>
           </div>
-          <span className="text-[10px] bg-rose-950/60 text-rose-300 px-2 py-0.5 rounded font-mono">Near Limit</span>
+          <span className="text-[10px] bg-rose-950/60 text-rose-300 px-2 py-0.5 rounded font-mono">Mendekati Batas</span>
         </div>
-        <p className="text-sm font-bold">$420 <span className="text-xs text-gray-500 font-normal">/ $500</span></p>
+        <p className="text-sm font-bold">
+          Rp 1.250.000 <span className="text-xs text-gray-500 font-normal">/ Rp 1.500.000</span>
+        </p>
         <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
           <div className="bg-rose-400 h-full w-[84%]"></div>
+        </div>
+        <div className="flex justify-end text-[10px] font-mono text-gray-400">
+          <span>84% Terpakai</span>
         </div>
       </div>
     </div>
