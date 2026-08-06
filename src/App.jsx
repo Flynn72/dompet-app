@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './lib/supabaseClient';
 import AuthPage from './pages/AuthPage';
-// Impor Dashboard UI baru (pastikan lokasi filenya benar di src/components/Dashboard.jsx)
-import Dashboard from './components/Dashboard'; 
+// Jalur disesuaikan ke src/Dashboard.jsx (karena posisi App.jsx dan Dashboard.jsx sejajar di folder src)
+import Dashboard from './Dashboard'; 
 import AdminPanel from './pages/AdminPanel';
 
 export default function App() {
@@ -75,7 +75,6 @@ export default function App() {
     return <AdminPanel user={session.user} onLogout={async () => { await supabase.auth.signOut(); setSession(null); }} />;
   }
 
-  // Mengirim props `session` dan `user` agar kompatibel dengan hook useDashboard
   return (
     <Dashboard 
       session={session} 
