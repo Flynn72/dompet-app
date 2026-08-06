@@ -21,9 +21,13 @@ function formatDate(dateStr) {
 }
 
 export default function AdminPanel({ user, onLogout }) {
-  // Guard clause: jika user null/logout, hentikan render
-  if (!user) {
-    return null;
+  // Guard Clause Utama: cegah render & akses properti jika user null/undefined
+  if (!user || !user.id) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#0B0F1A', color: '#7A90B8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        Memuat sesi admin...
+      </div>
+    );
   }
 
   const [users, setUsers] = useState([]);
@@ -45,18 +49,22 @@ export default function AdminPanel({ user, onLogout }) {
 
   async function loadFeedback() {
     if (!user?.id) return;
-    const { data, error } = await supabase.rpc('admin_get_all_feedback');
-    if (error) {
-      console.error('[AdminPanel] Gagal ambil feedback:', error.message, error);
-    } else {
-      setFeedbackList(data || []);
+    try {
+      const { data, error } = await supabase.rpc('admin_get_all_feedback');
+      if (error) {
+        console.error('[AdminPanel] Gagal ambil feedback:', error.message);
+      } else {
+        setFeedbackList(data || []);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setFeedbackLoading(false);
     }
-    setFeedbackLoading(false);
   }
 
   async function loadUsers() {
-    if (!user?.id) return;
-    if (isFetchingRef.current) return;
+    if (!user?.id || isFetchingRef.current) return;
     isFetchingRef.current = true;
 
     try {
@@ -81,21 +89,18 @@ export default function AdminPanel({ user, onLogout }) {
   }
 
   useEffect(() => {
+    let isMounted = true;
     if (!user?.id) return;
 
     async function init() {
-      if (user?.id) {
-        const { error } = await supabase.rpc(
-          "update_last_login",
-          { user_id: user.id }
-        );
+      if (!user?.id) return;
 
-        if (error) {
-          console.error('[AdminPanel] Gagal update last_login:', error.message);
-        }
+      const { error } = await supabase.rpc("update_last_login", { user_id: user.id });
+      if (error) {
+        console.error('[AdminPanel] Gagal update last_login:', error.message);
       }
 
-      if (user?.id) {
+      if (isMounted && user?.id) {
         await loadUsers();
         await loadFeedback();
       }
@@ -122,13 +127,15 @@ export default function AdminPanel({ user, onLogout }) {
       )
       .subscribe();
 
+    // Interval poller dinaikkan ke 5000ms (5s) agar browser/server tidak overload
     const intervalId = setInterval(() => {
       if (user?.id && !isFetchingRef.current) {
         loadUsers();
       }
-    }, 500);
+    }, 5000);
 
     return () => {
+      isMounted = false;
       clearInterval(intervalId);
       supabase.removeChannel(transactionChannel);
       supabase.removeChannel(categoryChannel);
@@ -136,6 +143,7 @@ export default function AdminPanel({ user, onLogout }) {
   }, [user?.id]);
 
   async function deleteUser(targetId, username) {
+    if (!user?.id) return;
     setDeleting(targetId);
     try {
       const { error: err } = await supabase.rpc('admin_delete_user', { target_user_id: targetId });
@@ -243,7 +251,7 @@ export default function AdminPanel({ user, onLogout }) {
             <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Dompet App</div>
           </div>
         </div>
-        <button onClick={async () => { await supabase.auth.signOut(); onLogout(); }} style={s.logoutBtn}>
+        <button onClick={onLogout} style={s.logoutBtn}>
           <LogOut size={15} color="var(--text-secondary)" />
         </button>
       </div>
@@ -451,7 +459,7 @@ export default function AdminPanel({ user, onLogout }) {
                         <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{formatDate(u.created_at)}</div>
                       </td>
                       <td style={s.td}>
-                        {u.id !== user.id && !u.is_admin && (
+                        {u.id !== user?.id && !u.is_admin && (
                           isConfirming ? (
                             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                               <span style={{ fontSize: 11, color: '#FF9466' }}>Yakin hapus?</span>
@@ -483,7 +491,7 @@ export default function AdminPanel({ user, onLogout }) {
         <div
           style={{
             display: "flex",
-            justify: "space-between",
+            justifyContent: "space-between",
             alignItems: "center",
             marginTop: 12,
             fontSize: 12,
