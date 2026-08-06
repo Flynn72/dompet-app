@@ -51,8 +51,11 @@ export default function App() {
     setIsAdmin(false);
 
     // 2. Hapus sisa kredensial di localStorage (jika ada)
-    localStorage.removeItem('isAdmin');
-
+    for (let key in localStorage) {
+    if (key.startsWith('sb-') || key.includes('supabase')) {
+      localStorage.removeItem(key);
+    }
+  }
     // 3. Panggil proses signOut Supabase
     await supabase.auth.signOut();
   }
