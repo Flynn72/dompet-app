@@ -21,11 +21,11 @@ function formatDate(dateStr) {
 }
 
 export default function AdminPanel({ user, onLogout }) {
-  // --- TAMBAHKAN BARIS INI (GUARD CLAUSE) ---
+  // Guard clause: jika user null/logout, hentikan render
   if (!user) {
     return null;
   }
-  // ------------------------------------------
+
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -37,13 +37,14 @@ export default function AdminPanel({ user, onLogout }) {
   const [search, setSearch] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [lastUpdate, setLastUpdate] = useState(new Date());
-  const isFetchingRef = useRef(false); // guard: cegah loadUsers() tumpang tindih saat interval cepat (500ms)
+  const isFetchingRef = useRef(false);
   const [feedbackList, setFeedbackList] = useState([]);
   const [feedbackLoading, setFeedbackLoading] = useState(true);
-  const [feedbackFilter, setFeedbackFilter] = useState('semua'); // 'semua' | 'bug' | 'saran' | 'lainnya'
+  const [feedbackFilter, setFeedbackFilter] = useState('semua');
   const [feedbackExpanded, setFeedbackExpanded] = useState(false);
 
   async function loadFeedback() {
+    if (!user?.id) return;
     const { data, error } = await supabase.rpc('admin_get_all_feedback');
     if (error) {
       console.error('[AdminPanel] Gagal ambil feedback:', error.message, error);
@@ -53,135 +54,87 @@ export default function AdminPanel({ user, onLogout }) {
     setFeedbackLoading(false);
   }
 
-async function loadUsers() {
-  // 1. TAMBAHKAN BARIS INI: Batalkan jika user sudah logout / null
-  if (!user?.id) return;
-
-  // Kalau masih ada request sebelumnya yang belum selesai, lewati siklus ini
-  if (isFetchingRef.current) return;
-  isFetchingRef.current = true;
-
-  try {
-    const { data, error } = await supabase.rpc('admin_get_all_users');
-
-    // 2. Cek kembali user?.id setelah request Supabase selesai
+  async function loadUsers() {
     if (!user?.id) return;
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
 
-    if (error) {
-      setError(error.message);
-      setLoading(false);
-      return;
-    }
+    try {
+      const { data, error } = await supabase.rpc('admin_get_all_users');
 
-    // ... sisa kode setUsers(data) Anda di bawahnya
-  } catch (err) {
-    console.error('[AdminPanel] Error loadUsers:', err);
-  } finally {
-    isFetchingRef.current = false;
-  }
-}
-
-  // .filter(Boolean) — buang baris null/kosong kalau-kalau RPC-nya sesekali balikin data cacat,
-  // supaya 1 baris rusak tidak bikin SELURUH panel admin crash (defensive, bukan asumsi data selalu bersih)
-  setUsers((data || []).filter(Boolean));
-  setLastUpdate(new Date());
-  setLoading(false);
-  isFetchingRef.current = false;
-}
-  
-useEffect(() => {
-  if (!user?.id) return;
-
-  async function init() {
-    // Amankan pemanggilan user?.id dengan optional chaining
-    if (user?.id) {
-      const { error } = await supabase.rpc(
-        "update_last_login",
-        { user_id: user.id }
-      );
+      if (!user?.id) return;
 
       if (error) {
-        console.error('[AdminPanel] Gagal update last_login:', error.message);
+        setError(error.message);
+        setLoading(false);
+        return;
       }
-    }
 
-    // Pastikan user masih ada sebelum memuat data
-    if (user?.id) {
-      await loadUsers();
-      await loadFeedback();
+      setUsers((data || []).filter(Boolean));
+      setLastUpdate(new Date());
+      setLoading(false);
+    } catch (err) {
+      console.error('[AdminPanel] Error loadUsers:', err);
+    } finally {
+      isFetchingRef.current = false;
     }
   }
 
-  init();
+  useEffect(() => {
+    if (!user?.id) return;
 
-  // Bersihkan interval jika ada auto-refresh (agar tidak jalan terus saat logout)
-  const intervalId = setInterval(() => {
-    if (user?.id && !isFetchingRef.current) {
-      loadUsers();
+    async function init() {
+      if (user?.id) {
+        const { error } = await supabase.rpc(
+          "update_last_login",
+          { user_id: user.id }
+        );
+
+        if (error) {
+          console.error('[AdminPanel] Gagal update last_login:', error.message);
+        }
+      }
+
+      if (user?.id) {
+        await loadUsers();
+        await loadFeedback();
+      }
     }
-  }, 500);
 
-  return () => {
-    clearInterval(intervalId);
-  };
-}, [user?.id]);
-  init();
+    init();
 
-  // Realtime transaksi — auto-refresh instan saat ada user yang input/ubah transaksi
-  const transactionChannel = supabase
-    .channel("admin-transactions")
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "transactions",
-      },
-      () => {
+    // Realtime listener
+    const transactionChannel = supabase
+      .channel("admin-transactions")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "transactions" },
+        () => { if (user?.id) loadUsers(); }
+      )
+      .subscribe();
+
+    const categoryChannel = supabase
+      .channel("admin-categories")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "categories" },
+        () => { if (user?.id) loadUsers(); }
+      )
+      .subscribe();
+
+    const intervalId = setInterval(() => {
+      if (user?.id && !isFetchingRef.current) {
         loadUsers();
       }
-    )
-    .subscribe((status) => {
-      // Kalau status tidak pernah "SUBSCRIBED", berarti Realtime belum diaktifkan
-      // untuk tabel "transactions" di Supabase (Database > Replication).
-      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        console.error('[AdminPanel] Gagal subscribe realtime transactions:', status, '— cek Database > Replication di Supabase.');
-      }
-    });
+    }, 500);
 
-  // Realtime kategori
-  const categoryChannel = supabase
-    .channel("admin-categories")
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "categories",
-      },
-      () => {
-        loadUsers();
-      }
-    )
-    .subscribe((status) => {
-      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        console.error('[AdminPanel] Gagal subscribe realtime categories:', status, '— cek Database > Replication di Supabase.');
-      }
-    });
+    return () => {
+      clearInterval(intervalId);
+      supabase.removeChannel(transactionChannel);
+      supabase.removeChannel(categoryChannel);
+    };
+  }, [user?.id]);
 
-  // Fallback: kalau tidak ada transaksi berjalan, tetap refresh tiap 500ms
-  const interval = setInterval(() => {
-    loadUsers();
-  }, 500);
-
-  return () => {
-    clearInterval(interval);
-
-    supabase.removeChannel(transactionChannel);
-    supabase.removeChannel(categoryChannel);
-  };
-}, []);
-  
   async function deleteUser(targetId, username) {
     setDeleting(targetId);
     try {
@@ -225,7 +178,6 @@ useEffect(() => {
 
   const inactiveCount = users.filter((u) => new Date(u.last_login).getTime() < inactiveThreshold).length;
 
-  // ===== Widget statistik cepat (dihitung dari data yang sudah ada, tidak perlu query baru) =====
   const now = Date.now();
   const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
   const newUsersThisWeek = users.filter((u) => new Date(u.created_at).getTime() >= sevenDaysAgo).length;
@@ -245,7 +197,6 @@ useEffect(() => {
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap');
         * { box-sizing: border-box; }
 
-        /* ===== CSS VARIABLES — TEMA NAVY (sama dengan Dashboard) ===== */
         :root {
           --bg-base: #0B0F1A;
           --bg-card: #131929;
@@ -261,7 +212,6 @@ useEffect(() => {
           --scrollbar: #1E2D4A;
         }
 
-        /* Light mode — mengikuti setting sistem/browser user, sama seperti Dashboard */
         @media (prefers-color-scheme: light) {
           :root {
             --bg-base: #EEF2FA;
@@ -293,7 +243,9 @@ useEffect(() => {
             <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Dompet App</div>
           </div>
         </div>
-        <button onClick={async () => { await supabase.auth.signOut(); onLogout(); }} style={s.logoutBtn}><LogOut size={15} color="var(--text-secondary)" /></button>
+        <button onClick={async () => { await supabase.auth.signOut(); onLogout(); }} style={s.logoutBtn}>
+          <LogOut size={15} color="var(--text-secondary)" />
+        </button>
       </div>
 
       <div style={s.content}>
@@ -518,8 +470,8 @@ useEffect(() => {
                             </button>
                           )
                         )}
-                          {u.id === user?.id && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Akun ini</span>}
-                          {u.is_admin && u.id !== user?.id && <span style={{ fontSize: 11, color: '#C99FE8' }}>Admin</span>}
+                        {u.id === user?.id && <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Akun ini</span>}
+                        {u.is_admin && u.id !== user?.id && <span style={{ fontSize: 11, color: '#C99FE8' }}>Admin</span>}
                       </td>
                     </tr>
                   );
@@ -529,31 +481,29 @@ useEffect(() => {
           </div>
         )}
         <div
-  style={{
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 12,
-    fontSize: 12,
-    color: "var(--text-secondary)",
-  }}
->
-  <span>
-    Menampilkan {filtered.length} dari {users.length} user
-  </span>
+          style={{
+            display: "flex",
+            justify: "space-between",
+            alignItems: "center",
+            marginTop: 12,
+            fontSize: 12,
+            color: "var(--text-secondary)",
+          }}
+        >
+          <span>
+            Menampilkan {filtered.length} dari {users.length} user
+          </span>
 
-  <span>
-    Terakhir diperbarui :
-    {" "}
-    {lastUpdate.toLocaleTimeString("id-ID")}
-  </span>
-</div>
+          <span>
+            Terakhir diperbarui : {" "}
+            {lastUpdate.toLocaleTimeString("id-ID")}
+          </span>
+        </div>
       </div>
     </div>
   );
 }
 
-// Komponen Check icon kecil
 function Check({ size = 14 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
