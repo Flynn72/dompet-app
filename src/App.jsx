@@ -10,29 +10,33 @@ export default function App() {
   const [checking, setChecking] = useState(true);
 
   async function checkAdmin(userId) {
-    const { data, error } = await supabase
-      .from("user_profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
+    if (!userId) return false;
+    try {
+      const { data, error } = await supabase
+        .from("user_profiles")
+        .select("is_admin")
+        .eq("id", userId)
+        .single();
 
-    if (error) {
-      console.error('[App] Gagal ambil profil user:', error.message);
+      if (error) {
+        console.error('[App] Gagal ambil profil user:', error.message);
+        return false;
+      }
+
+      return data?.is_admin ?? false;
+    } catch (err) {
+      console.error('[App] Error checkAdmin:', err);
+      return false;
     }
-
-    return data?.is_admin ?? false;
   }
 
   async function handleSession(s) {
     setSession(s);
 
-    if (s?.user) {
-      const { error } = await supabase.rpc(
-        "update_last_login",
-        {
-          user_id: s.user.id
-        }
-      );
+    if (s?.user?.id) {
+      const { error } = await supabase.rpc("update_last_login", {
+        user_id: s.user.id
+      });
 
       if (error) {
         console.error('[App] Gagal update last_login:', error.message);
@@ -46,30 +50,44 @@ export default function App() {
   }
 
   async function handleLogout() {
-    // 1. Reset state UI secara langsung agar tidak terjadi race condition / black screen
+    // 1. Reset state UI secara langsung untuk mencegah race condition/crash
     setSession(null);
     setIsAdmin(false);
 
-    // 2. Hapus sisa kredensial di localStorage (jika ada)
-    for (let key in localStorage) {
-    if (key.startsWith('sb-') || key.includes('supabase')) {
-      localStorage.removeItem(key);
+    // 2. Clear token/kredensial supabase dari localStorage
+    try {
+      for (let key in localStorage) {
+        if (key.startsWith('sb-') || key.includes('supabase')) {
+          localStorage.removeItem(key);
+        }
+      }
+    } catch (e) {
+      console.error('[App] Clear localStorage error:', e);
     }
-  }
-    // 3. Panggil proses signOut Supabase
+
+    // 3. Eksekusi signOut Supabase
     await supabase.auth.signOut();
   }
 
   useEffect(() => {
+    let isMounted = true;
+
     supabase.auth.getSession().then(({ data: { session: s } }) => {
-      handleSession(s).finally(() => setChecking(false));
+      if (isMounted) {
+        handleSession(s).finally(() => setChecking(false));
+      }
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, s) => {
-      handleSession(s);
+      if (isMounted) {
+        handleSession(s);
+      }
     });
 
-    return () => listener.subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
   if (checking) {
@@ -81,16 +99,16 @@ export default function App() {
     );
   }
 
-  // Jika session atau user tidak ada, tampilkan Halaman Auth/Login
+  // Jika tidak ada session atau user
   if (!session?.user) {
     return <AuthPage onAuthSuccess={() => {}} />;
   }
 
-  // Jika user bernilai admin DAN session user masih valid
+  // Jika user adalah Admin
   if (isAdmin && session?.user) {
     return <AdminPanel user={session.user} onLogout={handleLogout} />;
   }
 
-  // Tampilan pengguna biasa (non-admin)
+  // Jika user biasa
   return <Dashboard user={session.user} onLogout={handleLogout} />;
 }
