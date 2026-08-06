@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase, usernameToEmail } from '../lib/supabaseClient';
+import PostLoginLoading from '../components/Loading/PostLoginLoading';
 
 export default function AuthPage({ onAuthSuccess }) {
   const [mode, setMode] = useState('login'); // login | register
@@ -9,6 +10,7 @@ export default function AuthPage({ onAuthSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberNode, setRememberNode] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isSuccessLoading, setIsSuccessLoading] = useState(false);
   const [error, setError] = useState('');
 
   function validateUsername(u) {
@@ -52,10 +54,14 @@ export default function AuthPage({ onAuthSuccess }) {
           return;
         }
         if (data.session) {
-          onAuthSuccess();
+          setIsSuccessLoading(true);
+          setTimeout(() => {
+            onAuthSuccess();
+          }, 1500);
         } else {
           setError('Pendaftaran berhasil. Silakan login.');
           setMode('login');
+          setLoading(false);
         }
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
@@ -64,12 +70,19 @@ export default function AuthPage({ onAuthSuccess }) {
           setLoading(false);
           return;
         }
-        onAuthSuccess();
+        setIsSuccessLoading(true);
+        setTimeout(() => {
+          onAuthSuccess();
+        }, 1500);
       }
     } catch (err) {
       setError('Terjadi kesalahan. Periksa koneksi internet.');
+      setLoading(false);
     }
-    setLoading(false);
+  }
+
+  if (isSuccessLoading) {
+    return <PostLoginLoading userEmail={username} />;
   }
 
   return (
@@ -92,7 +105,7 @@ export default function AuthPage({ onAuthSuccess }) {
       {/* Main Content Container */}
       <main className="w-full max-w-md px-6 flex flex-col items-center justify-center z-10 relative py-8 my-auto">
         
-        {/* Security Badge - Flexibel & Responsif */}
+        {/* Security Badge */}
         <div className="flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 bg-[#191c1e] border border-[#1a2b4c] rounded-full shadow-sm mb-6 sm:mb-8 transition-all">
           <span className="w-2 h-2 rounded-full bg-[#00e3fd] animate-pulse shrink-0"></span>
           <span className="font-['JetBrains_Mono',monospace] text-[10px] sm:text-xs text-[#c5c6cf] tracking-wider uppercase whitespace-nowrap">
@@ -166,7 +179,7 @@ export default function AuthPage({ onAuthSuccess }) {
               </button>
             </div>
 
-            {/* Confirm Password (hanya tampil saat mode register) */}
+            {/* Confirm Password */}
             {mode === 'register' && (
               <div className="relative group">
                 <span className="material-symbols-outlined absolute left-0 top-3 text-[#c5c6cf] group-focus-within:text-[#00e3fd] transition-colors">
@@ -202,7 +215,7 @@ export default function AuthPage({ onAuthSuccess }) {
               {loading ? 'Memproses...' : mode === 'login' ? 'Login' : 'Daftar'}
             </button>
 
-            {/* Checkbox Remember Node (Khusus Login) */}
+            {/* Checkbox Remember Node */}
             {mode === 'login' && (
               <div className="flex items-center justify-center w-full px-2">
                 <label className="flex items-center gap-2.5 cursor-pointer group">
