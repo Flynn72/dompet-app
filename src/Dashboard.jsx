@@ -1,44 +1,333 @@
-import React from 'react';
-import MainLayout from './layouts/MainLayout';
-import DashboardSection from './sections/DashboardSection';
-import { useDashboard } from './hooks/useDashboard';
+import React, { useState } from 'react';
+import { 
+  Home, 
+  History, 
+  TrendingUp, 
+  Settings, 
+  Bell, 
+  Wallet, 
+  ArrowUpRight, 
+  ArrowDownLeft, 
+  PiggyBank, 
+  Search, 
+  SlidersHorizontal,
+  Utensils,
+  Car,
+  Briefcase,
+  ShoppingBag,
+  Plus,
+  Globe,
+  Sun,
+  FileSpreadsheet,
+  HelpCircle,
+  MessageSquare
+} from 'lucide-react';
 
-export default function Dashboard({ session }) {
-  const {
-    loading,
-    transactions,
-    activeTab,
-    setActiveTab,
-    totalBalance,
-    totalIncome,
-    totalExpense
-  } = useDashboard(session);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#070b19] text-white flex items-center justify-center">
-        <p className="animate-pulse">Memuat data...</p>
-      </div>
-    );
-  }
+export default function Dashboard({ session, user, onLogout }) {
+  const [activeTab, setActiveTab] = useState('home');
 
   return (
-    <MainLayout 
-      activeTab={activeTab} 
-      setActiveTab={setActiveTab} 
-      username={session?.user?.user_metadata?.username || session?.user?.email}
-    >
-      {activeTab === 'dashboard' && (
-        <DashboardSection 
-          totalBalance={totalBalance} 
-          totalIncome={totalIncome} 
-          totalExpense={totalExpense} 
-          transactions={transactions} 
-        />
+    <div className="min-h-screen bg-[#0F1216] text-white pb-24 font-sans antialiased">
+      {/* Top Bar / Header */}
+      <header className="flex items-center justify-between px-5 py-4 border-b border-gray-800/60 bg-[#0F1216]/80 backdrop-blur-md sticky top-0 z-40">
+        <h1 className="text-xl font-bold tracking-tight text-white">Dompet</h1>
+        <div className="flex items-center space-x-3">
+          {activeTab === 'home' && (
+            <>
+              <button className="text-xs px-2 py-1 rounded bg-gray-800 text-gray-300 font-mono">ID</button>
+              <button className="p-2 text-gray-400 hover:text-white rounded-full"><Sun size={18} /></button>
+            </>
+          )}
+          <button className="p-2 text-gray-400 hover:text-white rounded-full relative">
+            <Bell size={20} />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-500 rounded-full"></span>
+          </button>
+        </div>
+      </header>
+
+      {/* Dynamic Content Based on Active Tab */}
+      <main className="px-4 pt-4 max-w-md mx-auto space-y-4">
+        {activeTab === 'home' && <HomeTab />}
+        {activeTab === 'history' && <HistoryTab />}
+        {activeTab === 'invest' && <InvestTab />}
+        {activeTab === 'settings' && <SettingsTab onLogout={onLogout} />}
+      </main>
+
+      {/* Floating Action Button (FAB) - Home Only */}
+      {activeTab === 'home' && (
+        <button className="fixed bottom-20 right-5 w-12 h-12 bg-blue-300 text-slate-900 rounded-2xl flex items-center justify-center shadow-lg hover:bg-blue-200 transition-all z-40">
+          <Plus size={24} />
+        </button>
       )}
-      {activeTab === 'investment' && <div className="text-white">Halaman Investasi</div>}
-      {activeTab === 'budget' && <div className="text-white">Halaman Anggaran</div>}
-      {activeTab === 'settings' && <div className="text-white">Halaman Pengaturan</div>}
-    </MainLayout>
+
+      {/* Bottom Navigation Bar */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-[#161B22] border-t border-gray-800 px-6 py-2 flex justify-between items-center z-50 max-w-md mx-auto">
+        <NavItem icon={<Home size={20} />} label="Beranda" active={activeTab === 'home'} onClick={() => setActiveTab('home')} />
+        <NavItem icon={<History size={20} />} label="Riwayat" active={activeTab === 'history'} onClick={() => setActiveTab('history')} />
+        <NavItem icon={<TrendingUp size={20} />} label="Investasi" active={activeTab === 'invest'} onClick={() => setActiveTab('invest')} />
+        <NavItem icon={<Settings size={20} />} label="Pengaturan" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
+      </nav>
+    </div>
+  );
+}
+
+function NavItem({ icon, label, active, onClick }) {
+  return (
+    <button 
+      onClick={onClick}
+      className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all ${
+        active ? 'bg-blue-500/20 text-blue-300' : 'text-gray-400 hover:text-gray-200'
+      }`}
+    >
+      {icon}
+      <span className="text-[10px] mt-1 font-medium">{label}</span>
+    </button>
+  );
+}
+
+/* ==================== TAB 1: BERANDA ==================== */
+function HomeTab() {
+  return (
+    <div className="space-y-4">
+      {/* Total Saldo */}
+      <div className="p-5 rounded-2xl bg-gradient-to-br from-[#1C2331] to-[#121721] border border-gray-800">
+        <div className="flex justify-between items-start">
+          <span className="text-xs font-mono text-gray-400">Total Saldo</span>
+          <Wallet size={18} className="text-blue-400" />
+        </div>
+        <h2 className="text-2xl font-bold mt-2">Rp 45.230.000</h2>
+        <p className="text-xs text-emerald-400 font-mono mt-1">📈 +2.4% dari bulan lalu</p>
+      </div>
+
+      {/* Pemasukan & Pengeluaran Bulanan */}
+      <div className="grid grid-cols-1 gap-3">
+        <div className="p-4 rounded-2xl bg-[#161B22] border border-gray-800 flex justify-between items-center">
+          <div>
+            <span className="text-xs font-mono text-gray-400">Pemasukan Bulanan</span>
+            <p className="text-lg font-bold text-white mt-1">Rp 12.500.000</p>
+          </div>
+          <div className="p-2.5 rounded-xl bg-gray-800/80 text-gray-300"><ArrowDownLeft size={18} /></div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-[#161B22] border border-gray-800 flex justify-between items-center">
+          <div>
+            <span className="text-xs font-mono text-gray-400">Pengeluaran Bulanan</span>
+            <p className="text-lg font-bold text-white mt-1">Rp 4.120.000</p>
+          </div>
+          <div className="p-2.5 rounded-xl bg-rose-950/40 text-rose-300"><ArrowUpRight size={18} /></div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-[#161B22] border border-gray-800">
+          <div className="flex justify-between items-center">
+            <div>
+              <span className="text-xs font-mono text-gray-400">Tabungan Bersih</span>
+              <p className="text-lg font-bold text-white mt-1">Rp 8.380.000</p>
+            </div>
+            <div className="p-2.5 rounded-xl bg-gray-800/80 text-gray-300"><PiggyBank size={18} /></div>
+          </div>
+          <div className="w-full bg-gray-800 h-1.5 rounded-full mt-3 overflow-hidden">
+            <div className="bg-blue-300 h-full w-[65%]"></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tren Bulanan */}
+      <div className="p-4 rounded-2xl bg-[#161B22] border border-gray-800 space-y-3">
+        <div className="flex justify-between items-center">
+          <h3 className="font-bold text-sm">Tren Bulanan</h3>
+          <span className="text-[10px] font-mono bg-gray-800 px-2 py-1 rounded text-gray-300">6 Bulan Terakhir</span>
+        </div>
+        <div className="h-36 w-full flex items-end justify-between px-2 pt-4 border-b border-gray-800">
+          <div className="w-full h-full bg-gradient-to-t from-blue-500/10 to-blue-400/30 rounded-lg flex items-center justify-center text-xs text-gray-500 italic">
+            [ Graphic Wave ]
+          </div>
+        </div>
+        <div className="flex justify-between text-[10px] font-mono text-gray-500 px-1">
+          <span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>Mei</span><span>Jun</span>
+        </div>
+      </div>
+
+      {/* Transaksi Terbaru */}
+      <div className="space-y-3 pt-2">
+        <h3 className="font-bold text-sm">Transaksi Terbaru</h3>
+        <div className="flex gap-2">
+          <div className="flex-1 bg-[#161B22] border border-gray-800 rounded-xl px-3 py-2 flex items-center gap-2 text-xs text-gray-400">
+            <Search size={14} />
+            <span>Cari...</span>
+          </div>
+          <button className="p-2 bg-[#161B22] border border-gray-800 rounded-xl text-gray-400"><SlidersHorizontal size={16} /></button>
+        </div>
+
+        <div className="space-y-2">
+          <TransactionItem icon={<Utensils size={16} />} title="Starbucks" category="Makanan" date="Hari ini, 09:41" amount="-Rp 55.000" negative />
+          <TransactionItem icon={<Car size={16} />} title="Grab Ride" category="Transport" date="Kemarin, 18:20" amount="-Rp 32.500" negative />
+          <TransactionItem icon={<Briefcase size={16} />} title="Gaji" category="Pendapatan" date="25 Mei 2024" amount="+Rp 12.500.000" />
+          <TransactionItem icon={<ShoppingBag size={16} />} title="Tokopedia" category="Belanja" date="24 Mei 2024" amount="-Rp 450.000" negative />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TransactionItem({ icon, title, category, date, amount, negative }) {
+  return (
+    <div className="p-3 rounded-xl bg-[#161B22] border border-gray-800/80 flex justify-between items-center">
+      <div className="flex items-center gap-3">
+        <div className="p-2.5 rounded-lg bg-gray-800/80 text-gray-300">{icon}</div>
+        <div>
+          <h4 className="font-semibold text-xs text-white">{title}</h4>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="text-[9px] bg-gray-800 text-gray-300 px-1.5 py-0.5 rounded font-mono">{category}</span>
+            <span className="text-[10px] text-gray-500">{date}</span>
+          </div>
+        </div>
+      </div>
+      <span className={`text-xs font-bold font-mono ${negative ? 'text-gray-200' : 'text-blue-300'}`}>{amount}</span>
+    </div>
+  );
+}
+
+/* ==================== TAB 2: RIWAYAT / BUDGETS ==================== */
+function HistoryTab() {
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-bold">Budgets & Bills</h2>
+      <p className="text-xs text-gray-400">Manage your spending limits and upcoming bills.</p>
+
+      <div className="p-4 rounded-2xl bg-[#161B22] border border-gray-800 space-y-2">
+        <span className="text-xs font-mono text-gray-400">Total Monthly Budget</span>
+        <h3 className="text-2xl font-bold">$2,450 <span className="text-xs text-gray-500 font-normal">of $3,000 limit</span></h3>
+        <div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden mt-2">
+          <div className="bg-rose-400 h-full w-[81%]"></div>
+        </div>
+        <div className="flex justify-between text-[10px] font-mono mt-1">
+          <span className="text-gray-400">Spent 81%</span>
+          <span className="text-rose-400 font-bold">Warning</span>
+        </div>
+      </div>
+
+      <div className="p-4 rounded-2xl bg-[#161B22] border border-gray-800 space-y-2">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <Utensils size={16} className="text-gray-400" />
+            <span className="text-xs font-semibold">Food & Dining</span>
+          </div>
+          <span className="text-[10px] bg-rose-950/60 text-rose-300 px-2 py-0.5 rounded font-mono">Near Limit</span>
+        </div>
+        <p className="text-sm font-bold">$420 <span className="text-xs text-gray-500 font-normal">/ $500</span></p>
+        <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
+          <div className="bg-rose-400 h-full w-[84%]"></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ==================== TAB 3: INVESTASI ==================== */
+function InvestTab() {
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-bold">Investasi</h2>
+
+      <div className="p-5 rounded-2xl bg-[#161B22] border border-gray-800">
+        <span className="text-xs font-mono text-gray-400">Total Nilai Investasi</span>
+        <h3 className="text-2xl font-bold mt-1">Rp 45.230.000</h3>
+        <div className="mt-2 inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-blue-950/50 border border-blue-800/40 text-blue-300 text-xs font-mono">
+          <span>+Rp 2.150.000 (4.9%)</span>
+          <span className="text-gray-400">Floating Gain</span>
+        </div>
+      </div>
+
+      <div className="p-4 rounded-2xl bg-[#161B22] border border-gray-800 space-y-2">
+        <div className="flex justify-between">
+          <h4 className="font-semibold text-xs">Emas Pluang</h4>
+          <span className="text-xs font-mono text-gray-400">25.5 Grams</span>
+        </div>
+        <p className="text-lg font-bold">Rp 25.500.000</p>
+        <div className="flex justify-between text-[11px] font-mono text-gray-400 pt-1">
+          <span>Floating <strong className="text-emerald-400">+8.5%</strong></span>
+          <span>Realized <strong>Rp 1.2M</strong></span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ==================== TAB 4: PENGATURAN ==================== */
+function SettingsTab({ onLogout }) {
+  return (
+    <div className="space-y-5">
+      <div>
+        <h3 className="text-xs font-mono text-gray-400 uppercase tracking-wider mb-2">Preferences</h3>
+        <div className="space-y-2">
+          <SettingToggle icon={<Bell size={16} />} title="Push Notifications" subtitle="Alerts for transactions" active />
+          <SettingOption icon={<Globe size={16} />} title="Language / Bahasa" options={['English', 'Indonesia']} activeIndex={1} />
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-xs font-mono text-gray-400 uppercase tracking-wider mb-2">Data & Tools</h3>
+        <div className="space-y-2">
+          <SettingButton icon={<FileSpreadsheet size={16} />} title="Export Excel / Ekspor Excel" />
+          <SettingButton icon={<HelpCircle size={16} />} title="Need a refresher? / Butuh penyegaran?" />
+        </div>
+      </div>
+
+      <button 
+        onClick={onLogout}
+        className="w-full py-3 bg-rose-950/40 border border-rose-900/50 text-rose-300 rounded-xl font-bold text-xs hover:bg-rose-900/60 transition-all"
+      >
+        Keluar Akun
+      </button>
+    </div>
+  );
+}
+
+function SettingToggle({ icon, title, subtitle, active }) {
+  return (
+    <div className="p-3 rounded-xl bg-[#161B22] border border-gray-800 flex justify-between items-center">
+      <div className="flex items-center gap-3">
+        <div className="text-gray-400">{icon}</div>
+        <div>
+          <h4 className="text-xs font-semibold">{title}</h4>
+          <p className="text-[10px] text-gray-500">{subtitle}</p>
+        </div>
+      </div>
+      <div className={`w-8 h-4 rounded-full p-0.5 flex items-center ${active ? 'bg-blue-500 justify-end' : 'bg-gray-700 justify-start'}`}>
+        <div className="w-3 h-3 bg-white rounded-full"></div>
+      </div>
+    </div>
+  );
+}
+
+function SettingOption({ icon, title, options, activeIndex }) {
+  return (
+    <div className="p-3 rounded-xl bg-[#161B22] border border-gray-800 space-y-2">
+      <div className="flex items-center gap-3 text-xs font-semibold text-gray-300">
+        {icon}
+        <span>{title}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 p-1 bg-gray-900/80 rounded-lg">
+        {options.map((opt, idx) => (
+          <button 
+            key={opt} 
+            className={`py-1 text-[11px] font-medium rounded-md transition-all ${
+              idx === activeIndex ? 'bg-blue-900/50 text-blue-200 border border-blue-700/50' : 'text-gray-400'
+            }`}
+          >
+            {opt}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SettingButton({ icon, title }) {
+  return (
+    <button className="w-full p-3 rounded-xl bg-[#161B22] border border-gray-800 flex items-center gap-3 text-xs font-semibold text-gray-300 hover:bg-gray-800/50 transition-all">
+      {icon}
+      <span>{title}</span>
+    </button>
   );
 }
