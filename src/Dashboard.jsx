@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Home, 
-  History, 
+  PieChart, 
   TrendingUp, 
   Settings, 
   Bell, 
@@ -48,7 +48,7 @@ export default function Dashboard({ session, user, onLogout }) {
       {/* Dynamic Content Based on Active Tab */}
       <main className="px-4 pt-4 max-w-md mx-auto space-y-4">
         {activeTab === 'home' && <HomeTab />}
-        {activeTab === 'history' && <HistoryTab />}
+        {activeTab === 'budget' && <BudgetTab />}
         {activeTab === 'invest' && <InvestTab />}
         {activeTab === 'settings' && <SettingsTab onLogout={onLogout} />}
       </main>
@@ -63,7 +63,7 @@ export default function Dashboard({ session, user, onLogout }) {
       {/* Bottom Navigation Bar */}
       <nav className="fixed bottom-0 left-0 right-0 bg-[#161B22] border-t border-gray-800 px-6 py-2 flex justify-between items-center z-50 max-w-md mx-auto">
         <NavItem icon={<Home size={20} />} label="Beranda" active={activeTab === 'home'} onClick={() => setActiveTab('home')} />
-        <NavItem icon={<History size={20} />} label="Riwayat" active={activeTab === 'history'} onClick={() => setActiveTab('history')} />
+        <NavItem icon={<PieChart size={20} />} label="Budget" active={activeTab === 'budget'} onClick={() => setActiveTab('budget')} />
         <NavItem icon={<TrendingUp size={20} />} label="Investasi" active={activeTab === 'invest'} onClick={() => setActiveTab('invest')} />
         <NavItem icon={<Settings size={20} />} label="Pengaturan" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
       </nav>
@@ -187,14 +187,14 @@ function TransactionItem({ icon, title, category, date, amount, negative }) {
   );
 }
 
-/* ==================== TAB 2: RIWAYAT / BUDGETS ==================== */
-function HistoryTab() {
+/* ==================== TAB 2: BUDGET ==================== */
+function BudgetTab() {
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-bold">Anggaran & Tagihan</h2>
       <p className="text-xs text-gray-400">Atur batas pengeluaran dan pemantauan tagihan bulanan.</p>
 
-      {/* Card Total Monthly Budget */}
+      {/* Card Total Anggaran Bulanan */}
       <div className="p-4 rounded-2xl bg-[#161B22] border border-gray-800 space-y-2">
         <span className="text-xs font-mono text-gray-400">Total Anggaran Bulanan</span>
         <h3 className="text-2xl font-bold">
@@ -209,7 +209,7 @@ function HistoryTab() {
         </div>
       </div>
 
-      {/* Card Category Limit */}
+      {/* Card Kategori Makanan & Minuman */}
       <div className="p-4 rounded-2xl bg-[#161B22] border border-gray-800 space-y-2">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
