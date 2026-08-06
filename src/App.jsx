@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './lib/supabaseClient';
 import AuthPage from './pages/AuthPage';
-import Dashboard from './components/Dashboard';
+// Impor Dashboard UI baru (pastikan lokasi filenya benar di src/components/Dashboard.jsx)
+import Dashboard from './components/Dashboard'; 
 import AdminPanel from './pages/AdminPanel';
 
 export default function App() {
@@ -9,42 +10,41 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [checking, setChecking] = useState(true);
 
-async function checkAdmin(userId) {
-  const { data, error } = await supabase
-    .from("user_profiles")
-    .select("*")
-    .eq("id", userId)
-    .single();
-
-  if (error) {
-    console.error('[App] Gagal ambil profil user:', error.message);
-  }
-
-  return data?.is_admin ?? false;
-}
-
-async function handleSession(s) {
-  setSession(s);
-
-  if (s?.user) {
-
-    const { error } = await supabase.rpc(
-      "update_last_login",
-      {
-        user_id: s.user.id
-      }
-    );
+  async function checkAdmin(userId) {
+    const { data, error } = await supabase
+      .from("user_profiles")
+      .select("*")
+      .eq("id", userId)
+      .single();
 
     if (error) {
-      console.error('[App] Gagal update last_login:', error.message);
+      console.error('[App] Gagal ambil profil user:', error.message);
     }
 
-    const admin = await checkAdmin(s.user.id);
-    setIsAdmin(admin);
-  } else {
-    setIsAdmin(false);
+    return data?.is_admin ?? false;
   }
-}
+
+  async function handleSession(s) {
+    setSession(s);
+
+    if (s?.user) {
+      const { error } = await supabase.rpc(
+        "update_last_login",
+        {
+          user_id: s.user.id
+        }
+      );
+
+      if (error) {
+        console.error('[App] Gagal update last_login:', error.message);
+      }
+
+      const admin = await checkAdmin(s.user.id);
+      setIsAdmin(admin);
+    } else {
+      setIsAdmin(false);
+    }
+  }
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session: s } }) => {
@@ -67,13 +67,23 @@ async function handleSession(s) {
     );
   }
 
-if (!session) {
-  return <AuthPage onAuthSuccess={() => {}} />;
-}
+  if (!session) {
+    return <AuthPage onAuthSuccess={() => {}} />;
+  }
 
-if (isAdmin) {
-  return <AdminPanel user={session.user} onLogout={async () => { await supabase.auth.signOut(); setSession(null); }} />;
-}
+  if (isAdmin) {
+    return <AdminPanel user={session.user} onLogout={async () => { await supabase.auth.signOut(); setSession(null); }} />;
+  }
 
-return <Dashboard user={session.user} onLogout={async () => { await supabase.auth.signOut(); setSession(null); }} />;
-};
+  // Mengirim props `session` dan `user` agar kompatibel dengan hook useDashboard
+  return (
+    <Dashboard 
+      session={session} 
+      user={session.user} 
+      onLogout={async () => { 
+        await supabase.auth.signOut(); 
+        setSession(null); 
+      }} 
+    />
+  );
+}
