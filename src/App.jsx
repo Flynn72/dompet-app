@@ -58,6 +58,10 @@ export default function App() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  async function handleLogout() {
+    await supabase.auth.signOut();
+  }
+
   if (checking) {
     return (
       <div style={{ minHeight: '100vh', background: '#0B0F1A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -72,17 +76,14 @@ export default function App() {
   }
 
   if (isAdmin) {
-    return <AdminPanel user={session.user} onLogout={async () => { await supabase.auth.signOut(); setSession(null); }} />;
+    return <AdminPanel user={session.user} onLogout={handleLogout} />;
   }
 
   return (
     <Dashboard 
       session={session} 
       user={session.user} 
-      onLogout={async () => { 
-        await supabase.auth.signOut(); 
-        setSession(null); 
-      }} 
+      onLogout={handleLogout} 
     />
   );
 }
