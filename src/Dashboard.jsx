@@ -448,6 +448,12 @@ function SettingsTab({
   setPushEnabled,
   sendPushNotificationAPI
 }) {
+  // State untuk mengontrol Accordion (Buka/Tutup)
+  const [openBudget, setOpenBudget] = useState(false);
+  const [openInvest, setOpenInvest] = useState(false);
+  const [openRecurring, setOpenRecurring] = useState(false);
+
+  // Modals
   const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [catName, setCatName] = useState('');
   const [catBudget, setCatBudget] = useState('');
@@ -463,6 +469,18 @@ function SettingsTab({
   const [recCategory, setRecCategory] = useState('');
   const [recAmount, setRecAmount] = useState('');
   const [recDueDate, setRecDueDate] = useState('');
+
+  // Dummy Handler Export / Import Excel
+  const handleExportExcel = () => {
+    alert("Fitur Export Data ke Excel berhasil dipicu.");
+  };
+
+  const handleImportExcel = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      alert(`Membaca file: ${file.name}`);
+    }
+  };
 
   const handleAddBudgetCategory = (e) => {
     e.preventDefault();
@@ -522,9 +540,9 @@ function SettingsTab({
       <h2 className="text-lg font-bold">Pengaturan Aplikasi</h2>
 
       {/* SECTION 1: PUSH NOTIFICATIONS & REMINDER */}
-      <div className="space-y-3">
-        <h3 className="text-xs font-mono text-gray-400 uppercase tracking-wider">Push Notifikasi & Reminder</h3>
-        <div className="p-4 rounded-2xl bg-[#161B22] border border-gray-800 flex justify-between items-center">
+      <div className="space-y-2">
+        <h3 className="text-[11px] font-mono text-gray-400 uppercase tracking-wider">NOTIFIKASI</h3>
+        <div className="p-4 rounded-xl bg-[#161B22] border border-gray-800/80 flex justify-between items-center">
           <div>
             <h4 className="text-xs font-semibold">Aktifkan Reminder Transaksi</h4>
             <p className="text-[10px] text-gray-500">Notifikasi otomatis via /api/send-reminders</p>
@@ -539,85 +557,159 @@ function SettingsTab({
       </div>
 
       {/* SECTION 2: KELOLA KATEGORI & BUDGET */}
-      <div className="space-y-3">
-        <div className="flex justify-between items-center">
-          <h3 className="text-xs font-mono text-gray-400 uppercase tracking-wider">Kelola Kategori & Budget</h3>
-          <button onClick={() => setShowBudgetModal(true)} className="px-2.5 py-1 bg-blue-600 text-white rounded-lg text-xs flex items-center gap-1 font-medium">
-            <Plus size={14} /> Tambah Kategori
+      <div className="space-y-2">
+        <h3 className="text-[11px] font-mono text-gray-400 uppercase tracking-wider">KELOLA KATEGORI & BUDGET</h3>
+        <div className="rounded-xl bg-[#161B22] border border-gray-800/80 overflow-hidden">
+          <button 
+            onClick={() => setOpenBudget(!openBudget)}
+            className="w-full px-4 py-3.5 flex justify-between items-center hover:bg-gray-800/30 transition-colors text-left"
+          >
+            <span className="text-xs font-semibold text-gray-200">Atur Kategori & Limit Budget</span>
+            <span className="text-xs text-gray-400">{openBudget ? '▲' : '▼'}</span>
           </button>
-        </div>
 
-        <div className="space-y-2">
-          {categories.map((cat) => (
-            <div key={cat.id} className="p-3 rounded-xl bg-[#161B22] border border-gray-800 flex justify-between items-center">
-              <div>
-                <h4 className="text-xs font-semibold text-white">{cat.name}</h4>
-                <p className="text-[10px] text-gray-400 font-mono">Batas Budget: Rp {Number(cat.budget).toLocaleString('id-ID')}</p>
+          {openBudget && (
+            <div className="px-4 pb-4 pt-1 space-y-3 border-t border-gray-800/60">
+              <div className="flex justify-end pt-2">
+                <button 
+                  onClick={() => setShowBudgetModal(true)} 
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all"
+                >
+                  <Plus size={14} /> Tambah Kategori
+                </button>
               </div>
-              <button onClick={() => setCategories(categories.filter(c => c.id !== cat.id))} className="text-gray-500 hover:text-rose-400">
-                <Trash2 size={16} />
-              </button>
+              <div className="space-y-2">
+                {categories.map((cat) => (
+                  <div key={cat.id} className="p-3 rounded-lg bg-gray-900/60 border border-gray-800 flex justify-between items-center">
+                    <div>
+                      <h4 className="text-xs font-semibold text-white">{cat.name}</h4>
+                      <p className="text-[10px] text-gray-400 font-mono">Batas Budget: Rp {Number(cat.budget).toLocaleString('id-ID')}</p>
+                    </div>
+                    <button onClick={() => setCategories(categories.filter(c => c.id !== cat.id))} className="text-gray-500 hover:text-rose-400 p-1">
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
+          )}
         </div>
       </div>
 
       {/* SECTION 3: KELOLA KATEGORI INVESTASI */}
-      <div className="space-y-3">
-        <div className="flex justify-between items-center">
-          <h3 className="text-xs font-mono text-gray-400 uppercase tracking-wider">Kelola Kategori Investasi</h3>
-          <button onClick={() => setShowInvestModal(true)} className="px-2.5 py-1 bg-blue-600 text-white rounded-lg text-xs flex items-center gap-1 font-medium">
-            <Plus size={14} /> Tambah Investasi
+      <div className="space-y-2">
+        <h3 className="text-[11px] font-mono text-gray-400 uppercase tracking-wider">KELOLA INVESTASI</h3>
+        <div className="rounded-xl bg-[#161B22] border border-gray-800/80 overflow-hidden">
+          <button 
+            onClick={() => setOpenInvest(!openInvest)}
+            className="w-full px-4 py-3.5 flex justify-between items-center hover:bg-gray-800/30 transition-colors text-left"
+          >
+            <span className="text-xs font-semibold text-gray-200">Atur Goals & Produk Investasi</span>
+            <span className="text-xs text-gray-400">{openInvest ? '▲' : '▼'}</span>
           </button>
-        </div>
 
-        <div className="space-y-2">
-          {investCategories.map((inv) => (
-            <div key={inv.id} className="p-3 rounded-xl bg-[#161B22] border border-gray-800 flex justify-between items-center">
-              <div>
-                <h4 className="text-xs font-semibold text-white">{inv.name} ({inv.type})</h4>
-                <p className="text-[10px] text-gray-400 font-mono">Asset Key: {inv.assetKey} | Target: Rp {Number(inv.target).toLocaleString('id-ID')}</p>
+          {openInvest && (
+            <div className="px-4 pb-4 pt-1 space-y-3 border-t border-gray-800/60">
+              <div className="flex justify-end pt-2">
+                <button 
+                  onClick={() => setShowInvestModal(true)} 
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all"
+                >
+                  <Plus size={14} /> Tambah Investasi
+                </button>
               </div>
-              <button onClick={() => setInvestCategories(investCategories.filter(i => i.id !== inv.id))} className="text-gray-500 hover:text-rose-400">
-                <Trash2 size={16} />
-              </button>
+              <div className="space-y-2">
+                {investCategories.map((inv) => (
+                  <div key={inv.id} className="p-3 rounded-lg bg-gray-900/60 border border-gray-800 flex justify-between items-center">
+                    <div>
+                      <h4 className="text-xs font-semibold text-white">{inv.name} ({inv.type})</h4>
+                      <p className="text-[10px] text-gray-400 font-mono">Asset Key: {inv.assetKey} | Target: Rp {Number(inv.target).toLocaleString('id-ID')}</p>
+                    </div>
+                    <button onClick={() => setInvestCategories(investCategories.filter(i => i.id !== inv.id))} className="text-gray-500 hover:text-rose-400 p-1">
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
+          )}
         </div>
       </div>
 
       {/* SECTION 4: KELOLA TRANSAKSI BERULANG */}
-      <div className="space-y-3">
-        <div className="flex justify-between items-center">
-          <h3 className="text-xs font-mono text-gray-400 uppercase tracking-wider">Atur Transaksi Berulang</h3>
-          <button onClick={() => setShowRecurringModal(true)} className="px-2.5 py-1 bg-blue-600 text-white rounded-lg text-xs flex items-center gap-1 font-medium">
-            <Plus size={14} /> Tambah Jadwal
+      <div className="space-y-2">
+        <h3 className="text-[11px] font-mono text-gray-400 uppercase tracking-wider">TRANSAKSI BERULANG</h3>
+        <div className="rounded-xl bg-[#161B22] border border-gray-800/80 overflow-hidden">
+          <button 
+            onClick={() => setOpenRecurring(!openRecurring)}
+            className="w-full px-4 py-3.5 flex justify-between items-center hover:bg-gray-800/30 transition-colors text-left"
+          >
+            <span className="text-xs font-semibold text-gray-200">Atur Jadwal Transaksi Rutin</span>
+            <span className="text-xs text-gray-400">{openRecurring ? '▲' : '▼'}</span>
           </button>
-        </div>
 
-        <div className="space-y-2">
-          {recurringTransactions.map((rec) => (
-            <div key={rec.id} className="p-3 rounded-xl bg-[#161B22] border border-gray-800 flex justify-between items-center">
-              <div>
-                <h4 className="text-xs font-semibold text-white">{rec.name}</h4>
-                <p className="text-[10px] text-gray-400 font-mono">Rp {Number(rec.amount).toLocaleString('id-ID')} - Tanggal: {rec.dueDate}</p>
+          {openRecurring && (
+            <div className="px-4 pb-4 pt-1 space-y-3 border-t border-gray-800/60">
+              <div className="flex justify-end pt-2">
+                <button 
+                  onClick={() => setShowRecurringModal(true)} 
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all"
+                >
+                  <Plus size={14} /> Tambah Jadwal
+                </button>
               </div>
-              <button onClick={() => setRecurringTransactions(recurringTransactions.filter(r => r.id !== rec.id))} className="text-gray-500 hover:text-rose-400">
-                <Trash2 size={16} />
-              </button>
+              <div className="space-y-2">
+                {recurringTransactions.map((rec) => (
+                  <div key={rec.id} className="p-3 rounded-lg bg-gray-900/60 border border-gray-800 flex justify-between items-center">
+                    <div>
+                      <h4 className="text-xs font-semibold text-white">{rec.name}</h4>
+                      <p className="text-[10px] text-gray-400 font-mono">Rp {Number(rec.amount).toLocaleString('id-ID')} - Tanggal: {rec.dueDate}</p>
+                    </div>
+                    <button onClick={() => setRecurringTransactions(recurringTransactions.filter(r => r.id !== rec.id))} className="text-gray-500 hover:text-rose-400 p-1">
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
+          )}
+        </div>
+      </div>
+
+      {/* SECTION 5: DATA & TOOLS */}
+      <div className="space-y-2">
+        <h3 className="text-[11px] font-mono text-gray-400 uppercase tracking-wider">DATA & TOOLS</h3>
+        <div className="space-y-2">
+          {/* Export Button */}
+          <button 
+            onClick={handleExportExcel}
+            className="w-full p-3.5 rounded-xl bg-[#161B22] border border-gray-800/80 hover:bg-gray-800/40 text-left transition-colors flex items-center gap-3 text-xs font-semibold text-gray-200"
+          >
+            <div className="p-1.5 rounded-lg bg-gray-800 text-gray-300">
+              <RefreshCw size={16} />
+            </div>
+            Export Excel / Ekspor Excel
+          </button>
+
+          {/* Import Button */}
+          <label className="w-full p-3.5 rounded-xl bg-[#161B22] border border-gray-800/80 hover:bg-gray-800/40 text-left transition-colors flex items-center gap-3 text-xs font-semibold text-gray-200 cursor-pointer">
+            <div className="p-1.5 rounded-lg bg-gray-800 text-gray-300">
+              <Plus size={16} />
+            </div>
+            Import Excel / Impor Excel
+            <input type="file" accept=".xlsx, .xls, .csv" onChange={handleImportExcel} className="hidden" />
+          </label>
         </div>
       </div>
 
       {/* LOGOUT BUTTON */}
-      <button onClick={onLogout} className="w-full py-3 bg-rose-950/40 border border-rose-900/50 text-rose-300 rounded-xl font-bold text-xs hover:bg-rose-900/60 transition-all mt-6">
+      <button onClick={onLogout} className="w-full py-3 bg-rose-950/30 border border-rose-900/40 text-rose-300 rounded-xl font-bold text-xs hover:bg-rose-900/50 transition-all mt-6">
         Keluar Akun
       </button>
 
       {/* MODALS */}
       {showBudgetModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[#161B22] border border-gray-800 rounded-2xl p-5 max-w-sm w-full space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="font-bold text-sm">Tambah Kategori Budget</h3>
@@ -633,7 +725,7 @@ function SettingsTab({
       )}
 
       {showInvestModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[#161B22] border border-gray-800 rounded-2xl p-5 max-w-sm w-full space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="font-bold text-sm">Tambah Kategori Investasi</h3>
@@ -641,7 +733,7 @@ function SettingsTab({
             </div>
             <form onSubmit={handleAddInvestCategory} className="space-y-3">
               <input type="text" placeholder="Nama Produk" value={invName} onChange={(e) => setInvName(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white" required />
-              <input type="text" placeholder="Asset Key (misal: reksadana_insight_money_syariah)" value={invKey} onChange={(e) => setInvKey(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white" required />
+              <input type="text" placeholder="Asset Key (misal: gold_antam)" value={invKey} onChange={(e) => setInvKey(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white" required />
               <select value={invType} onChange={(e) => setInvType(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white">
                 <option value="emas">Emas</option>
                 <option value="reksadana">Reksadana</option>
@@ -654,7 +746,7 @@ function SettingsTab({
       )}
 
       {showRecurringModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[#161B22] border border-gray-800 rounded-2xl p-5 max-w-sm w-full space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="font-bold text-sm">Tambah Transaksi Berulang</h3>
