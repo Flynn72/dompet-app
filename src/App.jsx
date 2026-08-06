@@ -3,6 +3,7 @@ import { supabase } from './lib/supabaseClient';
 import AuthPage from './pages/AuthPage';
 import Dashboard from './Dashboard'; 
 import AdminPanel from './pages/AdminPanel';
+import StartupLoading from './components/Loading/StartupLoading';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -61,13 +62,9 @@ export default function App() {
     await supabase.auth.signOut();
   }
 
+  // Menampilkan StartupLoading komponen Tailwind menggantikan indikator inline bawaan
   if (checking) {
-    return (
-      <div style={{ minHeight: '100vh', background: '#0B0F1A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: '#7FE8A4', animation: 'pulse 1.2s ease-in-out infinite' }} />
-        <style>{`@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}`}</style>
-      </div>
-    );
+    return <StartupLoading message="Memuat Dompet App..." />;
   }
 
   if (!session) {
