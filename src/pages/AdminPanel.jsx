@@ -54,18 +54,32 @@ export default function AdminPanel({ user, onLogout }) {
   }
 
 async function loadUsers() {
+  // 1. TAMBAHKAN BARIS INI: Batalkan jika user sudah logout / null
+  if (!user?.id) return;
+
   // Kalau masih ada request sebelumnya yang belum selesai, lewati siklus ini
   if (isFetchingRef.current) return;
   isFetchingRef.current = true;
 
-  const { data, error } = await supabase.rpc('admin_get_all_users');
+  try {
+    const { data, error } = await supabase.rpc('admin_get_all_users');
 
-  if (error) {
-    setError(error.message);
-    setLoading(false);
+    // 2. Cek kembali user?.id setelah request Supabase selesai
+    if (!user?.id) return;
+
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+
+    // ... sisa kode setUsers(data) Anda di bawahnya
+  } catch (err) {
+    console.error('[AdminPanel] Error loadUsers:', err);
+  } finally {
     isFetchingRef.current = false;
-    return;
   }
+}
 
   // .filter(Boolean) — buang baris null/kosong kalau-kalau RPC-nya sesekali balikin data cacat,
   // supaya 1 baris rusak tidak bikin SELURUH panel admin crash (defensive, bukan asumsi data selalu bersih)
@@ -76,22 +90,41 @@ async function loadUsers() {
 }
   
 useEffect(() => {
-  if (!user?.id) return; // jaga-jaga: jangan lanjut kalau prop user belum siap (mis. saat transisi login/logout)
+  if (!user?.id) return;
 
   async function init() {
-    const { error } = await supabase.rpc(
-      "update_last_login",
-      { user_id: user.id }
-    );
+    // Amankan pemanggilan user?.id dengan optional chaining
+    if (user?.id) {
+      const { error } = await supabase.rpc(
+        "update_last_login",
+        { user_id: user.id }
+      );
 
-    if (error) {
-      console.error('[AdminPanel] Gagal update last_login:', error.message);
+      if (error) {
+        console.error('[AdminPanel] Gagal update last_login:', error.message);
+      }
     }
 
-    await loadUsers();
-    await loadFeedback();
+    // Pastikan user masih ada sebelum memuat data
+    if (user?.id) {
+      await loadUsers();
+      await loadFeedback();
+    }
   }
 
+  init();
+
+  // Bersihkan interval jika ada auto-refresh (agar tidak jalan terus saat logout)
+  const intervalId = setInterval(() => {
+    if (user?.id && !isFetchingRef.current) {
+      loadUsers();
+    }
+  }, 500);
+
+  return () => {
+    clearInterval(intervalId);
+  };
+}, [user?.id]);
   init();
 
   // Realtime transaksi — auto-refresh instan saat ada user yang input/ubah transaksi
