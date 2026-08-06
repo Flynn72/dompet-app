@@ -73,7 +73,7 @@ export default function AuthPage({ onAuthSuccess }) {
   }
 
   return (
-    <div className="min-h-screen w-full bg-[#101415] text-[#e0e3e5] font-['Work_Sans',sans-serif] flex flex-col justify-center items-center overflow-hidden relative selection:bg-[#00E5FF] selection:text-[#101415]">
+    <div className="min-h-screen w-full bg-[#101415] text-[#e0e3e5] font-['Work_Sans',sans-serif] flex flex-col justify-center items-center overflow-x-hidden relative selection:bg-[#00E5FF] selection:text-[#101415]">
       {/* Background Circuit Grid Overlay */}
       <div 
         className="absolute inset-0 pointer-events-none opacity-20"
@@ -89,27 +89,28 @@ export default function AuthPage({ onAuthSuccess }) {
         </svg>
       </div>
 
-      {/* Security Badge */}
-      <div className="absolute top-8 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 bg-[#191c1e] border border-[#1a2b4c] rounded-full shadow-sm z-10">
-        <span className="w-2 h-2 rounded-full bg-[#00e3fd] animate-pulse"></span>
-        <span className="font-['JetBrains_Mono',monospace] text-xs text-[#c5c6cf] tracking-wider uppercase">
-          Secured Connection Active
-        </span>
-      </div>
-
       {/* Main Content Container */}
-      <main className="w-full max-w-md px-6 flex flex-col items-center justify-center z-10 relative md:mt-0 mt-12">
+      <main className="w-full max-w-md px-6 flex flex-col items-center justify-center z-10 relative py-8 my-auto">
+        
+        {/* Security Badge - Flexibel & Responsif */}
+        <div className="flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 bg-[#191c1e] border border-[#1a2b4c] rounded-full shadow-sm mb-6 sm:mb-8 transition-all">
+          <span className="w-2 h-2 rounded-full bg-[#00e3fd] animate-pulse shrink-0"></span>
+          <span className="font-['JetBrains_Mono',monospace] text-[10px] sm:text-xs text-[#c5c6cf] tracking-wider uppercase whitespace-nowrap">
+            Secured Connection Active
+          </span>
+        </div>
+
         {/* Branding */}
-        <div className="flex flex-col items-center w-full mb-10">
-          <div className="relative flex items-center justify-center mb-6">
-            <div className="absolute w-28 h-28 bg-[#7fe8a4] opacity-20 rounded-full blur-3xl animate-pulse"></div>
+        <div className="flex flex-col items-center w-full mb-8 sm:mb-10">
+          <div className="relative flex items-center justify-center mb-4 sm:mb-6">
+            <div className="absolute w-24 h-24 sm:w-28 sm:h-28 bg-[#7fe8a4] opacity-20 rounded-full blur-3xl animate-pulse"></div>
             <img 
               src="https://lh3.googleusercontent.com/aida-public/AB6AXuCbXLrsOj2NzaeCpebyNiwNu47cYEnHIKuQxVMGaoa7q7_nKhI7or3yna4B3hJhV2MabwBgs3f8n3d4VfFswtUsi31WlySxGdNYa4uFeytmSb_7zJku9PUeULrQYvEfIN5koE_ZguYFGG_r_pSY_EEypeJ7ROIcqnyaHiNtwnaH3wm1lANLSm3N1GXS-klHrosX6feUfCfFwHvQZy6SMlAv86Oc07v6IsRlYXexH8HkOjHKS-BDYrkyTuJLKOyQPagmGvljsEZD67RUtw" 
               alt="Dompet App Logo" 
-              className="w-auto h-28 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(127,232,164,0.4)]"
+              className="w-auto h-20 sm:h-28 object-contain relative z-10 drop-shadow-[0_0_15px_rgba(127,232,164,0.4)]"
             />
           </div>
-          <h1 className="font-['Manrope',sans-serif] text-4xl font-bold text-center flex items-center gap-2 tracking-tight">
+          <h1 className="font-['Manrope',sans-serif] text-3xl sm:text-4xl font-bold text-center flex items-center gap-2 tracking-tight">
             <span className="text-[#e0e3e5]">Dompet</span>
             <span className="text-[#00e3fd]">App</span>
           </h1>
@@ -118,7 +119,7 @@ export default function AuthPage({ onAuthSuccess }) {
         {/* Login/Register Form Card */}
         <form 
           onSubmit={handleSubmit}
-          className="w-full flex flex-col gap-6 bg-[#101415]/80 rounded-2xl border border-[#1a2b4c]/60 backdrop-blur-md shadow-2xl relative p-8 md:p-10"
+          className="w-full flex flex-col gap-6 bg-[#101415]/80 rounded-2xl border border-[#1a2b4c]/60 backdrop-blur-md shadow-2xl relative p-6 sm:p-10"
         >
           {/* Bevel Edge Simulation */}
           <div className="absolute inset-0 rounded-2xl border border-white/5 pointer-events-none"></div>
@@ -137,7 +138,7 @@ export default function AuthPage({ onAuthSuccess }) {
                 required
                 autoCapitalize="none"
                 autoCorrect="off"
-                className="w-full bg-transparent border-0 border-b-2 border-[#44474e] pl-10 py-3 text-[#e0e3e5] focus:outline-none focus:ring-0 focus:border-b-[#00E5FF] transition-all font-['Work_Sans',sans-serif] placeholder-[#c5c6cf]/50"
+                className="w-full bg-transparent border-0 border-b-2 border-[#44474e] pl-10 py-3 text-[#e0e3e5] focus:outline-none focus:ring-0 focus:border-b-[#00E5FF] transition-all font-['Work_Sans',sans-serif] placeholder-[#c5c6cf]/50 text-sm sm:text-base"
               />
             </div>
 
@@ -152,7 +153,7 @@ export default function AuthPage({ onAuthSuccess }) {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Password" 
                 required
-                className="w-full bg-transparent border-0 border-b-2 border-[#44474e] pl-10 pr-8 py-3 text-[#e0e3e5] focus:outline-none focus:ring-0 focus:border-b-[#00E5FF] transition-all font-['Work_Sans',sans-serif] placeholder-[#c5c6cf]/50"
+                className="w-full bg-transparent border-0 border-b-2 border-[#44474e] pl-10 pr-8 py-3 text-[#e0e3e5] focus:outline-none focus:ring-0 focus:border-b-[#00E5FF] transition-all font-['Work_Sans',sans-serif] placeholder-[#c5c6cf]/50 text-sm sm:text-base"
               />
               <button 
                 type="button" 
@@ -177,7 +178,7 @@ export default function AuthPage({ onAuthSuccess }) {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Ulangi Password" 
                   required
-                  className="w-full bg-transparent border-0 border-b-2 border-[#44474e] pl-10 py-3 text-[#e0e3e5] focus:outline-none focus:ring-0 focus:border-b-[#00E5FF] transition-all font-['Work_Sans',sans-serif] placeholder-[#c5c6cf]/50"
+                  className="w-full bg-transparent border-0 border-b-2 border-[#44474e] pl-10 py-3 text-[#e0e3e5] focus:outline-none focus:ring-0 focus:border-b-[#00E5FF] transition-all font-['Work_Sans',sans-serif] placeholder-[#c5c6cf]/50 text-sm sm:text-base"
                 />
               </div>
             )}
@@ -196,7 +197,7 @@ export default function AuthPage({ onAuthSuccess }) {
             <button 
               type="submit" 
               disabled={loading}
-              className="w-full bg-[#00E5FF] hover:bg-[#00daf3] disabled:opacity-50 text-[#101415] font-['Manrope',sans-serif] text-lg font-bold py-3.5 rounded-xl shadow-[0_4px_20px_rgba(0,229,255,0.25)] hover:shadow-[0_4px_30px_rgba(0,229,255,0.45)] transition-all duration-300 transform hover:-translate-y-0.5 active:translate-y-0"
+              className="w-full bg-[#00E5FF] hover:bg-[#00daf3] disabled:opacity-50 text-[#101415] font-['Manrope',sans-serif] text-base sm:text-lg font-bold py-3.5 rounded-xl shadow-[0_4px_20px_rgba(0,229,255,0.25)] hover:shadow-[0_4px_30px_rgba(0,229,255,0.45)] transition-all duration-300 transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
             >
               {loading ? 'Memproses...' : mode === 'login' ? 'Login' : 'Daftar'}
             </button>
