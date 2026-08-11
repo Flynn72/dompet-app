@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './lib/supabaseClient';
 import AuthPage from './pages/AuthPage';
-import Dashboard from './components/Dashboard';
 import AdminPanel from './pages/AdminPanel';
+import AppShell from './components/AppShell';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -75,5 +75,5 @@ if (isAdmin) {
   return <AdminPanel user={session.user} onLogout={async () => { await supabase.auth.signOut(); setSession(null); }} />;
 }
 
-return <Dashboard user={session.user} onLogout={async () => { await supabase.auth.signOut(); setSession(null); }} />;
+return <AppShell user={session.user} onLogout={async () => { await supabase.auth.signOut(); setSession(null); }} />;
 };
