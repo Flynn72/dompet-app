@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PiggyBank, Coins, TrendingUp, Landmark, ChevronRight } from 'lucide-react';
 import AssetPageShell from './AssetPageShell';
+import { supabase } from '../../lib/supabaseClient';
 
-// SKELETON (Task 3.2) -- belum menarik data asli dari asset_accounts/
-// get_portfolio_summary(). Pengisian data & kartu ringkasan sesungguhnya
-// dikerjakan di Task 3.3 sesuai roadmap, supaya tiap task tetap kecil &
-// mudah direview satu-satu.
+function formatRupiah(n) {
+  return 'Rp' + Math.round(n || 0).toLocaleString('id-ID');
+}
+
 const ASSET_CATEGORIES = [
   { to: '/aset/tabungan', label: 'Tabungan', icon: PiggyBank, color: '#6FB7E8' },
   { to: '/aset/emas', label: 'Emas', icon: Coins, color: '#F5C95D' },
@@ -16,12 +17,26 @@ const ASSET_CATEGORIES = [
 
 export default function AssetsHome({ user }) {
   const navigate = useNavigate();
+  const [total, setTotal] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    supabase.rpc('get_portfolio_total').then(({ data, error }) => {
+      if (!mounted) return;
+      if (!error) setTotal(data);
+      setLoading(false);
+    });
+    return () => { mounted = false; };
+  }, []);
 
   return (
     <AssetPageShell title="Aset">
       <div style={styles.summaryCard}>
         <div style={styles.summaryLabel}>Total Aset</div>
-        <div style={styles.summaryPlaceholder}>Rp — (segera tampil di Task 3.3)</div>
+        <div style={styles.summaryValue}>
+          {loading ? '...' : formatRupiah(total)}
+        </div>
       </div>
 
       <div style={styles.list}>
@@ -52,10 +67,11 @@ const styles = {
     fontWeight: 600,
     marginBottom: 6,
   },
-  summaryPlaceholder: {
-    fontSize: 15,
-    color: 'var(--text-muted)',
-    fontStyle: 'italic',
+  summaryValue: {
+    fontSize: 24,
+    fontWeight: 700,
+    color: 'var(--text-primary)',
+    fontFamily: "'Space Grotesk', sans-serif",
   },
   list: {
     display: 'flex',
