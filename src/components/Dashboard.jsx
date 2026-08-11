@@ -1676,256 +1676,65 @@ export default function Dashboard({ user, onLogout }) {
               )}
             </div>
 
-            {/* Kolom kanan: kartu budget saving per kategori + sub-transaksi */}
+            {/* Kolom kanan: pointer ke halaman Aset (Task 3.3) --
+                kartu "Target saving & investasi" yang lama sudah DIPINDAH
+                ke halaman /aset/* (Emas, Reksa Dana, Tabungan), supaya
+                tidak ada data ganda antara Dashboard lama & halaman Aset
+                baru. Sub-transaksi tanpa kategori (kalau masih ada sisa
+                data lama) tetap ditampilkan di bawah pointer ini. */}
             <div className="dompet-col-right">
-              <div ref={investSectionRef} style={{ ...styles.sectionHeader, marginTop: 24 }}>
-                <span style={styles.sectionTitle}>Target saving & investasi</span>
-                <button onClick={() => setShowBudgetModal('saving')} style={styles.linkBtn}>Atur target</button>
+              <div style={{ ...styles.sectionHeader, marginTop: 24 }}>
+                <span style={styles.sectionTitle}>Tabungan & Investasi</span>
               </div>
-              {savingCategories.length === 0 ? (
-                <div style={styles.emptyCard}>
-                  <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Belum ada kategori saving.</span>
-                  <button onClick={() => setShowCategoryModal(true)} style={{ ...styles.linkBtn, marginTop: 8, display: 'block' }}>+ Tambah kategori</button>
+              <button
+                onClick={() => navigate('/aset')}
+                style={{ ...styles.budgetCard, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', border: 'none', width: '100%', textAlign: 'left' }}
+              >
+                <div style={{ width: 34, height: 34, borderRadius: 10, background: '#7FE8A425', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Coins size={16} color="#7FE8A4" />
                 </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {savingCategories.map((c) => {
-                    const spent = savingSpend[c.id] || 0; // bulan aktif (tetap dipakai untuk sub-transaksi bulan ini)
-                    const target = getBudgetAmount(c.id, activeMonth); // target bulanan lama (kalau masih dipakai)
-                    const pct = target > 0 ? Math.min(100, (spent / target) * 100) : 0;
-                    const goal = computeGoalProjection(c); // goal kumulatif jangka panjang (fitur baru)
-                    const invest = computeInvestmentStats(c); // pelacakan emas/reksadana (fitur baru)
-                    const CatIcon = getIconComponent(c.icon);
-                    const subTx = txByCat(c.id);
-                    return (
-                      <div key={c.id} style={styles.budgetCard}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                          <div style={{ width: 34, height: 34, borderRadius: 10, background: c.color + '25', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <CatIcon size={16} color={c.color} />
-                          </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
-                              {c.label}
-                              {c.asset_type === 'gold' && <span style={{ marginLeft: 6, fontSize: 10, color: '#F5C95D', display: 'inline-flex', alignItems: 'center', gap: 3 }}><Coins size={11} color="#F5C95D" />Emas</span>}
-                              {c.asset_type === 'reksadana_syariah' && <span style={{ marginLeft: 6, fontSize: 10, color: '#6FB7E8', display: 'inline-flex', alignItems: 'center', gap: 3 }}><TrendingUp size={11} color="#6FB7E8" />Reksadana</span>}
-                            </div>
-                            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                              {goal
-                                ? `${formatRupiah(goal.cumulative)} / ${formatRupiah(goal.goalAmount)} (total)`
-                                : `${formatRupiah(spent)}${target > 0 ? ` / ${formatRupiah(target)}` : ''}`}
-                            </div>
-                          </div>
-                          {c.asset_type && (
-                            <button
-                              ref={c.id === firstAssetCatId ? sellAssetBtnRef : null}
-                              onClick={() => { setSellingCatId(c.id); setSellForm({ amount: '', date: todayStr(), note: '' }); }}
-                              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#FF9466', display: 'flex', padding: 4, flexShrink: 0 }}
-                              title="Jual aset"
-                            ><TrendingDown size={15} /></button>
-                          )}
-                          <button
-                            onClick={() => {
-                              setGoalEditingCatId(c.id);
-                              setGoalForm({ amount: c.goal_amount ? String(c.goal_amount) : '', date: c.goal_date || '' });
-                            }}
-                            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: 4, flexShrink: 0 }}
-                            title="Atur goal"
-                          ><Target size={15} /></button>
-                        </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Kelola Tabungan, Emas, Reksa Dana & Deposito</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Sekarang di halaman Aset tersendiri — ketuk untuk buka</div>
+                </div>
+              </button>
 
-                        {/* Progress bar: pakai goal kumulatif kalau ada, kalau tidak fallback ke target bulanan lama */}
-                        {goal ? (
-                          <div style={styles.barTrack}>
-                            <div style={{ ...styles.barFill, width: goal.pct + '%', background: goal.achieved ? '#7FE8A4' : '#6FB7E8' }} />
-                          </div>
-                        ) : target > 0 && (
-                          <div style={styles.barTrack}>
-                            <div style={{ ...styles.barFill, width: pct + '%', background: '#6FB7E8' }} />
-                          </div>
-                        )}
-
-                        {/* Info goal: sisa, proyeksi tanggal tercapai, status on-track */}
-                        {goal && !goal.achieved && (
-                          <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            <span>Sisa {formatRupiah(goal.remaining)} lagi ({goal.pct.toFixed(0)}%)</span>
-                            {goal.projectedDateLabel && <span>Estimasi tercapai: <b style={{ color: 'var(--text-primary)' }}>{goal.projectedDateLabel}</b> (pace saat ini)</span>}
-                            {goal.onTrack !== null && (
-                              <span style={{ color: goal.onTrack ? '#7FE8A4' : '#FF9466' }}>
-                                {goal.onTrack
-                                  ? (<><Check size={12} style={{ display: 'inline', verticalAlign: -2 }} /> Sesuai target tanggal</>)
-                                  : (<><AlertTriangle size={11} style={{ display: 'inline', verticalAlign: -2, marginRight: 3 }} />Perlu nabung {formatRupiah(goal.neededPerMonth)}/bulan biar sesuai target tanggal</>)}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        {goal && goal.achieved && (
-                          <div style={{ marginTop: 8, fontSize: 11.5, color: '#7FE8A4', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}><PartyPopper size={13} />Target tercapai!</div>
-                        )}
-
-                        {/* Nilai investasi sekarang + untung/rugi, khusus kategori Emas/Reksadana Syariah */}
-                        {invest && invest.noDataYet ? (
-                          <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 10, background: '#2A2410', border: '1px solid #5A4A20', fontSize: 11, color: '#F5C95D' }}>
-                            <AlertTriangle size={11} style={{ display: 'inline', verticalAlign: -2, marginRight: 3 }} />Semua transaksi di kategori ini belum ada data harga emas saat beli. Isi manual dulu di daftar transaksi bawah biar untung/ruginya bisa dihitung.
-                          </div>
-                        ) : invest && (
-                          <div style={{
-                            marginTop: 10, padding: '14px 14px', borderRadius: 12,
-                            background: 'var(--bg-card2)',
-                            border: '1px solid var(--border)',
-                          }}>
-                            {/* Hero: nilai sekarang (besar) + Total Return, gaya seperti aplikasi investasi */}
-                            <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: -0.5, lineHeight: 1.2 }}>
-                              {formatRupiah(invest.currentValue)}
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 3, flexWrap: 'wrap' }}>
-                              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Total Return</span>
-                              <span style={{ fontSize: 13, fontWeight: 700, color: invest.gain >= 0 ? '#7FE8A4' : '#FF6B6B' }}>
-                                {invest.gain >= 0 ? '+' : '-'}{formatRupiah(Math.abs(invest.gain))} ({invest.gainPct >= 0 ? '+' : ''}{invest.gainPct.toFixed(2)}%)
-                              </span>
-                            </div>
-
-                            {/* Detail sekunder: modal aktif, rata-rata beli, realized gain, dsb */}
-                            <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                              {c.asset_type === 'gold' && invest.heldUnits > 0 && (
-                                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                                  <Coins size={11} style={{ display: 'inline', verticalAlign: -2, marginRight: 3 }} />{invest.heldUnits.toFixed(6)} gram · rata-rata beli {formatRupiah(invest.avgBuyPrice)}/gram
-                                </div>
-                              )}
-                              <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                                Modal aktif: {formatRupiah(invest.totalInvested)}
-                              </div>
-                              {invest.realizedGain !== 0 && (
-                                <div style={{ fontSize: 11, fontWeight: 600, color: invest.realizedGain >= 0 ? '#7FE8A4' : '#FF6B6B' }}>
-                                  <Check size={12} style={{ display: 'inline', verticalAlign: -2 }} />{invest.realizedGain >= 0 ? ' Realized untung ' : ' Realized rugi '}
-                                  {formatRupiah(Math.abs(invest.realizedGain))} (dari penjualan)
-                                </div>
-                              )}
-                              {invest.realizedGain !== 0 && (
-                                <div style={{ fontSize: 11, fontWeight: 700, color: invest.totalGain >= 0 ? '#7FE8A4' : '#FF6B6B' }}>
-                                  Total {invest.totalGain >= 0 ? 'untung' : 'kerugian'} keseluruhan: {formatRupiah(Math.abs(invest.totalGain))}
-                                </div>
-                              )}
-                              {c.asset_type === 'gold' && (
-                                <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                                  Harga emas terkini: {formatRupiah(latestGoldPrice)}/gram
-                                </div>
-                              )}
-                              {c.asset_type === 'reksadana_syariah' && (
-                                <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                                  NAV reksadana terkini: {formatRupiah(latestReksadanaNav)}/unit
-                                </div>
-                              )}
-                              {invest.unpricedAmount > 0 && (
-                                <div style={{ fontSize: 10, color: '#F5C95D' }}>
-                                  <AlertTriangle size={11} style={{ display: 'inline', verticalAlign: -2, marginRight: 3 }} />{formatRupiah(invest.unpricedAmount)} dari transaksi belum ada harga/NAV historis, belum ikut dihitung di atas — isi manual di daftar transaksi bawah.
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {subTx.length > 0 && (
-                          <div style={{ marginTop: 10, borderTop: '1px solid #22291F', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            {(expandedCatIds.has(c.id) ? subTx : subTx.slice(0, 3)).map((t) => {
-                              // Tampilkan opsi isi manual selama unit BELUM dikonfirmasi manual —
-                              // termasuk saat harga sudah otomatis kesisi (dari cron harian) tapi itu cuma
-                              // ESTIMASI. Unit aktual dari Ajaib/Pluang biasanya baru muncul 2-3 hari setelah
-                              // transaksi (khususnya buat transaksi berulang), jadi tombol ini tetap perlu
-                              // ada sampai dikoreksi manual ke angka pasti.
-                              const hasConfirmedUnits = !!c.asset_type && t.assetUnitsOverride != null;
-                              const needsPrice = !!c.asset_type && !hasConfirmedUnits && !t.assetPriceAtTx; // benar-benar belum ada data sama sekali
-                              const isEstimateOnly = !!c.asset_type && !hasConfirmedUnits && !!t.assetPriceAtTx; // sudah ada estimasi dari harga otomatis, menunggu angka aktual
-                              return (
-                                <div key={t.id}>
-                                  <div onClick={() => openTxDetail(t)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, cursor: 'pointer' }}>
-                                    <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                      {t.assetAction === 'sell' && <span style={{ color: '#FF9466', display: 'inline-flex', alignItems: 'center', gap: 2 }}><TrendingDown size={11} />Jual: </span>}
-                                      {t.note || c.label}
-                                    </span>
-                                    <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{new Date(t.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
-                                    <span style={{ fontSize: 12, fontWeight: 600, color: t.assetAction === 'sell' ? '#FF9466' : '#6FB7E8', flexShrink: 0 }}>
-                                      {t.assetAction === 'sell' ? '+' : '-'}{formatRupiah(t.amount)}
-                                    </span>
-                                    <button onClick={(e) => { e.stopPropagation(); deleteTransaction(t.id); }} style={styles.deleteBtn}><Trash2 size={12} color="#6B7568" /></button>
-                                  </div>
-                                  {(needsPrice || isEstimateOnly) && (
-                                    editingPriceTxId === t.id ? (
-                                      <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-                                        <input
-                                          type="number" inputMode="decimal" autoFocus
-                                          placeholder={c.asset_type === 'gold' ? 'Contoh: 0.343380 (gram)' : 'Contoh: 56.4905 (unit)'}
-                                          value={editingUnitsValue}
-                                          onChange={(e) => setEditingUnitsValue(e.target.value)}
-                                          onKeyDown={(e) => { if (e.key === 'Enter') saveHistoricalAssetUnits(t.id); }}
-                                          style={{ ...styles.input, marginBottom: 0, fontSize: 11, padding: '5px 8px', flex: 1 }}
-                                        />
-                                        <button onClick={() => saveHistoricalAssetUnits(t.id)} style={{ ...styles.smallIconBtn, background: '#7FE8A4' }}><Check size={13} color="#0F1410" /></button>
-                                        <button onClick={() => { setEditingPriceTxId(null); setEditingUnitsValue(''); }} style={styles.smallIconBtn}><X size={13} color="#9CA89F" /></button>
-                                      </div>
-                                    ) : needsPrice ? (
-                                      <button
-                                        onClick={() => { setEditingPriceTxId(t.id); setEditingUnitsValue(''); }}
-                                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#FF9466', fontSize: 10.5, padding: '2px 0', display: 'flex', alignItems: 'center', gap: 3 }}
-                                      ><AlertTriangle size={11} style={{ display: 'inline', verticalAlign: -2, marginRight: 3 }} />Belum ada jumlah {c.asset_type === 'gold' ? 'gram' : 'unit'} — klik untuk isi manual</button>
-                                    ) : (
-                                      <button
-                                        onClick={() => { setEditingPriceTxId(t.id); setEditingUnitsValue(''); }}
-                                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#6FB7E8', fontSize: 10.5, padding: '2px 0', display: 'flex', alignItems: 'center', gap: 3 }}
-                                      ><Pencil size={11} style={{ display: 'inline', verticalAlign: -2, marginRight: 3 }} />Jumlah {c.asset_type === 'gold' ? 'gram' : 'unit'} masih estimasi — klik untuk isi angka aktual</button>
-                                    )
-                                  )}
-                                </div>
-                              );
-                            })}
-                            {subTx.length > 3 && (
-                              <button onClick={() => toggleCatExpanded(c.id)} style={{ ...styles.linkBtn, alignSelf: 'flex-start', marginTop: 2, fontSize: 11.5 }}>
-                                {expandedCatIds.has(c.id) ? (<><ChevronUp size={12} style={{ display: 'inline', verticalAlign: -2 }} /> Sembunyikan</>) : (<><ChevronDown size={12} style={{ display: 'inline', verticalAlign: -2 }} /> Tampilkan semua ({subTx.length})</>)}
-                              </button>
-                            )}
-                          </div>
-                        )}
+              {/* Card khusus transaksi saving tanpa kategori (sisa data lama, kalau ada) */}
+              {(() => {
+                const uncatTx = monthTx.filter((t) => t.type === 'saving' && !t.category).sort((a, b) => new Date(b.date) - new Date(a.date));
+                if (uncatTx.length === 0) return null;
+                const uncatTotal = uncatTx.reduce((s, t) => s + t.amount, 0);
+                return (
+                  <div style={{ ...styles.budgetCard, marginTop: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                      <div style={{ width: 34, height: 34, borderRadius: 10, background: '#8A8A8A25', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <HelpCircle size={16} color="#8A8A8A" />
                       </div>
-                    );
-                  })}
-
-                  {/* Card khusus transaksi saving tanpa kategori */}
-                  {(() => {
-                    const uncatTx = monthTx.filter((t) => t.type === 'saving' && !t.category).sort((a, b) => new Date(b.date) - new Date(a.date));
-                    if (uncatTx.length === 0) return null;
-                    const uncatTotal = uncatTx.reduce((s, t) => s + t.amount, 0);
-                    return (
-                      <div style={styles.budgetCard}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                          <div style={{ width: 34, height: 34, borderRadius: 10, background: '#8A8A8A25', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <HelpCircle size={16} color="#8A8A8A" />
-                          </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Tanpa kategori</div>
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatRupiah(uncatTotal)}</div>
-                          </div>
-                          <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 13, color: '#6FB7E8', flexShrink: 0 }}>
-                            {formatRupiah(uncatTotal)}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Tanpa kategori</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatRupiah(uncatTotal)}</div>
+                      </div>
+                      <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 13, color: '#6FB7E8', flexShrink: 0 }}>
+                        {formatRupiah(uncatTotal)}
+                      </span>
+                    </div>
+                    <div style={{ borderTop: '1px solid #22291F', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {uncatTx.map((t) => (
+                        <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                          <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {t.note || 'Lainnya'}
                           </span>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
+                            {new Date(t.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                          </span>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: '#6FB7E8', flexShrink: 0 }}>-{formatRupiah(t.amount)}</span>
+                          <button onClick={() => deleteTransaction(t.id)} style={styles.deleteBtn}><Trash2 size={12} color="#6B7568" /></button>
                         </div>
-                        <div style={{ borderTop: '1px solid #22291F', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          {uncatTx.map((t) => (
-                            <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                              <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {t.note || 'Lainnya'}
-                              </span>
-                              <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
-                                {new Date(t.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
-                              </span>
-                              <span style={{ fontSize: 12, fontWeight: 600, color: '#6FB7E8', flexShrink: 0 }}>-{formatRupiah(t.amount)}</span>
-                              <button onClick={() => deleteTransaction(t.id)} style={styles.deleteBtn}><Trash2 size={12} color="#6B7568" /></button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Ringkasan transaksi berulang */}
               <div style={{ ...styles.sectionHeader, marginTop: 24 }}>
@@ -2533,7 +2342,18 @@ export default function Dashboard({ user, onLogout }) {
             </div>
             <div style={styles.typeToggle}>
               <button onClick={() => switchType('expense')} style={{ ...styles.typeBtn, ...(form.type === 'expense' ? styles.typeBtnExpenseActive : {}) }}>Expense</button>
-              <button onClick={() => switchType('saving')} style={{ ...styles.typeBtn, ...(form.type === 'saving' ? styles.typeBtnSavingActive : {}) }}>Saving</button>
+              {/* "Saving" DINONAKTIFKAN (Task 3.3) -- transaksi tabungan/investasi
+                  sekarang dicatat lewat halaman Aset (asset_transactions), supaya
+                  tidak ada data yang nyangkut di tabel lama & tidak kelihatan di
+                  halaman Aset baru. Tombol tetap ada tapi mengarahkan ke /aset,
+                  bukan membuka form saving yang lama. */}
+              <button
+                onClick={() => { setShowAddModal(false); navigate('/aset'); }}
+                style={{ ...styles.typeBtn, opacity: 0.6 }}
+                title="Transaksi tabungan/investasi sekarang dicatat lewat halaman Aset"
+              >
+                Saving ↗
+              </button>
               <button onClick={() => switchType('income')} style={{ ...styles.typeBtn, ...(form.type === 'income' ? styles.typeBtnIncomeActive : {}) }}>Income</button>
             </div>
             <label style={styles.formLabel}>Jumlah (Rp)</label>
