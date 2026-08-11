@@ -1491,10 +1491,12 @@ export default function Dashboard({ user, onLogout }) {
           ].map((t) => (
             <button key={t.id} ref={t.id === 'reports' ? reportsTabRef : null} onClick={() => setTab(t.id)} style={{ ...styles.tabBtn, ...(tab === t.id ? styles.tabBtnActive : {}) }}>{t.label}</button>
           ))}
+          {/* "Aset" beda dari 3 tab lain: bukan ganti state internal (tab),
+              tapi pindah HALAMAN (route) ke /aset. Makanya onClick-nya
+              navigate(), bukan setTab(), dan tidak pernah kelihatan
+              "aktif" karena begitu diklik langsung keluar dari Dashboard. */}
+          <button onClick={() => navigate('/aset')} style={styles.tabBtn}>Aset</button>
           <div className="dompet-icon-group" style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <button onClick={() => navigate('/aset')} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Buka Aset" title="Aset (Emas, Reksa Dana, Tabungan, Deposito)">
-              <Coins size={16} color="#9CA89F" />
-            </button>
             <button onClick={openOnboardingTour} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Panduan fitur" title="Buka panduan fitur">
             <HelpCircle size={16} color="#9CA89F" />
           </button>
