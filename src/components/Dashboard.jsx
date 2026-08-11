@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { isPushSupported, getNotificationPermissionStatus, enablePushNotifications, disablePushNotifications, checkExistingSubscription } from '../lib/pushClient';
 import * as XLSX from 'xlsx';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend, Dot } from 'recharts';
@@ -207,6 +208,7 @@ const ONBOARDING_STEPS = [
 ];
 
 export default function Dashboard({ user, onLogout }) {
+  const navigate = useNavigate();
   const [transactions, setTransactions] = useState([]);
   const [budgets, setBudgets] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -1490,6 +1492,9 @@ export default function Dashboard({ user, onLogout }) {
             <button key={t.id} ref={t.id === 'reports' ? reportsTabRef : null} onClick={() => setTab(t.id)} style={{ ...styles.tabBtn, ...(tab === t.id ? styles.tabBtnActive : {}) }}>{t.label}</button>
           ))}
           <div className="dompet-icon-group" style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <button onClick={() => navigate('/aset')} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Buka Aset" title="Aset (Emas, Reksa Dana, Tabungan, Deposito)">
+              <Coins size={16} color="#9CA89F" />
+            </button>
             <button onClick={openOnboardingTour} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Panduan fitur" title="Buka panduan fitur">
             <HelpCircle size={16} color="#9CA89F" />
           </button>
