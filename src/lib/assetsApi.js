@@ -49,6 +49,15 @@ export async function deleteAssetTransaction(id) {
   if (error) throw error;
 }
 
+export async function deactivateAssetAccount(id) {
+  // Soft-delete: is_active=false, BUKAN hapus baris beneran -- supaya
+  // riwayat transaksi (asset_transactions) yang sudah tercatat tetap
+  // aman/tidak yatim-piatu, dan datanya masih bisa diaktifkan lagi
+  // lewat SQL Editor kalau ternyata salah hapus.
+  const { error } = await supabase.from('asset_accounts').update({ is_active: false }).eq('id', id);
+  if (error) throw error;
+}
+
 export async function addAssetAccount(payload) {
   // payload: { user_id, asset_type, fund_id, name, goal_amount, goal_date, ... }
   const { data, error } = await supabase.from('asset_accounts').insert(payload).select().single();
