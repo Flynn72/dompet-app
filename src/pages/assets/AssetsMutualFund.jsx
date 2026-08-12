@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import AssetPageShell from './AssetPageShell';
 import AssetAccountCard from './AssetAccountCard';
-import { fetchAssetAccounts, fetchAccountStats, fetchAccountTransactions, addAssetAccount, fetchMutualFunds } from '../../lib/assetsApi';
+import { fetchAssetAccounts, fetchAccountStats, fetchAccountTransactions, addAssetAccount, fetchMutualFunds, addMutualFund } from '../../lib/assetsApi';
 
 export default function AssetsMutualFund({ user }) {
   const [accounts, setAccounts] = useState([]);
@@ -15,6 +15,13 @@ export default function AssetsMutualFund({ user }) {
   const [newInstitution, setNewInstitution] = useState('');
   const [selectedFundId, setSelectedFundId] = useState('');
   const [savingAccount, setSavingAccount] = useState(false);
+  const [showAddFund, setShowAddFund] = useState(false);
+  const [newFundName, setNewFundName] = useState('');
+  const [newFundManager, setNewFundManager] = useState('');
+  const [newFundCategory, setNewFundCategory] = useState('');
+  const [newFundProvider, setNewFundProvider] = useState('');
+  const [savingFund, setSavingFund] = useState(false);
+  const [fundError, setFundError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -63,6 +70,29 @@ export default function AssetsMutualFund({ user }) {
     }
   };
 
+  const createFund = async () => {
+    setFundError('');
+    if (!newFundName.trim()) { setFundError('Nama produk wajib diisi'); return; }
+    setSavingFund(true);
+    try {
+      const created = await addMutualFund({
+        name: newFundName.trim(),
+        manager: newFundManager.trim() || null,
+        category: newFundCategory.trim() || null,
+        provider: newFundProvider.trim() || null,
+      });
+      const fundList = await fetchMutualFunds();
+      setFunds(fundList);
+      setSelectedFundId(created.id); // langsung pilih produk yang baru dibuat
+      setShowAddFund(false);
+      setNewFundName(''); setNewFundManager(''); setNewFundCategory(''); setNewFundProvider('');
+    } catch (e) {
+      setFundError(e.message || 'Gagal menambah produk');
+    } finally {
+      setSavingFund(false);
+    }
+  };
+
   return (
     <AssetPageShell title="Reksa Dana">
       {loading && <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 0' }}>Memuat...</div>}
@@ -89,29 +119,50 @@ export default function AssetsMutualFund({ user }) {
         );
       })}
 
-      {!loading && !showAddAccount && funds.length > 0 && (
-        <button onClick={() => setShowAddAccount(true)} style={styles.addAccountBtn}>+ Tambah akun reksa dana</button>
-      )}
-
-      {!loading && funds.length === 0 && (
-        <div style={{ fontSize: 12.5, color: 'var(--text-muted)', textAlign: 'center', padding: '10px 0' }}>
-          Belum ada produk reksa dana di master data. Hubungi admin untuk menambahkan produk.
-        </div>
+      {!loading && !showAddAccount && (
+        <button onClick={() => { setShowAddAccount(true); if (funds.length === 0) setShowAddFund(true); }} style={styles.addAccountBtn}>+ Tambah akun reksa dana</button>
       )}
 
       {showAddAccount && (
         <div style={styles.formBox}>
-          <select value={selectedFundId} onChange={(e) => setSelectedFundId(e.target.value)} style={styles.input}>
-            {funds.map((f) => (
-              <option key={f.id} value={f.id}>{f.name}{f.manager ? ` — ${f.manager}` : ''}</option>
-            ))}
-          </select>
-          <input placeholder="Nama akun, mis. Reksa Dana Ajaib" value={newName} onChange={(e) => setNewName(e.target.value)} style={styles.input} />
-          <input placeholder="Platform (opsional), mis. Ajaib" value={newInstitution} onChange={(e) => setNewInstitution(e.target.value)} style={styles.input} />
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={createAccount} disabled={savingAccount} style={styles.saveBtn}>{savingAccount ? 'Menyimpan...' : 'Simpan'}</button>
-            <button onClick={() => setShowAddAccount(false)} style={styles.cancelBtn}>Batal</button>
-          </div>
+          {funds.length > 0 && !showAddFund && (
+            <>
+              <select value={selectedFundId} onChange={(e) => setSelectedFundId(e.target.value)} style={styles.input}>
+                {funds.map((f) => (
+                  <option key={f.id} value={f.id}>{f.name}{f.manager ? ` — ${f.manager}` : ''}</option>
+                ))}
+              </select>
+              <button onClick={() => setShowAddFund(true)} style={styles.linkBtn}>+ Produk belum ada di daftar? Tambah produk baru</button>
+            </>
+          )}
+
+          {showAddFund && (
+            <div style={styles.subFormBox}>
+              <div style={styles.subFormTitle}>Produk reksa dana baru</div>
+              <input placeholder="Nama produk, mis. Sucorinvest Money Market Fund" value={newFundName} onChange={(e) => setNewFundName(e.target.value)} style={styles.input} />
+              <input placeholder="Manajer investasi (opsional)" value={newFundManager} onChange={(e) => setNewFundManager(e.target.value)} style={styles.input} />
+              <input placeholder="Kategori (opsional), mis. Pasar Uang" value={newFundCategory} onChange={(e) => setNewFundCategory(e.target.value)} style={styles.input} />
+              <input placeholder="Platform (opsional), mis. Bareksa" value={newFundProvider} onChange={(e) => setNewFundProvider(e.target.value)} style={styles.input} />
+              {fundError && <div style={{ color: '#FF9466', fontSize: 11.5 }}>{fundError}</div>}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={createFund} disabled={savingFund} style={styles.saveBtn}>{savingFund ? 'Menyimpan...' : 'Simpan produk'}</button>
+                {funds.length > 0 && (
+                  <button onClick={() => setShowAddFund(false)} style={styles.cancelBtn}>Batal</button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {!showAddFund && (
+            <>
+              <input placeholder="Nama akun, mis. Reksa Dana Ajaib" value={newName} onChange={(e) => setNewName(e.target.value)} style={styles.input} />
+              <input placeholder="Platform (opsional), mis. Ajaib" value={newInstitution} onChange={(e) => setNewInstitution(e.target.value)} style={styles.input} />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={createAccount} disabled={savingAccount} style={styles.saveBtn}>{savingAccount ? 'Menyimpan...' : 'Simpan'}</button>
+                <button onClick={() => setShowAddAccount(false)} style={styles.cancelBtn}>Batal</button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </AssetPageShell>
@@ -124,4 +175,7 @@ const styles = {
   input: { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #2A332B', background: 'var(--bg-base)', color: 'var(--text-primary)', fontSize: 13, boxSizing: 'border-box' },
   saveBtn: { flex: 1, padding: '10px 12px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#0B0F0C', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
   cancelBtn: { flex: 1, padding: '10px 12px', borderRadius: 10, border: '1px solid #2A332B', background: 'transparent', color: 'var(--text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
+  linkBtn: { background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', textAlign: 'left', padding: 0 },
+  subFormBox: { background: 'var(--bg-base)', borderRadius: 10, padding: 12, display: 'flex', flexDirection: 'column', gap: 8, border: '1px solid #2A332B' },
+  subFormTitle: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 2 },
 };
