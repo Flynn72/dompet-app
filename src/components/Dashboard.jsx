@@ -190,21 +190,11 @@ const ONBOARDING_STEPS = [
   },
   {
     icon: Coins,
-    title: 'Lacak investasi Emas & Reksadana',
-    desc: 'Klik ikon pengaturan ini, lalu tandai kategori saving sebagai "Emas" atau "Reksadana Syariah". Setelah ditandai, harga emas & NAV reksadana otomatis ter-update tiap hari — nggak perlu isi manual, kecuali mau lebih presisi.',
+    title: 'Kelola Tabungan, Emas, Reksa Dana & Deposito',
+    desc: 'Klik tab "Aset" ini buat kelola semua investasi kamu — harga emas & NAV reksadana otomatis update tiap hari, tinggal catat beli/jual atau setor/tarik langsung di halamannya masing-masing.',
     color: '#F5C95D',
-    target: 'settings',
+    target: 'asetTab',
     tab: 'overview',
-    action: 'openCategoryModal',
-  },
-  {
-    icon: Banknote,
-    title: 'Jual aset? Pakai tombol khusus',
-    desc: 'Buat kategori Emas/Reksadana, klik ikon panah oranye di sini (bukan tombol + biasa) buat catat penjualan — kalau pakai tombol + biasa, nanti nggak kehitung sebagai penjualan. Kalau jual SEMUA aset sekaligus, centang "Jual Semua Aset" biar sisa gram/unit otomatis pas ke 0.',
-    color: '#FF9466',
-    target: 'sellAssetBtn',
-    tab: 'overview',
-    action: 'openSellAssetModal',
   },
 ];
 
@@ -301,12 +291,11 @@ export default function Dashboard({ user, onLogout }) {
   const expenseCardRef = useRef(null);
   const txSearchRef = useRef(null);
   const recurringKelolaRef = useRef(null);
-  const investSectionRef = useRef(null);
-  const sellAssetBtnRef = useRef(null); // ref khusus tombol "Jual aset" di kategori aset PERTAMA, buat spotlight onboarding
+  const asetTabRef = useRef(null); // ref tombol tab "Aset" di header, buat spotlight onboarding (Task 3.7)
   const targetRefs = {
     settings: settingsBtnRef, fab: fabRef, reportsTab: reportsTabRef, budgetLink: budgetLinkRef,
     expenseCard: expenseCardRef, txSearch: txSearchRef, recurringKelola: recurringKelolaRef,
-    investSection: investSectionRef, sellAssetBtn: sellAssetBtnRef,
+    asetTab: asetTabRef,
   };
 
   const [form, setForm] = useState({ type: 'expense', amount: '', categoryId: null, note: '', date: todayStr(), unitsOverride: '' });
@@ -1279,9 +1268,6 @@ export default function Dashboard({ user, onLogout }) {
       setShowBudgetModal('expense');
     } else if (step.action === 'openRecurringModal') {
       setShowRecurringModal(true);
-    } else if (step.action === 'openSellAssetModal' && firstAssetCatId) {
-      setSellingCatId(firstAssetCatId);
-      setSellForm({ amount: '', date: todayStr(), note: '', isFullSale: false, unitsOverride: '' });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showOnboarding, onboardingStep, obActionPhase]);
@@ -1496,7 +1482,7 @@ export default function Dashboard({ user, onLogout }) {
               tapi pindah HALAMAN (route) ke /aset. Makanya onClick-nya
               navigate(), bukan setTab(), dan tidak pernah kelihatan
               "aktif" karena begitu diklik langsung keluar dari Dashboard. */}
-          <button onClick={() => navigate('/aset')} style={styles.tabBtn}>Aset</button>
+          <button ref={asetTabRef} onClick={() => navigate('/aset')} style={styles.tabBtn}>Aset</button>
           {[
             { id: 'transactions', label: 'Transaksi' },
             { id: 'reports', label: 'Laporan' },
