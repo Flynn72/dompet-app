@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { TrendingUp, TrendingDown, ChevronDown, ChevronUp, Trash2, Plus } from 'lucide-react';
-import { addAssetTransaction, deleteAssetTransaction } from '../../lib/assetsApi';
+import { TrendingUp, TrendingDown, ChevronDown, ChevronUp, Trash2, Plus, MoreVertical } from 'lucide-react';
+import { addAssetTransaction, deleteAssetTransaction, deactivateAssetAccount } from '../../lib/assetsApi';
 
 function formatRupiah(n) {
   return 'Rp' + Math.round(n || 0).toLocaleString('id-ID');
@@ -15,6 +15,8 @@ function todayStr() {
 export default function AssetAccountCard({ account, stats, transactions, unitLabel, unitBased, onChanged }) {
   const [expanded, setExpanded] = useState(false);
   const [showForm, setShowForm] = useState(null); // null | 'buy' | 'sell'
+  const [showMenu, setShowMenu] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState({ amount: '', units: '', priceAtTx: '', date: todayStr(), note: '' });
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -23,6 +25,24 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
 
   const gain = unitBased ? stats.total_gain : null;
   const gainPositive = (gain ?? 0) >= 0;
+
+  const removeAccount = async () => {
+    const hasHistory = transactions.length > 0;
+    const confirmMsg = hasHistory
+      ? `Hapus akun "${account.name}"? Akun akan disembunyikan dari daftar, tapi ${transactions.length} riwayat transaksinya TETAP aman tersimpan (tidak ikut terhapus).`
+      : `Hapus akun "${account.name}"?`;
+    if (!confirm(confirmMsg)) return;
+    setDeleting(true);
+    try {
+      await deactivateAssetAccount(account.id);
+      onChanged();
+    } catch (e) {
+      alert(e.message || 'Gagal menghapus akun');
+    } finally {
+      setDeleting(false);
+      setShowMenu(false);
+    }
+  };
 
   const openForm = (mode) => {
     setShowForm(mode);
@@ -78,12 +98,26 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
           <div style={styles.name}>{account.name}</div>
           {account.institution && <div style={styles.institution}>{account.institution}</div>}
         </div>
-        {unitBased && (
-          <div style={{ ...styles.gainBadge, color: gainPositive ? '#7FE8A4' : '#FF9466', background: gainPositive ? '#7FE8A420' : '#FF946620' }}>
-            {gainPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-            {gainPositive ? '+' : ''}{formatRupiah(gain)}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          {unitBased && (
+            <div style={{ ...styles.gainBadge, color: gainPositive ? '#7FE8A4' : '#FF9466', background: gainPositive ? '#7FE8A420' : '#FF946620' }}>
+              {gainPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+              {gainPositive ? '+' : ''}{formatRupiah(gain)}
+            </div>
+          )}
+          <div style={{ position: 'relative' }}>
+            <button onClick={() => setShowMenu((v) => !v)} style={styles.menuBtn} aria-label="Opsi akun">
+              <MoreVertical size={16} color="var(--text-muted)" />
+            </button>
+            {showMenu && (
+              <div style={styles.menuDropdown}>
+                <button onClick={removeAccount} disabled={deleting} style={styles.menuDeleteBtn}>
+                  {deleting ? 'Menghapus...' : 'Hapus akun ini'}
+                </button>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       <div style={styles.valueRow}>
@@ -241,6 +275,9 @@ const styles = {
   name: { fontSize: 14.5, fontWeight: 700, color: 'var(--text-primary)' },
   institution: { fontSize: 11, color: 'var(--text-muted)', marginTop: 2 },
   gainBadge: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, padding: '4px 8px', borderRadius: 8, flexShrink: 0 },
+  menuBtn: { width: 26, height: 26, borderRadius: 8, border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 },
+  menuDropdown: { position: 'absolute', top: 30, right: 0, background: 'var(--bg-card2)', border: '1px solid #2A332B', borderRadius: 10, overflow: 'hidden', zIndex: 10, minWidth: 140, boxShadow: '0 4px 16px rgba(0,0,0,0.4)' },
+  menuDeleteBtn: { width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', color: '#FF9466', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', textAlign: 'left', whiteSpace: 'nowrap' },
   valueRow: { marginBottom: 10 },
   valueLabel: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 },
   value: { fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', fontFamily: "'Space Grotesk', sans-serif" },
