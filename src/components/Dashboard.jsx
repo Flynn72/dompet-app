@@ -17,6 +17,7 @@ import {
   ChevronDown, ChevronUp, Hand, Search, Repeat, PartyPopper, Rocket, Bug, Lightbulb, Bell, BellOff
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import AssetsSummaryCard from './AssetsSummaryCard';
 
 const COLOR_PALETTE = ['#7FE8A4','#6FB7E8','#F5C95D','#C99FE8','#FF9466','#6FE8D4','#E89FC9','#E8846F','#A8A89C','#E8C26F'];
 const MONTHS_ID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
@@ -1676,28 +1677,18 @@ export default function Dashboard({ user, onLogout }) {
               )}
             </div>
 
-            {/* Kolom kanan: pointer ke halaman Aset (Task 3.3) --
-                kartu "Target saving & investasi" yang lama sudah DIPINDAH
+            {/* Kolom kanan: Assets Summary (Task 3.4) -- breakdown per
+                jenis aset + total, narik data asli dari get_portfolio_summary().
+                Kartu "Target saving & investasi" yang lama sudah DIPINDAH
                 ke halaman /aset/* (Emas, Reksa Dana, Tabungan), supaya
                 tidak ada data ganda antara Dashboard lama & halaman Aset
                 baru. Sub-transaksi tanpa kategori (kalau masih ada sisa
-                data lama) tetap ditampilkan di bawah pointer ini. */}
+                data lama) tetap ditampilkan di bawah kartu ini. */}
             <div className="dompet-col-right">
               <div style={{ ...styles.sectionHeader, marginTop: 24 }}>
-                <span style={styles.sectionTitle}>Tabungan & Investasi</span>
+                <span style={styles.sectionTitle}>Aset</span>
               </div>
-              <button
-                onClick={() => navigate('/aset')}
-                style={{ ...styles.budgetCard, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', border: 'none', width: '100%', textAlign: 'left' }}
-              >
-                <div style={{ width: 34, height: 34, borderRadius: 10, background: '#7FE8A425', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Coins size={16} color="#7FE8A4" />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Kelola Tabungan, Emas, Reksa Dana & Deposito</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Sekarang di halaman Aset tersendiri — ketuk untuk buka</div>
-                </div>
-              </button>
+              <AssetsSummaryCard />
 
               {/* Card khusus transaksi saving tanpa kategori (sisa data lama, kalau ada) */}
               {(() => {
