@@ -14,6 +14,7 @@ export default function AssetsMutualFund({ user }) {
   const [newName, setNewName] = useState('');
   const [newInstitution, setNewInstitution] = useState('');
   const [selectedFundId, setSelectedFundId] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState(''); // '' = semua kategori
   const [savingAccount, setSavingAccount] = useState(false);
   const [showAddFund, setShowAddFund] = useState(false);
   const [newFundName, setNewFundName] = useState('');
@@ -93,6 +94,9 @@ export default function AssetsMutualFund({ user }) {
     }
   };
 
+  const categories = [...new Set(funds.map((f) => f.category).filter(Boolean))].sort();
+  const filteredFunds = selectedCategory ? funds.filter((f) => f.category === selectedCategory) : funds;
+
   return (
     <AssetPageShell title="Reksa Dana">
       {loading && <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 0' }}>Memuat...</div>}
@@ -127,8 +131,29 @@ export default function AssetsMutualFund({ user }) {
         <div style={styles.formBox}>
           {funds.length > 0 && !showAddFund && (
             <>
+              {categories.length > 0 && (
+                <div style={styles.chipRow}>
+                  {['', ...categories].map((c) => {
+                    const active = selectedCategory === c;
+                    return (
+                      <button
+                        key={c || 'semua'}
+                        onClick={() => {
+                          setSelectedCategory(c);
+                          const list = c ? funds.filter((f) => f.category === c) : funds;
+                          if (list.length > 0) setSelectedFundId(list[0].id);
+                        }}
+                        style={{ ...styles.chip, ...(active ? styles.chipActive : {}) }}
+                      >
+                        {c || 'Semua'}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               <select value={selectedFundId} onChange={(e) => setSelectedFundId(e.target.value)} style={styles.input}>
-                {funds.map((f) => (
+                {filteredFunds.length === 0 && <option value="">Tidak ada produk di kategori ini</option>}
+                {filteredFunds.map((f) => (
                   <option key={f.id} value={f.id}>{f.name}{f.manager ? ` — ${f.manager}` : ''}</option>
                 ))}
               </select>
@@ -141,7 +166,10 @@ export default function AssetsMutualFund({ user }) {
               <div style={styles.subFormTitle}>Produk reksa dana baru</div>
               <input placeholder="Nama produk, mis. Sucorinvest Money Market Fund" value={newFundName} onChange={(e) => setNewFundName(e.target.value)} style={styles.input} />
               <input placeholder="Manajer investasi (opsional)" value={newFundManager} onChange={(e) => setNewFundManager(e.target.value)} style={styles.input} />
-              <input placeholder="Kategori (opsional), mis. Pasar Uang" value={newFundCategory} onChange={(e) => setNewFundCategory(e.target.value)} style={styles.input} />
+              <input placeholder="Kategori (opsional), mis. Pasar Uang" value={newFundCategory} onChange={(e) => setNewFundCategory(e.target.value)} style={styles.input} list="mutual-fund-categories" />
+              <datalist id="mutual-fund-categories">
+                {categories.map((c) => <option key={c} value={c} />)}
+              </datalist>
               <input placeholder="Platform (opsional), mis. Bareksa" value={newFundProvider} onChange={(e) => setNewFundProvider(e.target.value)} style={styles.input} />
               {fundError && <div style={{ color: '#FF9466', fontSize: 11.5 }}>{fundError}</div>}
               <div style={{ display: 'flex', gap: 8 }}>
@@ -176,6 +204,12 @@ const styles = {
   saveBtn: { flex: 1, padding: '10px 12px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#0B0F0C', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
   cancelBtn: { flex: 1, padding: '10px 12px', borderRadius: 10, border: '1px solid #2A332B', background: 'transparent', color: 'var(--text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
   linkBtn: { background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', textAlign: 'left', padding: 0 },
+  chipRow: { display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, WebkitOverflowScrolling: 'touch' },
+  chip: {
+    flexShrink: 0, padding: '7px 14px', borderRadius: 999, border: '1px solid #2A332B',
+    background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
+  },
+  chipActive: { background: 'var(--accent)', color: '#0B0F0C', border: '1px solid var(--accent)' },
   subFormBox: { background: 'var(--bg-base)', borderRadius: 10, padding: 12, display: 'flex', flexDirection: 'column', gap: 8, border: '1px solid #2A332B' },
   subFormTitle: { fontSize: 11.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 2 },
 };
