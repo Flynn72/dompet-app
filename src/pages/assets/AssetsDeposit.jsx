@@ -1,15 +1,123 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import AssetPageShell from './AssetPageShell';
+import AssetAccountCard from './AssetAccountCard';
+import { fetchAssetAccounts, fetchAccountStats, fetchAccountTransactions, addAssetAccount } from '../../lib/assetsApi';
 
-// SKELETON (Task 3.2). Jenis aset BARU yang sebelumnya belum ada sama
-// sekali di aplikasi. UI input bunga/tenor/jatuh tempo dikerjakan di
-// Task 3.6 sesuai roadmap.
 export default function AssetsDeposit({ user }) {
+  const [accounts, setAccounts] = useState([]);
+  const [statsMap, setStatsMap] = useState({});
+  const [txMap, setTxMap] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [showAddAccount, setShowAddAccount] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newInstitution, setNewInstitution] = useState('');
+  const [newInterestRate, setNewInterestRate] = useState('');
+  const [newTenorMonths, setNewTenorMonths] = useState('');
+  const [newMaturityDate, setNewMaturityDate] = useState('');
+  const [savingAccount, setSavingAccount] = useState(false);
+  const [formError, setFormError] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const accs = await fetchAssetAccounts('deposit');
+      setAccounts(accs);
+      const stats = {};
+      const txs = {};
+      for (const acc of accs) {
+        stats[acc.id] = await fetchAccountStats(acc.id);
+        txs[acc.id] = await fetchAccountTransactions(acc.id);
+      }
+      setStatsMap(stats);
+      setTxMap(txs);
+    } catch (e) {
+      setError(e.message || 'Gagal memuat data deposito');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const createAccount = async () => {
+    setFormError('');
+    if (!newName.trim()) { setFormError('Nama deposito wajib diisi'); return; }
+    setSavingAccount(true);
+    try {
+      await addAssetAccount({
+        user_id: user.id,
+        asset_type: 'deposit',
+        name: newName.trim(),
+        institution: newInstitution.trim() || null,
+        interest_rate: newInterestRate ? parseFloat(newInterestRate) : null,
+        tenor_months: newTenorMonths ? parseInt(newTenorMonths, 10) : null,
+        maturity_date: newMaturityDate || null,
+      });
+      setShowAddAccount(false);
+      setNewName(''); setNewInstitution(''); setNewInterestRate(''); setNewTenorMonths(''); setNewMaturityDate('');
+      await load();
+    } catch (e) {
+      setFormError(e.message || 'Gagal menambah deposito');
+    } finally {
+      setSavingAccount(false);
+    }
+  };
+
   return (
     <AssetPageShell title="Deposito">
-      <div style={{ color: 'var(--text-muted)', fontSize: 14, textAlign: 'center', padding: '40px 0' }}>
-        Halaman Deposito — fitur baru, konten lengkap menyusul di Task 3.6.
-      </div>
+      {loading && <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 0' }}>Memuat...</div>}
+      {error && <div style={{ color: '#FF9466', fontSize: 13, marginBottom: 12 }}>{error}</div>}
+
+      {!loading && accounts.length === 0 && !showAddAccount && (
+        <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '30px 0' }}>
+          Belum ada deposito.
+        </div>
+      )}
+
+      {!loading && accounts.map((acc) => (
+        <AssetAccountCard
+          key={acc.id}
+          account={acc}
+          stats={statsMap[acc.id]}
+          transactions={txMap[acc.id] || []}
+          unitLabel=""
+          unitBased={false}
+          onChanged={load}
+        />
+      ))}
+
+      {!loading && !showAddAccount && (
+        <button onClick={() => setShowAddAccount(true)} style={styles.addAccountBtn}>+ Tambah deposito</button>
+      )}
+
+      {showAddAccount && (
+        <div style={styles.formBox}>
+          <input placeholder="Nama, mis. Deposito BRI 6 Bulan" value={newName} onChange={(e) => setNewName(e.target.value)} style={styles.input} />
+          <input placeholder="Bank (opsional), mis. BRI" value={newInstitution} onChange={(e) => setNewInstitution(e.target.value)} style={styles.input} />
+          <input type="number" inputMode="decimal" placeholder="Bunga per tahun (%, opsional)" value={newInterestRate} onChange={(e) => setNewInterestRate(e.target.value)} style={styles.input} />
+          <input type="number" inputMode="numeric" placeholder="Tenor (bulan, opsional)" value={newTenorMonths} onChange={(e) => setNewTenorMonths(e.target.value)} style={styles.input} />
+          <div>
+            <label style={styles.dateLabel}>Tanggal jatuh tempo (opsional)</label>
+            <input type="date" value={newMaturityDate} onChange={(e) => setNewMaturityDate(e.target.value)} style={styles.input} />
+          </div>
+          {formError && <div style={{ color: '#FF9466', fontSize: 11.5 }}>{formError}</div>}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={createAccount} disabled={savingAccount} style={styles.saveBtn}>{savingAccount ? 'Menyimpan...' : 'Simpan'}</button>
+            <button onClick={() => setShowAddAccount(false)} style={styles.cancelBtn}>Batal</button>
+          </div>
+        </div>
+      )}
     </AssetPageShell>
   );
 }
+
+const styles = {
+  addAccountBtn: { width: '100%', padding: 14, borderRadius: 14, border: '1px dashed #2A332B', background: 'transparent', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
+  formBox: { background: 'var(--bg-card)', borderRadius: 14, padding: 16, display: 'flex', flexDirection: 'column', gap: 8 },
+  input: { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #2A332B', background: 'var(--bg-base)', color: 'var(--text-primary)', fontSize: 13, boxSizing: 'border-box' },
+  dateLabel: { fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4 },
+  saveBtn: { flex: 1, padding: '10px 12px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#0B0F0C', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+  cancelBtn: { flex: 1, padding: '10px 12px', borderRadius: 10, border: '1px solid #2A332B', background: 'transparent', color: 'var(--text-primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
+};

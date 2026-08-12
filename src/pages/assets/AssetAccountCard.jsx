@@ -89,6 +89,9 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
       <div style={styles.valueRow}>
         <div style={styles.valueLabel}>Nilai Sekarang</div>
         <div style={styles.value}>{formatRupiah(stats.current_value)}</div>
+        {account.asset_type === 'deposit' && (
+          <div style={styles.disclaimerText}>*Pokok saja, bunga berjalan belum dihitung otomatis (Phase 4)</div>
+        )}
       </div>
 
       {unitBased ? (
@@ -111,6 +114,29 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
               {stats.gain_pct != null ? `${gainPositive ? '+' : ''}${stats.gain_pct}%` : '-'}
             </div>
           </div>
+        </div>
+      ) : account.asset_type === 'deposit' ? (
+        <div style={styles.metaGrid}>
+          {account.interest_rate != null && (
+            <div>
+              <div style={styles.metaLabel}>Bunga</div>
+              <div style={styles.metaValue}>{account.interest_rate}% / tahun</div>
+            </div>
+          )}
+          {account.tenor_months != null && (
+            <div>
+              <div style={styles.metaLabel}>Tenor</div>
+              <div style={styles.metaValue}>{account.tenor_months} bulan</div>
+            </div>
+          )}
+          {account.maturity_date && (
+            <div>
+              <div style={styles.metaLabel}>Jatuh tempo</div>
+              <div style={styles.metaValue}>
+                {new Date(account.maturity_date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         account.goal_amount ? (
@@ -218,6 +244,7 @@ const styles = {
   valueRow: { marginBottom: 10 },
   valueLabel: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 },
   value: { fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', fontFamily: "'Space Grotesk', sans-serif" },
+  disclaimerText: { fontSize: 10, color: 'var(--text-muted)', marginTop: 4, fontStyle: 'italic' },
   metaGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12, paddingTop: 10, borderTop: '1px solid #22291F' },
   metaLabel: { fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 2 },
   metaValue: { fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' },
