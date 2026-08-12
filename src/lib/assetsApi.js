@@ -66,6 +66,13 @@ export async function fetchMutualFunds() {
   return data || [];
 }
 
+export async function addMutualFund(payload) {
+  // payload: { name, manager, category, provider }
+  const { data, error } = await supabase.from('mutual_funds').insert(payload).select().single();
+  if (error) throw error;
+  return data;
+}
+
 export async function fetchCurrentPrice(assetAccountId) {
   const { data, error } = await supabase.rpc('get_current_price_for_account', {
     p_asset_account_id: assetAccountId,
