@@ -82,6 +82,28 @@ export async function addMutualFund(payload) {
   return data;
 }
 
+export async function fetchPriceHistory(account, days = 90) {
+  if (account.asset_type === 'gold') {
+    const { data, error } = await supabase.rpc('get_price_history', { p_asset_name: 'gold_pluang', p_days: days });
+    if (error) throw error;
+    return data || [];
+  }
+  if (account.asset_type === 'mutual_fund' && account.fund_id) {
+    const { data, error } = await supabase.rpc('get_price_history_for_fund', { p_fund_id: account.fund_id, p_days: days });
+    if (error) throw error;
+    return data || [];
+  }
+  return [];
+}
+
+export async function fetchDepositInterestEstimate(assetAccountId) {
+  const { data, error } = await supabase
+    .rpc('get_deposit_interest_estimate', { p_asset_account_id: assetAccountId })
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function fetchCurrentPrice(assetAccountId) {
   const { data, error } = await supabase.rpc('get_current_price_for_account', {
     p_asset_account_id: assetAccountId,
