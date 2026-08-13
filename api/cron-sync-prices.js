@@ -110,8 +110,23 @@ export default async function handler(req, res) {
     const navReksadana = parseFloat(match[1].replace(/\./g, '').replace(',', '.'));
     if (!navReksadana || navReksadana < 100) throw new Error(`NAV hasil scrape tidak masuk akal: ${navReksadana}`);
 
+    // PENTING: fund_id WAJIB diisi, supaya baris harga ini tersambung ke
+    // master data mutual_funds -- get_current_price_for_account() dan
+    // get_asset_account_stats() (Phase 2) mencari harga BERDASARKAN fund_id,
+    // bukan asset_name. Kalau fund_id kosong, akun Reksa Dana user akan
+    // terus baca harga LAMA (baris terakhir yang fund_id-nya pernah diisi
+    // manual) walau ada baris lebih baru masuk -- ini bug yang sempat
+    // kejadian, sudah diperbaiki di sini.
+    const { data: fundRow, error: fundLookupError } = await supabaseAdmin
+      .from('mutual_funds')
+      .select('id')
+      .eq('name', 'Insight Money Syariah')
+      .single();
+    if (fundLookupError) throw new Error(`Gagal cari fund_id: ${fundLookupError.message}`);
+
     const { error } = await supabaseAdmin.from('asset_prices').insert({
       asset_name: 'reksadana_insight_syariah',
+      fund_id: fundRow.id,
       price: navReksadana,
       source: 'bareksa-scrape-insight-money-syariah',
       raw: { scraped_from: 'https://www.bareksa.com/id/data/reksadana/2024/insight-money-syariah' },
