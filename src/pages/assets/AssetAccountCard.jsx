@@ -113,6 +113,35 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
     }
   };
 
+  // ---- Perhitungan Target/Goal (berlaku untuk SEMUA jenis aset yang
+  // punya goal_amount, bukan cuma saving -- dulu di Dashboard lama ini
+  // juga ada untuk kategori Emas/Reksadana) ----
+  const hasGoal = account.goal_amount > 0;
+  let goalProgressPct = 0, goalSisa = 0, goalEstimasiTercapai = null, goalPerluPerBulan = null;
+  if (hasGoal) {
+    goalProgressPct = Math.min(100, (stats.current_value / account.goal_amount) * 100);
+    goalSisa = Math.max(0, account.goal_amount - stats.current_value);
+
+    if (goalSisa > 0 && transactions.length > 0) {
+      const txDates = transactions.map((t) => new Date(t.tx_date).getTime());
+      const firstTxDate = new Date(Math.min(...txDates));
+      const monthsElapsed = Math.max(1, (Date.now() - firstTxDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
+      const monthlyPace = stats.current_value / monthsElapsed;
+      if (monthlyPace > 0) {
+        const monthsNeeded = Math.ceil(goalSisa / monthlyPace);
+        const d = new Date();
+        d.setMonth(d.getMonth() + monthsNeeded);
+        goalEstimasiTercapai = d;
+      }
+    }
+
+    if (goalSisa > 0 && account.goal_date) {
+      const targetDate = new Date(account.goal_date + 'T00:00:00');
+      const monthsUntilTarget = Math.max(1, (targetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 30.44));
+      goalPerluPerBulan = goalSisa / monthsUntilTarget;
+    }
+  }
+
   return (
     <div style={styles.card}>
       <div style={styles.headerRow}>
@@ -141,6 +170,33 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
           </div>
         </div>
       </div>
+
+      {hasGoal && (
+        <div style={styles.goalBox}>
+          <div style={styles.goalTopRow}>
+            <span>{formatRupiah(stats.current_value)} / {formatRupiah(account.goal_amount)} (total)</span>
+            <span>{goalProgressPct.toFixed(0)}%</span>
+          </div>
+          <div style={styles.progressBarBg}>
+            <div style={{ ...styles.progressBarFill, width: `${goalProgressPct}%` }} />
+          </div>
+          {goalSisa > 0 ? (
+            <>
+              <div style={styles.goalText}>Sisa {formatRupiah(goalSisa)} lagi ({(100 - goalProgressPct).toFixed(0)}%)</div>
+              {goalEstimasiTercapai && (
+                <div style={styles.goalText}>
+                  Estimasi tercapai: {goalEstimasiTercapai.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })} (pace saat ini)
+                </div>
+              )}
+              {goalPerluPerBulan != null && (
+                <div style={styles.goalWarnText}>⚠️ Perlu nabung {formatRupiah(goalPerluPerBulan)}/bulan biar sesuai target tanggal</div>
+              )}
+            </>
+          ) : (
+            <div style={{ ...styles.goalText, color: '#7FE8A4' }}>🎉 Target tercapai!</div>
+          )}
+        </div>
+      )}
 
       {unitBased && (
         <div style={styles.chartBox}>
@@ -238,20 +294,7 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
             </>
           )}
         </div>
-      ) : (
-        account.goal_amount ? (
-          <div style={styles.metaGrid}>
-            <div>
-              <div style={styles.metaLabel}>Target</div>
-              <div style={styles.metaValue}>{formatRupiah(account.goal_amount)}</div>
-            </div>
-            <div>
-              <div style={styles.metaLabel}>Sisa</div>
-              <div style={styles.metaValue}>{formatRupiah(Math.max(0, account.goal_amount - stats.current_value))}</div>
-            </div>
-          </div>
-        ) : null
-      )}
+      ) : null}
 
       <div style={styles.actionsRow}>
         <button onClick={() => openForm('buy')} style={{ ...styles.actionBtn, ...styles.actionBtnPrimary }}>
@@ -340,6 +383,12 @@ const styles = {
   headerRow: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 10 },
   name: { fontSize: 14.5, fontWeight: 700, color: 'var(--text-primary)' },
   institution: { fontSize: 11, color: 'var(--text-muted)', marginTop: 2 },
+  goalBox: { marginBottom: 12, padding: '10px 12px', background: 'var(--bg-base)', borderRadius: 10 },
+  goalTopRow: { display: 'flex', justifyContent: 'space-between', fontSize: 11.5, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 },
+  progressBarBg: { width: '100%', height: 6, borderRadius: 3, background: '#22291F', overflow: 'hidden', marginBottom: 6 },
+  progressBarFill: { height: '100%', background: 'var(--accent)', borderRadius: 3 },
+  goalText: { fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.6 },
+  goalWarnText: { fontSize: 11, color: '#F5C95D', lineHeight: 1.6 },
   gainBadge: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, padding: '4px 8px', borderRadius: 8, flexShrink: 0 },
   menuBtn: { width: 26, height: 26, borderRadius: 8, border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 },
   menuDropdown: { position: 'absolute', top: 30, right: 0, background: 'var(--bg-card2)', border: '1px solid #2A332B', borderRadius: 10, overflow: 'hidden', zIndex: 10, minWidth: 140, boxShadow: '0 4px 16px rgba(0,0,0,0.4)' },
