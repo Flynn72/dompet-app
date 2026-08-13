@@ -148,19 +148,23 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
           {!chartLoading && priceHistory && priceHistory.length === 0 && (
             <div style={styles.chartEmptyText}>Belum ada cukup data histori harga.</div>
           )}
-          {!chartLoading && priceHistory && priceHistory.length > 0 && (
-            <ResponsiveContainer width="100%" height={90}>
-              <LineChart data={priceHistory}>
-                <YAxis hide domain={['dataMin', 'dataMax']} />
-                <Tooltip
-                  formatter={(v) => [formatRupiah(v), 'Harga']}
-                  labelFormatter={(d) => new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
-                  contentStyle={{ background: 'var(--bg-card2)', border: '1px solid #2A332B', borderRadius: 8, fontSize: 11 }}
-                />
-                <Line type="monotone" dataKey="price" stroke="var(--accent)" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
+          {!chartLoading && priceHistory && priceHistory.length > 0 && (() => {
+            const trendUp = priceHistory[priceHistory.length - 1].price >= priceHistory[0].price;
+            const lineColor = trendUp ? '#7FE8A4' : '#FF6B6B';
+            return (
+              <ResponsiveContainer width="100%" height={90}>
+                <LineChart data={priceHistory}>
+                  <YAxis hide domain={['dataMin', 'dataMax']} />
+                  <Tooltip
+                    formatter={(v) => [formatRupiah(v), 'Harga']}
+                    labelFormatter={(d) => new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                    contentStyle={{ background: 'var(--bg-card2)', border: '1px solid #2A332B', borderRadius: 8, fontSize: 11 }}
+                  />
+                  <Line type="monotone" dataKey="price" stroke={lineColor} strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            );
+          })()}
         </div>
       )}
 
