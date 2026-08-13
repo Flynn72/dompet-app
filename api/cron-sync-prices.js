@@ -94,7 +94,7 @@ export default async function handler(req, res) {
     // (titik pemisah ribuan, koma desimal, langsung nempel "IDR" tanpa spasi).
     // Cari dalam jarak 300 karakter setelah heading-nya, biar tetap ketemu walau
     // ada tag HTML yang menyela di antara heading dan angkanya.
-    const match = html.match(/Nilai Aktiva Bersih\/Unit[\s\S]{0,300}?([\d]{1,3}(?:\.\d{3})*,\d+)\s*IDR/i);
+    const match = html.match(/Nilai Aktiva Bersih\/Unit[\s\S]{0,300}?([\d]{1,3}(?:\.\d{3})*,\d+)[\s\S]{0,30}?IDR/i);
     if (!match) throw new Error('Format NAV di halaman Bareksa tidak ditemukan (mungkin struktur halaman berubah, atau kena blokir bot)');
 
     // Format Indonesia: titik = pemisah ribuan, koma = desimal. Contoh "1.779,01" -> 1779.01
