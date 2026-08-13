@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, ChevronDown, ChevronUp, Trash2, Plus, MoreVertical } from 'lucide-react';
-import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip } from 'recharts';
+import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 import { addAssetTransaction, deleteAssetTransaction, deactivateAssetAccount, fetchPriceHistory, fetchDepositInterestEstimate } from '../../lib/assetsApi';
 
 function formatRupiah(n) {
@@ -154,10 +154,16 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
             return (
               <ResponsiveContainer width="100%" height={90}>
                 <LineChart data={priceHistory}>
+                  {/* XAxis WAJIB ada (walau disembunyikan) supaya tooltip baca
+                      field "date" yang benar sebagai label -- tanpa ini,
+                      recharts pakai INDEX baris sebagai label, bukan tanggal
+                      asli, makanya kemarin muncul "1 Jan" (index kekonversi
+                      jadi tanggal epoch, bukan bug data). */}
+                  <XAxis dataKey="date" hide />
                   <YAxis hide domain={['dataMin', 'dataMax']} />
                   <Tooltip
                     formatter={(v) => [formatRupiah(v), 'Harga']}
-                    labelFormatter={(d) => new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                    labelFormatter={(d) => new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                     contentStyle={{ background: 'var(--bg-card2)', border: '1px solid #2A332B', borderRadius: 8, fontSize: 11 }}
                   />
                   <Line type="monotone" dataKey="price" stroke={lineColor} strokeWidth={2} dot={false} />
