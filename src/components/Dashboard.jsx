@@ -2919,24 +2919,13 @@ export default function Dashboard({ user, onLogout }) {
                           <button onClick={saveEditCategory} style={styles.smallIconBtn}><Check size={15} color="#7FE8A4" /></button>
                           <button onClick={() => { setEditingCatId(null); setShowEditIconPicker(false); }} style={styles.smallIconBtn}><X size={15} color="#9CA89F" /></button>
                         </div>
-                        {catEditType === 'saving' && (
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            {[
-                              { id: null, label: 'Tidak ada' },
-                              { id: 'gold', label: 'Emas' },
-                              { id: 'reksadana_syariah', label: 'Reksadana Syariah' },
-                            ].map((opt) => (
-                              <button key={opt.label} onClick={() => setEditingCatAssetType(opt.id)}
-                                style={{
-                                  flex: 1, padding: '6px 4px', borderRadius: 8, fontSize: 11, cursor: 'pointer',
-                                  border: `1px solid ${editingCatAssetType === opt.id ? 'var(--accent)' : 'var(--border)'}`,
-                                  background: editingCatAssetType === opt.id ? 'var(--accent)' : 'transparent',
-                                  color: editingCatAssetType === opt.id ? 'var(--accent-text)' : 'var(--text-secondary)',
-                                  fontWeight: editingCatAssetType === opt.id ? 700 : 500,
-                                }}>{opt.label}</button>
-                            ))}
-                          </div>
-                        )}
+                        {/* Toggle "tandai sebagai Emas/Reksadana Syariah" SUDAH DICOPOT (Task 4.5).
+                            Sejak modul Aset (Task 3.x), cara resmi kelola investasi adalah lewat
+                            halaman Aset (asset_accounts), bukan lewat kategori lagi -- toggle ini
+                            kalau dibiarkan aktif bisa bikin data baru "nyasar" ke tabel categories
+                            lama yang sudah ditinggalkan. Nilai asset_type kategori LAMA (mis. kategori
+                            "Invest Emas digital di Peluang") tetap dipertahankan apa adanya (tidak
+                            di-null-kan) kalau kategori itu di-edit untuk keperluan lain (ganti nama/ikon). */}
                         {showEditIconPicker && (
                           <>
                             <div style={styles.iconPreviewBar}>{previewIconLabel || 'Sentuh ikon untuk lihat namanya'}</div>
@@ -2988,24 +2977,10 @@ export default function Dashboard({ user, onLogout }) {
               <input type="text" placeholder={catEditType === 'saving' ? 'Contoh: Emergency Fund' : 'Contoh: Belanja Bulanan'} value={newCatLabel} onChange={(e) => setNewCatLabel(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addCategory(); }} style={{ ...styles.input, marginBottom: 0, flex: 1 }} />
               <button onClick={addCategory} style={{ ...styles.smallIconBtn, width: 38, height: 38, background: '#7FE8A4', flexShrink: 0 }}><Plus size={18} color="#0F1410" /></button>
             </div>
-            {catEditType === 'saving' && (
-              <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-                {[
-                  { id: null, label: 'Tidak ada' },
-                  { id: 'gold', label: 'Emas' },
-                  { id: 'reksadana_syariah', label: 'Reksadana Syariah' },
-                ].map((opt) => (
-                  <button key={opt.label} onClick={() => setNewCatAssetType(opt.id)}
-                    style={{
-                      flex: 1, padding: '6px 4px', borderRadius: 8, fontSize: 11, cursor: 'pointer',
-                      border: `1px solid ${newCatAssetType === opt.id ? 'var(--accent)' : 'var(--border)'}`,
-                      background: newCatAssetType === opt.id ? 'var(--accent)' : 'transparent',
-                      color: newCatAssetType === opt.id ? 'var(--accent-text)' : 'var(--text-secondary)',
-                      fontWeight: newCatAssetType === opt.id ? 700 : 500,
-                    }}>{opt.label}</button>
-                ))}
-              </div>
-            )}
+            {/* Toggle "tandai sebagai Emas/Reksadana Syariah" SUDAH DICOPOT (Task 4.5) --
+                sama seperti di modal edit, supaya kategori BARU tidak bisa lagi ditandai
+                sebagai aset lewat jalur lama. newCatAssetType tetap null selamanya sekarang,
+                jadi kategori baru selalu asset_type: null (sesuai desain baru). */}
             {showIconPicker && (
               <>
                 <div style={styles.iconPreviewBar}>{previewIconLabel || 'Sentuh ikon untuk lihat namanya'}</div>
