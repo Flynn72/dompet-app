@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, ChevronDown, ChevronUp, Trash2, Plus, MoreVertical, LineChart as LineChartIcon } from 'lucide-react';
+import { TrendingUp, TrendingDown, ChevronDown, ChevronUp, Trash2, Plus, MoreVertical } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip } from 'recharts';
 import { addAssetTransaction, deleteAssetTransaction, deactivateAssetAccount, fetchPriceHistory, fetchDepositInterestEstimate } from '../../lib/assetsApi';
 
@@ -21,9 +21,8 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
   const [form, setForm] = useState({ amount: '', units: '', priceAtTx: '', date: todayStr(), note: '' });
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [showChart, setShowChart] = useState(false);
   const [priceHistory, setPriceHistory] = useState(null);
-  const [chartLoading, setChartLoading] = useState(false);
+  const [chartLoading, setChartLoading] = useState(true);
   const [interestEstimate, setInterestEstimate] = useState(null);
 
   useEffect(() => {
@@ -31,6 +30,18 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
       fetchDepositInterestEstimate(account.id).then(setInterestEstimate).catch(() => setInterestEstimate(null));
     }
   }, [account.id, account.asset_type, stats?.current_value]);
+
+  // Grafik harga sekarang SELALU tampil (bukan toggle lagi) untuk akun
+  // unitBased (Emas/Reksa Dana) -- narik otomatis begitu kartu dimuat.
+  useEffect(() => {
+    if (unitBased) {
+      setChartLoading(true);
+      fetchPriceHistory(account, 90)
+        .then((data) => setPriceHistory(data.map((d) => ({ date: d.updated_at, price: d.price }))))
+        .catch(() => setPriceHistory([]))
+        .finally(() => setChartLoading(false));
+    }
+  }, [account.id, unitBased]);
 
   if (!stats) return null;
 
@@ -52,22 +63,6 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
     } finally {
       setDeleting(false);
       setShowMenu(false);
-    }
-  };
-
-  const toggleChart = async () => {
-    if (showChart) { setShowChart(false); return; }
-    setShowChart(true);
-    if (priceHistory === null) {
-      setChartLoading(true);
-      try {
-        const data = await fetchPriceHistory(account, 90);
-        setPriceHistory(data.map((d) => ({ date: d.updated_at, price: d.price })));
-      } catch (e) {
-        setPriceHistory([]);
-      } finally {
-        setChartLoading(false);
-      }
     }
   };
 
@@ -147,6 +142,28 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
         </div>
       </div>
 
+      {unitBased && (
+        <div style={styles.chartBox}>
+          {chartLoading && <div style={styles.chartEmptyText}>Memuat grafik...</div>}
+          {!chartLoading && priceHistory && priceHistory.length === 0 && (
+            <div style={styles.chartEmptyText}>Belum ada cukup data histori harga.</div>
+          )}
+          {!chartLoading && priceHistory && priceHistory.length > 0 && (
+            <ResponsiveContainer width="100%" height={90}>
+              <LineChart data={priceHistory}>
+                <YAxis hide domain={['dataMin', 'dataMax']} />
+                <Tooltip
+                  formatter={(v) => [formatRupiah(v), 'Harga']}
+                  labelFormatter={(d) => new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                  contentStyle={{ background: 'var(--bg-card2)', border: '1px solid #2A332B', borderRadius: 8, fontSize: 11 }}
+                />
+                <Line type="monotone" dataKey="price" stroke="var(--accent)" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      )}
+
       <div style={styles.valueRow}>
         <div style={styles.valueLabel}>Nilai Sekarang</div>
         <div style={styles.value}>{formatRupiah(stats.current_value)}</div>
@@ -224,35 +241,6 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
             </div>
           </div>
         ) : null
-      )}
-
-      {unitBased && (
-        <>
-          <button onClick={toggleChart} style={styles.chartToggle}>
-            <LineChartIcon size={13} /> {showChart ? 'Sembunyikan' : 'Lihat'} grafik harga 90 hari
-          </button>
-          {showChart && (
-            <div style={styles.chartBox}>
-              {chartLoading && <div style={styles.chartEmptyText}>Memuat grafik...</div>}
-              {!chartLoading && priceHistory && priceHistory.length === 0 && (
-                <div style={styles.chartEmptyText}>Belum ada cukup data histori harga.</div>
-              )}
-              {!chartLoading && priceHistory && priceHistory.length > 0 && (
-                <ResponsiveContainer width="100%" height={120}>
-                  <LineChart data={priceHistory}>
-                    <YAxis hide domain={['dataMin', 'dataMax']} />
-                    <Tooltip
-                      formatter={(v) => [formatRupiah(v), 'Harga']}
-                      labelFormatter={(d) => new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
-                      contentStyle={{ background: 'var(--bg-card2)', border: '1px solid #2A332B', borderRadius: 8, fontSize: 11 }}
-                    />
-                    <Line type="monotone" dataKey="price" stroke="var(--accent)" strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          )}
-        </>
       )}
 
       <div style={styles.actionsRow}>
@@ -354,8 +342,7 @@ const styles = {
   metaLabel: { fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 2 },
   metaValue: { fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' },
   actionsRow: { display: 'flex', gap: 8 },
-  chartToggle: { display: 'flex', alignItems: 'center', gap: 5, background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', padding: '4px 0', marginBottom: 8 },
-  chartBox: { marginBottom: 10, background: 'var(--bg-base)', borderRadius: 10, padding: '8px 4px' },
+  chartBox: { marginBottom: 10, background: 'var(--bg-base)', borderRadius: 10, padding: '6px 4px' },
   chartEmptyText: { fontSize: 11.5, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' },
   actionBtn: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '10px 12px', borderRadius: 10, border: '1px solid #2A332B', background: 'transparent', color: 'var(--text-primary)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' },
   actionBtnPrimary: { background: 'var(--accent)', color: '#0B0F0C', border: 'none' },
