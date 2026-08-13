@@ -95,7 +95,16 @@ export default async function handler(req, res) {
     // Cari dalam jarak 300 karakter setelah heading-nya, biar tetap ketemu walau
     // ada tag HTML yang menyela di antara heading dan angkanya.
     const match = html.match(/Nilai Aktiva Bersih\/Unit[\s\S]{0,300}?([\d]{1,3}(?:\.\d{3})*,\d+)[\s\S]{0,30}?IDR/i);
-    if (!match) throw new Error('Format NAV di halaman Bareksa tidak ditemukan (mungkin struktur halaman berubah, atau kena blokir bot)');
+    if (!match) {
+      // DEBUG SEMENTARA: kalau regex gagal, catat potongan HTML yang beneran
+      // diterima server (bukan nebak) -- supaya ketahuan pasti apakah Bareksa
+      // ngasih halaman blokir/captcha ke request dari server Vercel, atau
+      // sekadar strukturnya beda dari yang diharapkan regex.
+      console.error('[cron-sync-prices] DEBUG - 1000 karakter pertama HTML yang diterima dari Bareksa:');
+      console.error(html.slice(0, 1000));
+      console.error('[cron-sync-prices] DEBUG - apakah ada teks "Nilai Aktiva Bersih" di HTML sama sekali?', html.includes('Nilai Aktiva Bersih'));
+      throw new Error('Format NAV di halaman Bareksa tidak ditemukan (mungkin struktur halaman berubah, atau kena blokir bot) — lihat log DEBUG di atas untuk detail');
+    }
 
     // Format Indonesia: titik = pemisah ribuan, koma = desimal. Contoh "1.779,01" -> 1779.01
     const navReksadana = parseFloat(match[1].replace(/\./g, '').replace(',', '.'));
