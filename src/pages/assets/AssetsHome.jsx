@@ -67,7 +67,12 @@ export default function AssetsHome({ user }) {
                   <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={28} outerRadius={46} paddingAngle={2} stroke="none">
                     {pieData.map((d) => <Cell key={d.type} fill={d.color} />)}
                   </Pie>
-                  <Tooltip formatter={(v) => formatRupiah(v)} contentStyle={{ background: 'var(--bg-card2)', border: '1px solid #2A332B', borderRadius: 8, fontSize: 11 }} />
+                  <Tooltip
+                    formatter={(v) => formatRupiah(v)}
+                    contentStyle={{ background: 'var(--bg-card2)', border: '1px solid #2A332B', borderRadius: 8, fontSize: 11 }}
+                    labelStyle={{ color: 'var(--text-primary)' }}
+                    itemStyle={{ color: 'var(--text-primary)' }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </div>
