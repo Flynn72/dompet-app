@@ -221,6 +221,8 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
                     formatter={(v) => [formatRupiah(v), 'Harga']}
                     labelFormatter={(d) => new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                     contentStyle={{ background: 'var(--bg-card2)', border: '1px solid #2A332B', borderRadius: 8, fontSize: 11 }}
+                    labelStyle={{ color: 'var(--text-primary)' }}
+                    itemStyle={{ color: 'var(--text-primary)' }}
                   />
                   <Line type="monotone" dataKey="price" stroke={lineColor} strokeWidth={2} dot={false} />
                 </LineChart>
