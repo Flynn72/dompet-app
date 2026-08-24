@@ -3,6 +3,7 @@ import { supabase } from './lib/supabaseClient';
 import AuthPage from './pages/AuthPage';
 import AdminPanel from './pages/AdminPanel';
 import AppShell from './components/AppShell';
+import SplashScreen from './components/SplashScreen';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -59,12 +60,7 @@ async function handleSession(s) {
   }, []);
 
   if (checking) {
-    return (
-      <div style={{ minHeight: '100vh', background: '#0B0F1A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: '#7FE8A4', animation: 'pulse 1.2s ease-in-out infinite' }} />
-        <style>{`@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}`}</style>
-      </div>
-    );
+    return <SplashScreen />;
   }
 
 if (!session) {
