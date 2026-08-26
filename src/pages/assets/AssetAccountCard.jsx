@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, ChevronDown, ChevronUp, Trash2, Plus, MoreVertical } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
-import { addAssetTransaction, deleteAssetTransaction, deactivateAssetAccount, fetchPriceHistory, fetchDepositInterestEstimate } from '../../lib/assetsApi';
+import { addAssetTransaction, deleteAssetTransaction, deactivateAssetAccount, fetchPriceHistory, fetchDepositInterestEstimate, updateAssetAccountGoal } from '../../lib/assetsApi';
 
 function formatRupiah(n) {
   return 'Rp' + Math.round(n || 0).toLocaleString('id-ID');
@@ -18,6 +18,11 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
   const [showForm, setShowForm] = useState(null); // null | 'buy' | 'sell'
   const [showMenu, setShowMenu] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showGoalForm, setShowGoalForm] = useState(false);
+  const [goalAmountInput, setGoalAmountInput] = useState('');
+  const [goalDateInput, setGoalDateInput] = useState('');
+  const [savingGoal, setSavingGoal] = useState(false);
+  const [goalError, setGoalError] = useState('');
   const [form, setForm] = useState({ amount: '', units: '', priceAtTx: '', date: todayStr(), note: '' });
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -63,6 +68,30 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
     } finally {
       setDeleting(false);
       setShowMenu(false);
+    }
+  };
+
+  const openGoalForm = () => {
+    setGoalAmountInput(account.goal_amount ? String(account.goal_amount) : '');
+    setGoalDateInput(account.goal_date || '');
+    setGoalError('');
+    setShowGoalForm(true);
+    setShowMenu(false);
+  };
+
+  const saveGoal = async () => {
+    setGoalError('');
+    const amt = goalAmountInput ? parseFloat(goalAmountInput) : null;
+    if (goalAmountInput && (!amt || amt <= 0)) { setGoalError('Target harus lebih dari 0, atau kosongkan untuk hapus target'); return; }
+    setSavingGoal(true);
+    try {
+      await updateAssetAccountGoal(account.id, { goal_amount: amt, goal_date: goalDateInput || null });
+      setShowGoalForm(false);
+      onChanged();
+    } catch (e) {
+      setGoalError(e.message || 'Gagal menyimpan target');
+    } finally {
+      setSavingGoal(false);
     }
   };
 
@@ -162,6 +191,9 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
             </button>
             {showMenu && (
               <div style={styles.menuDropdown}>
+                <button onClick={openGoalForm} style={styles.menuBtnItem}>
+                  Atur Target
+                </button>
                 <button onClick={removeAccount} disabled={deleting} style={styles.menuDeleteBtn}>
                   {deleting ? 'Menghapus...' : 'Hapus akun ini'}
                 </button>
@@ -171,7 +203,7 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
         </div>
       </div>
 
-      {hasGoal && (
+      {hasGoal && !showGoalForm && (
         <div style={styles.goalBox}>
           <div style={styles.goalTopRow}>
             <span>{formatRupiah(stats.current_value)} / {formatRupiah(account.goal_amount)} (total)</span>
@@ -195,6 +227,32 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
           ) : (
             <div style={{ ...styles.goalText, color: '#7FE8A4' }}>🎉 Target tercapai!</div>
           )}
+        </div>
+      )}
+
+      {!hasGoal && !showGoalForm && (
+        <button onClick={openGoalForm} style={styles.setGoalLinkBtn}>+ Atur target untuk akun ini</button>
+      )}
+
+      {showGoalForm && (
+        <div style={styles.goalFormBox}>
+          <div style={styles.subFormTitle}>Atur Target</div>
+          <input
+            type="number" inputMode="numeric" placeholder="Nominal target (Rp), kosongkan untuk hapus target"
+            value={goalAmountInput} onChange={(e) => setGoalAmountInput(e.target.value)}
+            style={styles.input}
+          />
+          <div>
+            <label style={styles.dateLabel}>Target tanggal tercapai (opsional)</label>
+            <input type="date" value={goalDateInput} onChange={(e) => setGoalDateInput(e.target.value)} style={styles.input} />
+          </div>
+          {goalError && <div style={styles.errorText}>{goalError}</div>}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={saveGoal} disabled={savingGoal} style={{ ...styles.actionBtn, ...styles.actionBtnPrimary, flex: 1 }}>
+              {savingGoal ? 'Menyimpan...' : 'Simpan Target'}
+            </button>
+            <button onClick={() => setShowGoalForm(false)} style={{ ...styles.actionBtn, flex: 1 }}>Batal</button>
+          </div>
         </div>
       )}
 
@@ -395,6 +453,9 @@ const styles = {
   menuBtn: { width: 26, height: 26, borderRadius: 8, border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 },
   menuDropdown: { position: 'absolute', top: 30, right: 0, background: 'var(--bg-card2)', border: '1px solid #2A332B', borderRadius: 10, overflow: 'hidden', zIndex: 10, minWidth: 140, boxShadow: '0 4px 16px rgba(0,0,0,0.4)' },
   menuDeleteBtn: { width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', color: '#FF9466', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', textAlign: 'left', whiteSpace: 'nowrap' },
+  menuBtnItem: { width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', borderBottom: '1px solid #2A332B', color: 'var(--text-primary)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', textAlign: 'left', whiteSpace: 'nowrap' },
+  setGoalLinkBtn: { width: '100%', textAlign: 'left', background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', padding: '4px 0', marginBottom: 10 },
+  goalFormBox: { marginBottom: 12, padding: 12, background: 'var(--bg-base)', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 8 },
   valueRow: { marginBottom: 10 },
   valueLabel: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 },
   value: { fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', fontFamily: "'Space Grotesk', sans-serif" },
