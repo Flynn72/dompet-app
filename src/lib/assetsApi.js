@@ -49,6 +49,11 @@ export async function deleteAssetTransaction(id) {
   if (error) throw error;
 }
 
+export async function updateAssetAccountGoal(id, { goal_amount, goal_date }) {
+  const { error } = await supabase.from('asset_accounts').update({ goal_amount, goal_date }).eq('id', id);
+  if (error) throw error;
+}
+
 export async function deactivateAssetAccount(id) {
   // Soft-delete: is_active=false, BUKAN hapus baris beneran -- supaya
   // riwayat transaksi (asset_transactions) yang sudah tercatat tetap
