@@ -1519,18 +1519,18 @@ export default function Dashboard({ user, onLogout }) {
           ))}
           <div className="dompet-icon-group" style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <button onClick={openOnboardingTour} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Panduan fitur" title="Buka panduan fitur">
-            <HelpCircle size={16} color="#9CA89F" />
-          </button>
-          <button onClick={cycleTheme} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Ganti tema" title={themeMode === 'system' ? 'Tema: Ikuti sistem' : themeMode === 'dark' ? 'Tema: Gelap' : 'Tema: Terang'}>
-            {themeMode === 'system' ? <Monitor size={16} color="#9CA89F" /> : themeMode === 'dark' ? <Moon size={16} color="#9CA89F" /> : <Sun size={16} color="#9CA89F" />}
-          </button>
-          <button onClick={togglePushNotifications} disabled={pushLoading} style={{ ...styles.settingsBtn, marginLeft: 0, opacity: pushLoading ? 0.6 : 1 }} aria-label="Pengingat notifikasi" title={pushEnabled ? 'Pengingat notifikasi aktif — klik untuk matikan' : 'Aktifkan pengingat notifikasi'}>
-            {pushEnabled ? <Bell size={16} color="#7FE8A4" /> : <BellOff size={16} color="#9CA89F" />}
-          </button>
-          <button onClick={() => setShowFeedbackModal(true)} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Kasih masukan" title="Kasih masukan buat Dompet App"><MessageSquare size={16} color="#9CA89F" /></button>
-          <button ref={settingsBtnRef} onClick={() => setShowCategoryModal(true)} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Kelola kategori"><Settings size={16} color="#9CA89F" /></button>
+              <HelpCircle size={16} color="#9CA89F" />
+            </button>
+            <button onClick={cycleTheme} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Ganti tema" title={themeMode === 'system' ? 'Tema: Ikuti sistem' : themeMode === 'dark' ? 'Tema: Gelap' : 'Tema: Terang'}>
+              {themeMode === 'system' ? <Monitor size={16} color="#9CA89F" /> : themeMode === 'dark' ? <Moon size={16} color="#9CA89F" /> : <Sun size={16} color="#9CA89F" />}
+            </button>
+            <button onClick={togglePushNotifications} disabled={pushLoading} style={{ ...styles.settingsBtn, marginLeft: 0, opacity: pushLoading ? 0.6 : 1 }} aria-label="Pengingat notifikasi" title={pushEnabled ? 'Pengingat notifikasi aktif — klik untuk matikan' : 'Aktifkan pengingat notifikasi'}>
+              {pushEnabled ? <Bell size={16} color="#7FE8A4" /> : <BellOff size={16} color="#9CA89F" />}
+            </button>
+            <button onClick={() => setShowFeedbackModal(true)} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Kasih masukan" title="Kasih masukan buat Dompet App"><MessageSquare size={16} color="#9CA89F" /></button>
+            <button ref={settingsBtnRef} onClick={() => setShowCategoryModal(true)} style={{ ...styles.settingsBtn, marginLeft: 0 }} aria-label="Kelola kategori"><Settings size={16} color="#9CA89F" /></button>
+          </div>
         </div>
-      </div>
       </div>
 
       <div className="dompet-content">
@@ -1800,28 +1800,34 @@ export default function Dashboard({ user, onLogout }) {
                     Import selesai: <b>{importSummary.success}</b> berhasil, <b>{importSummary.failed}</b> gagal
                     {importSummary.skipped > 0 && <>, <b>{importSummary.skipped}</b> dilewati (sudah ada/duplikat)</>}.
                   </span>
-                  <button onClick={() => setImportSummary(null)} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer' }}><X size={14} /></button>
+                  <button onClick={() => setImportSummary(null)} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }}><X size={14} /></button>
                 </div>
                 {importSummary.errors.length > 0 && (
-                  <ul style={{ margin: 0, paddingLeft: 18, fontSize: 11.5 }}>
-                    {importSummary.errors.slice(0, 8).map((e, i) => <li key={i}>{e}</li>)}
-                    {importSummary.errors.length > 8 && <li>...dan {importSummary.errors.length - 8} error lainnya.</li>}
-                  </ul>
+                  <div style={{ fontSize: 11, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {importSummary.errors.map((e, idx) => <span key={idx}>• {e}</span>)}
+                  </div>
                 )}
               </div>
             )}
 
-            {/* Search & filter tipe transaksi */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-              <input
-                ref={txSearchRef}
-                type="text"
-                value={txSearch}
-                onChange={(e) => setTxSearch(e.target.value)}
-                placeholder="Cari catatan atau kategori..."
-                style={{ ...styles.input, marginBottom: 0, flex: '1 1 180px' }}
-              />
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {/* Pencarian + Filter Tipe Transaksi */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+              <div ref={txSearchRef} style={{ position: 'relative' }}>
+                <Search size={14} color="var(--text-muted)" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+                <input
+                  type="text"
+                  placeholder="Cari transaksi (catatan, kategori)..."
+                  value={txSearch}
+                  onChange={(e) => setTxSearch(e.target.value)}
+                  style={{ ...styles.input, paddingLeft: 34, fontSize: 12 }}
+                />
+                {txSearch && (
+                  <button onClick={() => setTxSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                    <X size={14} color="var(--text-muted)" />
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
                 {[
                   { id: 'all', label: 'Semua' },
                   { id: 'income', label: 'Income' },
@@ -1832,1298 +1838,554 @@ export default function Dashboard({ user, onLogout }) {
                     key={f.id}
                     onClick={() => setTxTypeFilter(f.id)}
                     style={{
-                      padding: '7px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer',
-                      border: `1px solid ${txTypeFilter === f.id ? 'var(--accent)' : 'var(--border)'}`,
-                      background: txTypeFilter === f.id ? 'var(--accent)' : 'transparent',
-                      color: txTypeFilter === f.id ? 'var(--accent-text, #0F1410)' : 'var(--text-secondary)',
-                      fontWeight: txTypeFilter === f.id ? 700 : 500,
+                      padding: '5px 12px', borderRadius: 8, border: '1px solid', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
+                      background: txTypeFilter === f.id ? 'var(--text-primary)' : 'transparent',
+                      color: txTypeFilter === f.id ? 'var(--bg-base)' : 'var(--text-secondary)',
+                      borderColor: txTypeFilter === f.id ? 'var(--text-primary)' : 'var(--border)',
+                      fontWeight: txTypeFilter === f.id ? 600 : 400,
                     }}
-                  >{f.label}</button>
+                  >
+                    {f.label}
+                  </button>
                 ))}
               </div>
             </div>
 
-            {filteredMonthTx.length === 0 && (
-              <div style={styles.emptyHint}>
-                {monthTx.length === 0 ? 'Belum ada transaksi bulan ini.' : 'Tidak ada transaksi yang cocok dengan pencarian.'}
+            {/* Daftar Transaksi (sudah terfilter) */}
+            {filteredMonthTx.length === 0 ? (
+              <div style={styles.emptyCard}>
+                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                  {txSearch || txTypeFilter !== 'all' ? 'Tidak ada transaksi yang cocok dengan filter.' : 'Belum ada transaksi di bulan ini.'}
+                </span>
               </div>
+            ) : (
+              filteredMonthTx.map((t) => {
+                const cat = catLookup(t.category);
+                const CatIcon = cat ? getIconComponent(cat.icon) : (t.type === 'income' ? TrendingUp : HelpCircle);
+                const isIncome = t.type === 'income';
+                const isExpense = t.type === 'expense';
+                const isSell = t.type === 'saving' && t.assetAction === 'sell';
+                const color = isIncome ? '#7FE8A4' : isExpense ? '#FF9466' : isSell ? '#FF9466' : '#6FB7E8';
+                return (
+                  <div key={t.id} onClick={() => openTxDetail(t)} style={styles.txRow}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: (cat?.color || (isIncome ? '#7FE8A4' : '#8A8A8A')) + '25', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <CatIcon size={16} color={cat?.color || (isIncome ? '#7FE8A4' : '#8A8A8A')} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {t.note || cat?.label || (isIncome ? 'Income' : 'Tanpa kategori')}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                        {new Date(t.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                        {cat && ` · ${cat.label}`}
+                        {isSell && ' (Jual)'}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 14, color }}>
+                        {isIncome ? '+' : '-'}{formatRupiah(t.amount)}
+                      </div>
+                    </div>
+                    <button onClick={(e) => { e.stopPropagation(); deleteTransaction(t.id); }} style={styles.deleteBtn} aria-label="Hapus transaksi">
+                      <Trash2 size={14} color="#6B7568" />
+                    </button>
+                  </div>
+                );
+              })
             )}
-            {filteredMonthTx.map((t) => (<TxRow key={t.id} t={t} onDelete={deleteTransaction} catLookup={catLookup} onSelect={openTxDetail} />))}
           </div>
         )}
 
         {/* ====== TAB LAPORAN ====== */}
         {tab === 'reports' && (
-          <>
-            {/* Ringkasan saldo */}
-            <div style={{ ...styles.summaryGrid, marginBottom: 28 }}>
-              <div style={{ ...styles.summaryCard, gridColumn: '1 / -1' }}>
-                <span style={styles.summaryLabel}>Sisa saldo bulan ini</span>
-                <span style={{ ...styles.balanceNumber, color: balance >= 0 ? '#7FE8A4' : '#FF9466' }}>{formatRupiah(balance)}</span>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Income dikurangi expense dan saving/investasi</span>
-              </div>
-              <div style={styles.summaryCard}>
-                <div style={styles.summaryIconRow}><TrendingUp size={14} color="#7FE8A4" /><span style={styles.summaryLabel}>Income</span></div>
-                <span style={{ ...styles.summaryNumber, color: '#7FE8A4' }}>{formatRupiah(totalIncome)}</span>
-              </div>
-              <div style={styles.summaryCard}>
-                <span style={styles.summaryLabel}>Total terpakai</span>
-                <span style={{ ...styles.summaryNumber, color: 'var(--text-primary)' }}>{formatRupiah(totalUsed)}</span>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Expense + saving</span>
-              </div>
-              <div style={styles.summaryCard}>
-                <div style={styles.summaryIconRow}><TrendingDown size={14} color="#FF9466" /><span style={styles.summaryLabel}>Expense</span></div>
-                <span style={{ ...styles.summaryNumber, color: '#FF9466' }}>{formatRupiah(totalExpense)}</span>
-              </div>
-              <div style={styles.summaryCard}>
-                <div style={styles.summaryIconRow}><PiggyBank size={14} color="#6FB7E8" /><span style={styles.summaryLabel}>Saving</span></div>
-                <span style={{ ...styles.summaryNumber, color: '#6FB7E8' }}>{formatRupiah(totalSaving)}</span>
-              </div>
-            </div>
-
-            {/* 3 Pie chart — stack vertikal di HP, 3 kolom di desktop */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20, marginBottom: 32 }} className="pie-grid">
-              <style>{`.pie-grid { } @media(min-width:900px){.pie-grid{grid-template-columns:1fr 1fr 1fr !important;}}`}</style>
-              {[
-                { label: 'Income', color: '#7FE8A4', total: totalIncome, data: totalIncome > 0 ? [{ name: 'Income', value: totalIncome, color: '#7FE8A4' }] : [] },
-                { label: 'Expense', color: '#FF9466', total: totalExpense, data: pieData },
-                { label: 'Saving', color: '#6FB7E8', total: totalSaving, data: savingPieData, isSaving: true },
-              ].map((section) => {
-                // Saving netto BISA negatif (kalau jual aset lebih besar dari beli bulan ini) — itu VALID,
-                // bukan berarti "tidak ada aktivitas". Jadi gate kosongnya beda dari Income/Expense:
-                // cek ada gross buy/sell dulu, baru dianggap benar-benar kosong.
-                const hasActivity = section.isSaving ? (savingGrossBuy > 0 || savingGrossSell > 0) : section.total > 0;
-                const canShowPie = section.isSaving ? section.total > 0 && section.data.length > 0 : section.total > 0;
-                return (
-                <div key={section.label} style={{ background: chartTheme.bg, border: "1px solid var(--border)", borderRadius: 14, padding: '20px 18px' }}>
-                  <div style={styles.sectionHeader}>
-                    <span style={styles.sectionTitle}>{section.label}</span>
-                    <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 15, color: section.total < 0 ? '#FF9466' : section.color }}>{formatRupiah(section.total)}</span>
-                  </div>
-                  {!hasActivity ? (
-                    <div style={{ ...styles.emptyHint, padding: '40px 0' }}>Belum ada data {section.label.toLowerCase()} bulan ini.</div>
-                  ) : canShowPie ? (
-                    <>
-                      <div style={{ width: '100%', height: 200 }}>
-                        <ResponsiveContainer>
-                          <PieChart>
-                            <Pie data={section.data} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={3}>
-                              {section.data.map((entry, i) => (<Cell key={i} fill={entry.color} stroke="var(--chart-bg)" strokeWidth={3} />))}
-                            </Pie>
-                            <Tooltip formatter={(v) => formatRupiah(v)} contentStyle={{ background: chartTheme.tooltip, border: '1px solid var(--border)', borderRadius: 8, color: chartTheme.text, fontSize: 13, fontWeight: 600 }} itemStyle={{ color: chartTheme.text }} labelStyle={{ color: chartTheme.subtext }} />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 12 }}>
-                        {(() => {
-                          const pieKey = `pie-${section.label}`;
-                          const isExpanded = expandedCatIds.has(pieKey);
-                          const visibleData = isExpanded ? section.data : section.data.slice(0, 3);
-                          return (
-                            <>
-                              {visibleData.map((p) => (
-                                <div key={p.name} style={styles.legendItem}>
-                                  <span style={{ width: 9, height: 9, borderRadius: 2, background: p.color, display: 'inline-block', flexShrink: 0 }} />
-                                  <span style={{ fontSize: 12, color: 'var(--chart-subtext)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-                                  <span style={{ fontSize: 12, color: 'var(--chart-text)', flexShrink: 0, fontWeight: 600 }}>{formatRupiah(p.value)}</span>
-                                </div>
-                              ))}
-                              {section.data.length > 3 && (
-                                <button onClick={() => toggleCatExpanded(pieKey)} style={{ ...styles.linkBtn, alignSelf: 'flex-start', marginTop: 2, fontSize: 11.5 }}>
-                                  {isExpanded ? (<><ChevronUp size={12} style={{ display: 'inline', verticalAlign: -2 }} /> Sembunyikan</>) : (<><ChevronDown size={12} style={{ display: 'inline', verticalAlign: -2 }} /> Tampilkan semua ({section.data.length})</>)}
-                                </button>
-                              )}
-                            </>
-                          );
-                        })()}
-                      </div>
-                    </>
-                  ) : (
-                    // Saving ada aktivitas, tapi nettonya negatif/nol atau semua kategori netto <=0 —
-                    // nggak bisa digambar pie (nggak ada slice positif), jadi tampilkan breakdown teks.
-                    <div style={{ padding: '20px 0' }}>
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 10, lineHeight: 1.6 }}>
-                        Bulan ini lebih banyak dana <b>ditarik dari investasi/tabungan</b> (jual aset) daripada yang <b>ditambahkan</b> (beli/setor baru), jadi nggak bisa digambar sebagai pie chart. Rinciannya:
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                          <span style={{ color: 'var(--text-secondary)' }}>Total setor/beli</span>
-                          <span style={{ color: '#6FB7E8', fontWeight: 700 }}>+{formatRupiah(savingGrossBuy)}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                          <span style={{ color: 'var(--text-secondary)' }}>Total jual/tarik</span>
-                          <span style={{ color: '#7FE8A4', fontWeight: 700 }}>+{formatRupiah(savingGrossSell)} (masuk ke saldo)</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 2 }}>
-                          <span style={{ color: 'var(--text-secondary)' }}>Netto saving bulan ini</span>
-                          <span style={{ color: totalSaving < 0 ? '#FF9466' : '#6FB7E8', fontWeight: 700 }}>{formatRupiah(totalSaving)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/* Pie Chart Expense */}
+            <div style={styles.card}>
+              <span style={{ ...styles.sectionTitle, marginBottom: 12, display: 'block' }}>Pengeluaran per Kategori</span>
+              {pieData.length === 0 ? (
+                <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Belum ada pengeluaran di bulan ini.</div>
+              ) : (
+                <div style={{ width: '100%', height: 220 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={2}>
+                        {pieData.map((entry, idx) => (
+                          <Cell key={`cell-${idx}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => formatRupiah(value)} contentStyle={{ background: 'var(--chart-tooltip)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--chart-text)' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </div>
-              );})}
+              )}
             </div>
 
-            {/* Tren 6 bulan */}
-            <div style={{ background: 'var(--chart-bg)', border:'1px solid var(--border)', borderRadius: 14, padding: 16, marginBottom: 32 }}>
-              <div style={styles.sectionHeader}><span style={styles.sectionTitle}>Tren 6 bulan</span></div>
-              {(() => {
-                const allVals = trendData.flatMap((d) => [d.inc, d.exp, d.sav]).filter((v) => v > 0);
-                const maxVal = allVals.length > 0 ? Math.max(...allVals) : 0;
-                const minVal = allVals.length > 0 ? Math.min(...allVals) : 0;
-                // domain: 0 sampai 110% dari nilai max agar bar tidak menyentuh tepi atas
-                const yMax = maxVal > 0 ? (dataMax) => Math.ceil(dataMax * 1.1) : 'auto';
-                return (
-                  <>
-                    {maxVal > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                        <span style={{ fontSize: 11, color: 'var(--chart-subtext)' }}>
-                          Min: <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
-                            {minVal >= 1000000 ? (minVal / 1000000).toFixed(2) + ' jt' : minVal >= 1000 ? (minVal / 1000).toFixed(0) + ' rb' : formatRupiah(minVal)}
-                          </span>
-                        </span>
-                        <span style={{ fontSize: 11, color: 'var(--chart-subtext)' }}>
-                          Max: <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
-                            {maxVal >= 1000000 ? (maxVal / 1000000).toFixed(2) + ' jt' : maxVal >= 1000 ? (maxVal / 1000).toFixed(0) + ' rb' : formatRupiah(maxVal)}
-                          </span>
-                        </span>
-                      </div>
-                    )}
-                    <div style={{ width: '100%', height: 260 }}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart
-                          data={trendData.map((d) => ({ ...d, label: d.label.slice(0, 3) }))}
-                          margin={{ top: 12, right: 16, left: 0, bottom: 0 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
-                          <XAxis
-                            dataKey="label"
-                            stroke="var(--chart-subtext)"
-                            fontSize={11}
-                            tickLine={false}
-                            axisLine={{ stroke: "var(--chart-grid)" }}
-                          />
-                          <YAxis
-                            stroke="var(--chart-subtext)"
-                            fontSize={10}
-                            tickLine={false}
-                            axisLine={false}
-                            width={48}
-                            domain={[0, (dataMax) => dataMax > 0 ? Math.ceil(dataMax * 1.15 / 500000) * 500000 : 1000000]}
-                            tickFormatter={(v) => {
-                              if (v === 0) return '0';
-                              if (v >= 1000000) return (v / 1000000).toFixed(v % 1000000 === 0 ? 0 : 1) + 'jt';
-                              if (v >= 1000) return (v / 1000).toFixed(0) + 'rb';
-                              return v;
-                            }}
-                          />
-                          <Tooltip
-                            formatter={(v, name) => [formatRupiah(v), name]}
-                            contentStyle={{ background: 'var(--chart-tooltip)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--chart-text)', fontSize: 13 }}
-                            labelStyle={{ color: 'var(--chart-subtext)', marginBottom: 4, fontWeight: 600 }}
-                          />
-                          <Line
-                            type="monotone"
-                            dataKey="inc"
-                            stroke="#7FE8A4"
-                            strokeWidth={2.5}
-                            name="Income"
-                            dot={{ r: 5, fill: '#7FE8A4', stroke: '#0F1410', strokeWidth: 2 }}
-                            activeDot={{ r: 7, fill: '#7FE8A4', stroke: '#0F1410', strokeWidth: 2 }}
-                          />
-                          <Line
-                            type="monotone"
-                            dataKey="exp"
-                            stroke="#FF9466"
-                            strokeWidth={2.5}
-                            name="Expense"
-                            dot={{ r: 5, fill: '#FF9466', stroke: '#0F1410', strokeWidth: 2 }}
-                            activeDot={{ r: 7, fill: '#FF9466', stroke: '#0F1410', strokeWidth: 2 }}
-                          />
-                          <Line
-                            type="monotone"
-                            dataKey="sav"
-                            stroke="#6FB7E8"
-                            strokeWidth={2.5}
-                            name="Saving"
-                            dot={{ r: 5, fill: '#6FB7E8', stroke: '#0F1410', strokeWidth: 2 }}
-                            activeDot={{ r: 7, fill: '#6FB7E8', stroke: '#0F1410', strokeWidth: 2 }}
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </>
-                );
-              })()}
-              <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginTop: 12, flexWrap: 'wrap' }}>
-                {[['#7FE8A4','Income'],['#FF9466','Expense'],['#6FB7E8','Saving']].map(([color, name]) => (
-                  <span key={name} style={styles.legendItem2}><span style={{ width: 9, height: 9, borderRadius: 2, background: color, display: 'inline-block' }} />{name}</span>
-                ))}
+            {/* Pie Chart Saving */}
+            <div style={styles.card}>
+              <span style={{ ...styles.sectionTitle, marginBottom: 12, display: 'block' }}>Alokasi Tabungan & Investasi</span>
+              {savingPieData.length === 0 ? (
+                <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Belum ada alokasi tabungan di bulan ini.</div>
+              ) : (
+                <div style={{ width: '100%', height: 220 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={savingPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={2}>
+                        {savingPieData.map((entry, idx) => (
+                          <Cell key={`cell-sav-${idx}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => formatRupiah(value)} contentStyle={{ background: 'var(--chart-tooltip)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--chart-text)' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+
+            {/* Bar Chart Tren 6 Bulan */}
+            <div style={styles.card}>
+              <span style={{ ...styles.sectionTitle, marginBottom: 12, display: 'block' }}>Tren 6 Bulan Terakhir</span>
+              <div style={{ width: '100%', height: 260 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                    <XAxis dataKey="label" stroke="var(--chart-subtext)" fontSize={11} />
+                    <YAxis stroke="var(--chart-subtext)" fontSize={11} tickFormatter={(v) => (v >= 1000000 ? (v / 1000000).toFixed(1) + 'M' : v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v)} />
+                    <Tooltip formatter={(value) => formatRupiah(value)} contentStyle={{ background: 'var(--chart-tooltip)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--chart-text)' }} />
+                    <Bar dataKey="inc" name="Income" fill="#7FE8A4" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="exp" name="Expense" fill="#FF9466" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="sav" name="Saving (Aset)" fill="#6FB7E8" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </div>
-          </>
+          </div>
         )}
+
       </div>
 
-      {/* FAB */}
-      <button ref={fabRef} onClick={() => setShowAddModal(true)} className="dompet-fab" aria-label="Tambah transaksi"><Plus size={24} color="#0F1410" /></button>
+      {/* Floating Action Button (+) */}
+      <button ref={fabRef} onClick={() => setShowAddModal(true)} className="dompet-fab" aria-label="Tambah Transaksi">
+        <Plus size={24} color="#0F1410" />
+      </button>
 
-      {/* ====== SNACKBAR UNDO HAPUS TRANSAKSI ====== */}
+      {/* Snackbar Undo Hapus */}
       {pendingDelete && (
-        <div style={{
-          position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)',
-          background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12,
-          padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14,
-          boxShadow: '0 8px 24px rgba(0,0,0,0.35)', zIndex: 60, maxWidth: 'calc(100vw - 32px)',
-        }}>
-          <span style={{ fontSize: 13, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            Transaksi dihapus
-          </span>
-          <button onClick={undoDeleteTransaction} style={{
-            background: 'transparent', border: 'none', color: 'var(--accent)', fontWeight: 700,
-            fontSize: 13, cursor: 'pointer', flexShrink: 0, padding: '4px 6px',
-          }}>Undo</button>
+        <div style={styles.undoSnackbar}>
+          <span style={{ fontSize: 13, color: '#E8EDF8' }}>Transaksi dihapus</span>
+          <button onClick={undoDeleteTransaction} style={styles.undoBtn}>Batal (Undo)</button>
         </div>
       )}
 
-      {/* ====== ONBOARDING OVERLAY ====== */}
-      {showOnboarding && (() => {
-        const step = ONBOARDING_STEPS[onboardingStep];
-        const isLast = onboardingStep === ONBOARDING_STEPS.length - 1;
-        const isFirst = onboardingStep === 0;
-
-        const PAD = 8;   // jarak ring spotlight dari tepi elemen asli
-        const GAP = 14;  // jarak pop-up dari spotlight (khusus desktop)
-        const POPUP_W = 260;
-        const isMobileViewport = window.innerWidth < 640; // di HP, popup didok di bawah layar, bukan nempel tombol
-
-        // Fase 1 (modal action sudah kebuka) DI MOBILE: modal-modal di app ini didok di BAWAH layar
-        // dan tombol utamanya (Selesai/Simpan/Catat Penjualan) ada di paling bawah — kalau popup ikut
-        // didok di bawah juga, tombol itu ketutup total (keluhan nyata dari screenshot). Makanya khusus
-        // kombinasi ini, popup dipindah ke ATAS layar (area kosong di atas modal) DAN dibikin ringkas
-        // (skip paragraf deskripsi panjang, karena user sudah baca itu di fase spotlight sebelumnya) —
-        // supaya tombol submit modal di bawah selalu bebas kesentuh.
-        const compactMobilePhase1 = isMobileViewport && step.action && obActionPhase === 1;
-
-        // Fase 1 (modal action sudah kebuka): ring & overlay gelap disembunyikan (tombolnya
-        // toh ketutup modal), TAPI posisi pop-up tetap dihitung dari spotlightRect yang sama,
-        // supaya pop-up tetap nempel di sisi yang sama seperti waktu nyorot tombolnya tadi —
-        // hasilnya kelihatan "bersampingan" dengan modal yang baru kebuka, bukan pindah ke tengah.
-        const showRing = !(step.action && obActionPhase === 1);
-
-        let spotlight = null;
-        let popupStyle;
-        let arrowStyle = null;
-
-        if (spotlightRect) {
-          // Spotlight persis mengikuti posisi & ukuran elemen asli (diukur dari DOM)
-          spotlight = showRing ? {
-            top: spotlightRect.top - PAD,
-            left: spotlightRect.left - PAD,
-            width: spotlightRect.width + PAD * 2,
-            height: spotlightRect.height + PAD * 2,
-          } : null;
-
-          const vh = window.innerHeight;
-          const vw = window.innerWidth;
-          const MARGIN = 12;
-
-          if (compactMobilePhase1) {
-            // Dock ke ATAS layar, ringkas — lihat penjelasan di atas.
-            popupStyle = { position: 'fixed', left: 12, right: 12, top: 12, width: 'auto', maxWidth: 'none' };
-          } else if (step.action && obActionPhase === 1) {
-            // FASE 1 (modal sudah kebuka): posisi popup dihitung dari TEPI MODAL CARD, bukan lagi
-            // posisi tombol aslinya — modal card selalu di-center dengan max-width 480px, jadi kita
-            // tau persis tepi kiri/kanannya dari lebar layar. Kalau ada cukup ruang di samping modal,
-            // geser popup ke situ (kanan diprioritaskan, lalu kiri). Kalau layar terlalu sempit buat
-            // muat di samping (misal HP atau browser desktop yang di-resize kecil), fallback dock
-            // di bawah layar (lebar penuh) — sama seperti perilaku mobile, supaya tetap kelihatan
-            // utuh, bukan malah numpuk di atas header modal.
-            const MODAL_MAX_W = 480;
-            const modalWidth = Math.min(vw, MODAL_MAX_W);
-            const modalLeft = (vw - modalWidth) / 2;
-            const modalRight = modalLeft + modalWidth;
-            const roomRight = vw - modalRight;
-            const roomLeft = modalLeft;
-
-            if (roomRight >= POPUP_W + MARGIN * 2) {
-              popupStyle = { position: 'fixed', width: POPUP_W, left: modalRight + GAP, bottom: 16 };
-            } else if (roomLeft >= POPUP_W + MARGIN * 2) {
-              popupStyle = { position: 'fixed', width: POPUP_W, left: modalLeft - GAP - POPUP_W, bottom: 16 };
-            } else {
-              popupStyle = { position: 'fixed', left: 12, right: 12, bottom: 16, width: 'auto', maxWidth: 'none' };
-            }
-            // Tidak ada panah penunjuk di fase ini (tidak lagi menunjuk ke tombol spesifik, tapi ke modal secara umum)
-          } else if (isMobileViewport) {
-            // MOBILE (fase spotlight biasa): pop-up didok sebagai bar di bagian bawah layar, lebar
-            // penuh — supaya tidak pernah menimpa isi tengah modal (form, daftar kategori, dll)
-            // seperti yang terjadi kalau dipaksa nempel di sisi tombol seperti versi desktop.
-            popupStyle = {
-              position: 'fixed', left: 12, right: 12, bottom: 16, width: 'auto', maxWidth: 'none',
-            };
-          } else {
-            const rectCenterX = spotlightRect.left + spotlightRect.width / 2;
-            const placeBelow = spotlightRect.top < vh / 2; // elemen di atas layar -> pop-up di bawahnya, dst.
-            const alignRight = rectCenterX > vw / 2;
-
-            // Selalu hitung posisi lewat 'left' (bukan 'right') supaya tidak ada celah CSS positioning.
-            // Kalau target di sisi kanan, sejajarkan tepi KANAN pop-up dengan tepi kanan target.
-            // Kalau target di sisi kiri, sejajarkan tepi KIRI pop-up dengan tepi kiri target.
-            let popupLeft = alignRight
-              ? (spotlightRect.left + spotlightRect.width) - POPUP_W
-              : spotlightRect.left;
-            // Jangan sampai keluar layar di kanan maupun kiri
-            popupLeft = Math.min(popupLeft, vw - POPUP_W - MARGIN);
-            popupLeft = Math.max(popupLeft, MARGIN);
-
-            popupStyle = {
-              position: 'fixed',
-              width: POPUP_W,
-              maxWidth: 'calc(100vw - 24px)',
-              left: popupLeft,
-              ...(placeBelow
-                ? { top: spotlightRect.top + spotlightRect.height + GAP }
-                : { bottom: vh - spotlightRect.top + GAP }),
-            };
-
-            // Panah mengikuti titik tengah horizontal target ASLI, relatif terhadap posisi kiri pop-up
-            // (bukan angka tetap), supaya selalu presisi menunjuk ke tombolnya berapa pun lebar pop-up.
-            const arrowLeft = Math.min(
-              Math.max(rectCenterX - popupLeft - 7, 16),
-              POPUP_W - 16 - 14
-            );
-
-            arrowStyle = {
-              position: 'absolute',
-              width: 0, height: 0,
-              borderStyle: 'solid',
-              left: arrowLeft,
-              ...(placeBelow
-                ? { top: -7, borderWidth: '0 7px 8px 7px', borderColor: `transparent transparent ${step.color} transparent` }
-                : { bottom: -7, borderWidth: '8px 7px 0 7px', borderColor: `${step.color} transparent transparent transparent` }),
-            };
-          }
-        } else {
-          popupStyle = isMobileViewport
-            ? { position: 'fixed', left: 12, right: 12, bottom: 16, width: 'auto', maxWidth: 'none' }
-            : { position: 'fixed', bottom: '40%', left: '50%', transform: 'translateX(-50%)', width: 280 };
-        }
-
-        return (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 100, pointerEvents: 'none' }}>
-            <style>{`
-              @keyframes obFadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
-              @keyframes obPulseRing { 0%,100% { box-shadow: 0 0 0 0 ${step.color}66; } 50% { box-shadow: 0 0 0 8px ${step.color}00; } }
-              .ob-popup { animation: obFadeIn 0.25s cubic-bezier(0.34,1.56,0.64,1); }
-              .ob-ring { animation: obPulseRing 1.8s ease-in-out infinite; }
-            `}</style>
-
-            {/* Overlay gelap dengan "lubang" spotlight persis di elemen target */}
-            {spotlight && (
-              <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none' }}>
-                {/* Overlay atas */}
-                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: Math.max(0, spotlight.top), background: 'rgba(0,0,0,0.72)' }} />
-                {/* Overlay bawah */}
-                <div style={{ position: 'absolute', top: spotlight.top + spotlight.height, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.72)' }} />
-                {/* Kiri dari spotlight */}
-                <div style={{ position: 'absolute', top: spotlight.top, left: 0, width: Math.max(0, spotlight.left), height: spotlight.height, background: 'rgba(0,0,0,0.72)' }} />
-                {/* Kanan dari spotlight */}
-                <div style={{ position: 'absolute', top: spotlight.top, left: spotlight.left + spotlight.width, right: 0, height: spotlight.height, background: 'rgba(0,0,0,0.72)' }} />
-                {/* Ring pulsing tepat di sekeliling elemen target */}
-                <div className="ob-ring" style={{
-                  position: 'absolute',
-                  top: spotlight.top, left: spotlight.left,
-                  width: spotlight.width, height: spotlight.height,
-                  borderRadius: 12,
-                  border: `2px solid ${step.color}`,
-                }} />
-              </div>
-            )}
-
-            {/* Overlay gelap penuh HANYA untuk step yang memang tidak menunjuk elemen apa pun sama
-                sekali (misal step welcome/penutup) — BUKAN untuk fase 1 (modal action terbuka),
-                supaya modalnya tetap kelihatan terang normal, tidak dobel gelap dengan overlay modal. */}
-            {!step.target && (
-              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.70)', backdropFilter: 'blur(3px)' }} />
-            )}
-
-            {/* Pop-up kecil */}
-            <div className="ob-popup" key={onboardingStep} style={{
-              ...popupStyle,
-              pointerEvents: 'all',
-              background: 'var(--bg-card)',
-              borderRadius: 18,
-              padding: compactMobilePhase1 ? '12px 14px' : '16px 18px',
-              boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px ${step.color}33`,
-              border: `1px solid ${step.color}44`,
-            }}>
-              {/* Panah penunjuk arah ke elemen yang dituju */}
-              {arrowStyle && <div style={arrowStyle} />}
-              {/* Header: emoji + dots + skip */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: compactMobilePhase1 ? 0 : 10 }}>
-                <step.icon size={compactMobilePhase1 ? 20 : 26} color={step.color} />
-                {compactMobilePhase1 && (
-                  <div style={{
-                    fontFamily: "'Space Grotesk', sans-serif",
-                    fontWeight: 700, fontSize: 13.5,
-                    color: step.color, flex: 1,
-                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                  }}>{step.title}</div>
-                )}
-                {!compactMobilePhase1 && (
-                  <div style={{ flex: 1, display: 'flex', gap: 4 }}>
-                    {ONBOARDING_STEPS.map((_, i) => (
-                      <div key={i} onClick={() => setOnboardingStep(i)} style={{
-                        width: i === onboardingStep ? 18 : 5,
-                        height: 5, borderRadius: 3,
-                        background: i === onboardingStep ? step.color : 'var(--bg-card2)',
-                        transition: 'all 0.3s ease',
-                        cursor: 'pointer',
-                      }} />
-                    ))}
-                  </div>
-                )}
-                <button onClick={finishOnboarding} style={{
-                  background: 'transparent', border: 'none',
-                  color: 'var(--text-muted)', fontSize: 12,
-                  cursor: 'pointer', padding: '2px 6px', borderRadius: 6,
-                }}><X size={13} /></button>
-              </div>
-
-              {/* Judul (versi normal saja — versi compact sudah ditaruh di baris header) */}
-              {!compactMobilePhase1 && (
-                <div style={{
-                  fontFamily: "'Space Grotesk', sans-serif",
-                  fontWeight: 700, fontSize: 15,
-                  color: step.color, marginBottom: 6,
-                }}>{step.title}</div>
-              )}
-
-              {/* Deskripsi — disembunyikan di mode ringkas, karena user sudah baca ini
-                  di fase spotlight sebelum modal dibuka. Cukup judul + tombol saja di sini,
-                  supaya popup tetap pendek dan tidak menutupi tombol submit modal di bawah. */}
-              {!compactMobilePhase1 && (
-                <p style={{
-                  fontSize: 12.5, color: 'var(--text-secondary)',
-                  lineHeight: 1.6, margin: '0 0 14px',
-                }}>{step.desc}</p>
-              )}
-              {/* Tombol */}
-              <div style={{ display: 'flex', gap: 8, marginTop: compactMobilePhase1 ? 10 : 0 }}>
-                {!isFirst && (
-                  <button onClick={prevStep} style={{
-                    flex: 1, padding: '8px 0', borderRadius: 10,
-                    border: '1px solid var(--border)', background: 'transparent',
-                    color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer',
-                  }}>←</button>
-                )}
-                <button onClick={nextStep} style={{
-                  flex: 3, padding: '9px 0', borderRadius: 10, border: 'none',
-                  background: step.color, color: '#0B0F1A',
-                  fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
-                  boxShadow: `0 4px 12px ${step.color}44`,
-                }}>
-                  {isLast ? (<><Rocket size={13} style={{ display: 'inline', verticalAlign: -2, marginRight: 3 }} />Mulai!</>) : (step.action && obActionPhase === 0) ? 'Buka →' : 'Lanjut →'}
-                </button>
-              </div>
-
-              {/* Step counter */}
-              <div style={{ textAlign: 'center', fontSize: 10, color: 'var(--text-muted)', marginTop: 8 }}>
-                {onboardingStep + 1} / {ONBOARDING_STEPS.length}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Modal: tambah transaksi */}
+      {/* Modal Tambah Transaksi */}
       {showAddModal && (
         <div style={styles.modalOverlay} onClick={() => setShowAddModal(false)}>
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <span style={styles.modalTitle}>Tambah transaksi</span>
-              <button onClick={() => setShowAddModal(false)} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
+              <span style={styles.modalTitle}>Tambah Transaksi</span>
+              <button onClick={() => setShowAddModal(false)} style={styles.iconBtn}><X size={18} color="var(--text-muted)" /></button>
             </div>
-            <div style={styles.typeToggle}>
-              <button onClick={() => switchType('expense')} style={{ ...styles.typeBtn, ...(form.type === 'expense' ? styles.typeBtnExpenseActive : {}) }}>Expense</button>
-              {/* "Saving" DINONAKTIFKAN (Task 3.3) -- transaksi tabungan/investasi
-                  sekarang dicatat lewat halaman Aset (asset_transactions), supaya
-                  tidak ada data yang nyangkut di tabel lama & tidak kelihatan di
-                  halaman Aset baru. Tombol tetap ada tapi mengarahkan ke /aset,
-                  bukan membuka form saving yang lama. */}
-              <button
-                onClick={() => { setShowAddModal(false); navigate('/aset'); }}
-                style={{ ...styles.typeBtn, opacity: 0.6 }}
-                title="Transaksi tabungan/investasi sekarang dicatat lewat halaman Aset"
-              >
-                Saving ↗
-              </button>
-              <button onClick={() => switchType('income')} style={{ ...styles.typeBtn, ...(form.type === 'income' ? styles.typeBtnIncomeActive : {}) }}>Income</button>
+
+            {/* Switch Tipe: Income / Expense / Saving */}
+            <div style={styles.typeSwitcher}>
+              <button onClick={() => switchType('expense')} style={{ ...styles.typeBtn, ...(form.type === 'expense' ? styles.typeBtnActiveExpense : {}) }}>Expense</button>
+              <button onClick={() => switchType('income')} style={{ ...styles.typeBtn, ...(form.type === 'income' ? styles.typeBtnActiveIncome : {}) }}>Income</button>
+              <button onClick={() => switchType('saving')} style={{ ...styles.typeBtn, ...(form.type === 'saving' ? styles.typeBtnActiveSaving : {}) }}>Saving</button>
             </div>
-            <label style={styles.formLabel}>Jumlah (Rp)</label>
-            <input type="number" inputMode="numeric" placeholder="50000" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} style={styles.input} autoFocus />
-            {(() => {
-              const selectedFormCat = form.type !== 'income' ? categories.find((c) => c.id === form.categoryId) : null;
-              if (!selectedFormCat?.asset_type) return null;
-              const isGold = selectedFormCat.asset_type === 'gold';
-              return (
-                <>
-                  <label style={styles.formLabel}>{isGold ? 'Jumlah gram (opsional, kalau tau persis dari platform investasi Anda)' : 'Jumlah unit (opsional, kalau tau persis dari platform investasi Anda)'}</label>
-                  <input type="number" inputMode="decimal" placeholder={isGold ? 'Contoh: 0.343380' : 'Contoh: 56.789'} value={form.unitsOverride || ''}
-                    onChange={(e) => setForm({ ...form, unitsOverride: e.target.value })} style={styles.input} />
-                  <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: -6, marginBottom: 10 }}>
-                    Kalau diisi, ini dipakai langsung sebagai {isGold ? 'gram' : 'unit'} (lebih presisi dari histori platform investasi Anda). Kalau dikosongkan, dihitung otomatis dari nominal ÷ {isGold ? 'harga emas' : 'NAV reksadana'} hari ini.
-                  </div>
-                </>
-              );
-            })()}
-            {(form.type === 'expense' || form.type === 'saving') && (
-              <>
-                <label style={styles.formLabel}>Kategori (opsional)</label>
-                {(form.type === 'expense' ? expenseCategories : savingCategories).length === 0 ? (
-                  <div style={styles.emptyHint}>
-                    Belum ada kategori {form.type === 'expense' ? 'expense' : 'saving'}.
-                    <button
-                      onClick={() => { setShowAddModal(false); setCatEditType(form.type); setShowCategoryModal(true); }}
-                      style={{ ...styles.linkBtn, display: 'block', marginTop: 6 }}
-                    >+ Buat kategori sekarang</button>
-                  </div>
-                ) : (
-                  <div style={styles.catGrid}>
-                    <button onClick={() => setForm({ ...form, categoryId: null })} style={{ ...styles.catChip, borderColor: !form.categoryId ? 'var(--text-muted)' : '#2A332C', background: !form.categoryId ? 'var(--bg-card2)' : 'transparent' }}>
-                      Tanpa kategori
-                    </button>
-                    {(form.type === 'expense' ? expenseCategories : savingCategories).map((c) => {
-                      const CatIcon = getIconComponent(c.icon);
-                      return (
-                        <button key={c.id} onClick={() => setForm({ ...form, categoryId: c.id })} style={{ ...styles.catChip, borderColor: form.categoryId === c.id ? c.color : '#2A332C', background: form.categoryId === c.id ? c.color + '22' : 'transparent' }}>
-                          <CatIcon size={13} color={c.color} />
-                          {c.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
-            )}
-            <label style={styles.formLabel}>Catatan (opsional)</label>
-            <input type="text" placeholder="Contoh: bayar wifi bulan ini" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} style={styles.input} />
-            <label style={styles.formLabel}>Tanggal</label>
-            <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} style={styles.input} />
-            <button onClick={addTransaction} style={styles.submitBtn}><Check size={16} color="#0F1410" />Simpan transaksi</button>
-          </div>
-        </div>
-      )}
 
-      {/* Modal: detail transaksi (read-only) — dibuka saat history transaksi di-klik */}
-      {selectedTxDetail && (() => {
-        const t = selectedTxDetail;
-        const isIncome = t.type === 'income';
-        const isSaving = t.type === 'saving';
-        const cat = !isIncome ? catLookup(t.category) : null;
-        const CatIcon = cat ? getIconComponent(cat.icon) : null;
-        const isSell = t.assetAction === 'sell';
-        const hasAsset = !!cat?.asset_type;
-        const unitLabel = cat?.asset_type === 'gold' ? 'gram' : 'unit';
-        const units = t.assetUnitsOverride != null ? t.assetUnitsOverride
-          : (t.assetPriceAtTx ? t.amount / t.assetPriceAtTx : null);
-        const tglFormatted = new Date(t.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-
-        return (
-          <div style={styles.modalOverlay} onClick={() => setSelectedTxDetail(null)}>
-            <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-              <div style={styles.modalHeader}>
-                <span style={styles.modalTitle}>Detail Transaksi</span>
-                <button onClick={() => setSelectedTxDetail(null)} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
+              <div>
+                <label style={styles.label}>Nominal (Rp)</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={form.amount}
+                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                  style={styles.input}
+                  autoFocus
+                />
               </div>
 
-              {/* Tipe transaksi — cuma tampilkan badge sesuai tipe transaksi ini, tidak perlu tampilkan ketiganya */}
-              <div style={styles.typeToggle}>
-                <div style={{ ...styles.typeBtn, cursor: 'default', flex: 'initial', padding: '10px 20px', ...(t.type === 'expense' ? styles.typeBtnExpenseActive : isSaving ? styles.typeBtnSavingActive : styles.typeBtnIncomeActive) }}>
-                  {t.type === 'expense' ? 'Expense' : isSaving ? 'Saving' : 'Income'}
-                </div>
-              </div>
-
-              {isSaving && hasAsset && (
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: isSell ? '#FF9466' : '#6FB7E8', background: isSell ? '#FF946622' : '#6FB7E822', padding: '4px 10px', borderRadius: 20, marginBottom: 14 }}>
-                  {isSell ? (<><TrendingDown size={12} style={{ display: 'inline', verticalAlign: -2 }} /> Transaksi Jual Aset</>) : (<><TrendingUp size={12} style={{ display: 'inline', verticalAlign: -2 }} /> Transaksi Beli Aset</>)}
+              {form.type !== 'income' && (
+                <div>
+                  <label style={styles.label}>Kategori</label>
+                  <select
+                    value={form.categoryId || ''}
+                    onChange={(e) => setForm({ ...form, categoryId: e.target.value || null })}
+                    style={styles.select}
+                  >
+                    <option value="">(Tanpa kategori)</option>
+                    {activeCatList.map((c) => (
+                      <option key={c.id} value={c.id}>{c.label}</option>
+                    ))}
+                  </select>
                 </div>
               )}
 
-              <label style={styles.formLabel}>Jumlah (Rp)</label>
-              <div style={{ ...styles.input, display: 'flex', alignItems: 'center', color: isIncome || isSell ? '#7FE8A4' : (isSaving ? '#6FB7E8' : '#FF9466'), fontWeight: 700 }}>
-                {isIncome || isSell ? '+' : isSaving ? '' : '-'}{formatRupiah(t.amount)}
+              <div>
+                <label style={styles.label}>Tanggal</label>
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={(e) => setForm({ ...form, date: e.target.value })}
+                  style={styles.input}
+                />
               </div>
 
-              {isSaving && hasAsset && (
-                <>
-                  <label style={styles.formLabel}>Jumlah {unitLabel === 'gram' ? 'gram' : 'unit'}</label>
-                  <div style={styles.input}>
-                    {units != null
-                      ? `${units.toLocaleString('id-ID', { maximumFractionDigits: 6 })} ${unitLabel}${t.assetUnitsOverride != null ? ' (input manual)' : ' (dihitung otomatis)'}`
-                      : 'Belum tercatat — harga/NAV saat transaksi belum diisi'}
-                  </div>
-                  {t.assetPriceAtTx && (
-                    <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: -6, marginBottom: 10 }}>
-                      Harga/NAV saat transaksi: {formatRupiah(t.assetPriceAtTx)} / {unitLabel}
-                    </div>
-                  )}
-
-                  {!editingDetailAsset ? (
-                    <button
-                      onClick={() => setEditingDetailAsset(true)}
-                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#6FB7E8', fontSize: 11, padding: '2px 0', marginTop: -6, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 3 }}
-                    ><Pencil size={11} style={{ display: 'inline', verticalAlign: -2, marginRight: 3 }} />Koreksi nominal/harga/unit transaksi ini</button>
-                  ) : (
-                    <div style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginTop: -6, marginBottom: 14 }}>
-                      <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 8 }}>
-                        Salah isi kolom (mis. nominal ke-input kebesaran/gram ketuker harga)? Betulkan kolom yang salah saja di bawah — kolom yang dikosongkan tidak akan diubah.
-                      </div>
-                      <label style={{ ...styles.formLabel, marginTop: 0, fontSize: 11 }}>Nominal (Rp) yang benar</label>
-                      <input
-                        type="number" inputMode="numeric"
-                        placeholder={`Nominal sekarang: ${formatRupiah(t.amount)}`}
-                        value={detailAmountValue}
-                        onChange={(e) => setDetailAmountValue(e.target.value)}
-                        style={{ ...styles.input, fontSize: 12, padding: '8px 10px' }}
-                      />
-                      <label style={{ ...styles.formLabel, fontSize: 11 }}>Jumlah gram/unit yang benar</label>
-                      <input
-                        type="number" inputMode="decimal"
-                        placeholder={cat.asset_type === 'gold' ? 'Contoh: 0.343380' : 'Contoh: 56.4905'}
-                        value={detailUnitsValue}
-                        onChange={(e) => setDetailUnitsValue(e.target.value)}
-                        style={{ ...styles.input, fontSize: 12, padding: '8px 10px' }}
-                      />
-                      <label style={{ ...styles.formLabel, fontSize: 11 }}>Atau harga/NAV per {unitLabel} yang benar</label>
-                      <input
-                        type="number" inputMode="numeric"
-                        placeholder={cat.asset_type === 'gold' ? 'Harga emas/gram saat itu' : 'NAV reksadana/unit saat itu'}
-                        value={detailPriceValue}
-                        onChange={(e) => setDetailPriceValue(e.target.value)}
-                        style={{ ...styles.input, fontSize: 12, padding: '8px 10px', marginBottom: 10 }}
-                      />
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={() => saveDetailAssetOverride(t.id)} style={{ ...styles.submitBtn, marginTop: 0, padding: '9px 0', fontSize: 12.5 }}>Simpan koreksi</button>
-                        <button onClick={() => { setEditingDetailAsset(false); setDetailPriceValue(''); setDetailUnitsValue(''); setDetailAmountValue(''); }} style={{ ...styles.submitBtn, marginTop: 0, padding: '9px 0', fontSize: 12.5, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}>Batal</button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {!isIncome && (
-                <>
-                  <label style={styles.formLabel}>Kategori</label>
-                  <div style={{ ...styles.catChip, cursor: 'default', width: '100%', boxSizing: 'border-box', borderColor: cat ? cat.color : '#2A332C', background: cat ? cat.color + '22' : 'transparent' }}>
-                    {cat && CatIcon ? <CatIcon size={13} color={cat.color} /> : null}
-                    {cat ? cat.label : 'Tanpa kategori'}
-                  </div>
-                </>
-              )}
-
-              <label style={styles.formLabel}>Catatan</label>
-              <div style={styles.input}>{t.note || '—'}</div>
-
-              <label style={styles.formLabel}>Tanggal</label>
-              <div style={styles.input}>{tglFormatted}</div>
-
-              <button
-                onClick={() => { deleteTransaction(t.id); setSelectedTxDetail(null); }}
-                style={{ ...styles.submitBtn, background: 'transparent', border: '1px solid #5A2020', color: '#FF9466', marginTop: 14 }}
-              >
-                <Trash2 size={15} color="#FF9466" />Hapus transaksi ini
-              </button>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Modal: atur budget */}
-      {showBudgetModal && (
-        <div style={styles.modalOverlay} onClick={() => setShowBudgetModal(null)}>
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <span style={styles.modalTitle}>
-                {showBudgetModal === 'expense' ? 'Atur budget expense (berlaku semua bulan)' : `Atur target saving — ${monthLabel(activeMonth)}`}
-              </span>
-              <button onClick={() => setShowBudgetModal(null)} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
-            </div>
-            <div style={{ maxHeight: 420, overflowY: 'auto', paddingRight: 4 }}>
-              {showBudgetModal === 'expense' ? (
-                <>
-                  {expenseCategories.length === 0 && <div style={styles.emptyHint}>Belum ada kategori expense.</div>}
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>
-                    Budget di sini berlaku terus tiap bulan sampai Anda ubah lagi — tidak perlu diisi ulang tiap ganti bulan.
-                  </div>
-                  {expenseCategories.map((c) => {
-                    const CatIcon = getIconComponent(c.icon);
-                    return (
-                      <div key={c.id} style={styles.budgetInputRow}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-primary)', minWidth: 150 }}>
-                          <CatIcon size={14} color={c.color} />{c.label}
-                        </span>
-                        <input type="number" inputMode="numeric" placeholder="0" defaultValue={getExpenseBudget(c.id) || ''} onBlur={(e) => setExpenseBudget(c.id, e.target.value)} style={{ ...styles.input, marginBottom: 0 }} />
-                      </div>
-                    );
-                  })}
-                </>
-              ) : (
-                <>
-                  {savingCategories.length === 0 && <div style={styles.emptyHint}>Belum ada kategori saving.</div>}
-                  {savingCategories.map((c) => {
-                    const CatIcon = getIconComponent(c.icon);
-                    return (
-                      <div key={c.id} style={styles.budgetInputRow}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-primary)', minWidth: 150 }}>
-                          <CatIcon size={14} color={c.color} />{c.label}
-                        </span>
-                        <input type="number" inputMode="numeric" placeholder="0" defaultValue={getBudgetAmount(c.id, activeMonth) || ''} onBlur={(e) => setBudgetAmount(c.id, e.target.value)} style={{ ...styles.input, marginBottom: 0 }} />
-                      </div>
-                    );
-                  })}
-                </>
-              )}
-            </div>
-            <button onClick={() => setShowBudgetModal(null)} style={styles.submitBtn}><Check size={16} color="#0F1410" />Selesai</button>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: atur goal kategori saving */}
-      {goalEditingCatId && (
-        <div style={styles.modalOverlay} onClick={() => setGoalEditingCatId(null)}>
-          <div style={{ ...styles.modalCard, maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <span style={styles.modalTitle}>Atur goal — {catLookup(goalEditingCatId)?.label}</span>
-              <button onClick={() => setGoalEditingCatId(null)} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
-            </div>
-
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>
-              Progress dihitung dari total semua transaksi saving di kategori ini sepanjang waktu (bukan cuma bulan ini).
-            </div>
-
-            <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Target total (kosongkan untuk hapus goal)</label>
-            <input type="number" inputMode="numeric" placeholder="Contoh: 15000000" value={goalForm.amount}
-              onChange={(e) => setGoalForm((f) => ({ ...f, amount: e.target.value }))} style={styles.input} />
-
-            <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Target tanggal tercapai (opsional)</label>
-            <input type="date" value={goalForm.date}
-              onChange={(e) => setGoalForm((f) => ({ ...f, date: e.target.value }))} style={styles.input} />
-
-            <button onClick={saveCategoryGoal} disabled={savingGoal} style={{ ...styles.submitBtn, opacity: savingGoal ? 0.6 : 1 }}>
-              <Check size={16} color="#0F1410" />{savingGoal ? 'Menyimpan...' : 'Simpan'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: jual aset (emas/reksadana) */}
-      {sellingCatId && (() => {
-        const cat = catLookup(sellingCatId);
-        const invest = cat ? computeInvestmentStats(cat) : null;
-        return (
-          <div style={styles.modalOverlay} onClick={() => setSellingCatId(null)}>
-            <div style={{ ...styles.modalCard, maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
-              <div style={styles.modalHeader}>
-                <span style={styles.modalTitle}>Jual aset — {cat?.label}</span>
-                <button onClick={() => setSellingCatId(null)} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
+              <div>
+                <label style={styles.label}>Catatan (Opsional)</label>
+                <input
+                  type="text"
+                  placeholder="misal: Beli pulsa, Kopi, dsb"
+                  value={form.note}
+                  onChange={(e) => setForm({ ...form, note: e.target.value })}
+                  style={styles.input}
+                />
               </div>
 
-              {invest && !invest.noDataYet && invest.heldUnits > 0 ? (
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 12, background: 'var(--bg-base)', padding: '8px 10px', borderRadius: 8 }}>
-                  {cat.asset_type === 'gold' && <>Dipegang saat ini: <b style={{ color: 'var(--text-primary)' }}>{invest.heldUnits.toFixed(6)} gram</b> (nilai ~{formatRupiah(invest.currentValue)})</>}
-                  {cat.asset_type === 'reksadana_syariah' && <>Nilai investasi saat ini: <b style={{ color: 'var(--text-primary)' }}>{formatRupiah(invest.currentValue)}</b></>}
-                </div>
-              ) : (
-                <div style={{ fontSize: 11, color: '#F5C95D', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 4 }}><AlertTriangle size={12} />Belum ada data kepemilikan yang bisa dihitung untuk kategori ini.</div>
-              )}
+              <button onClick={addTransaction} style={styles.primaryBtn}>Simpan Transaksi</button>
+            </div>
+          </div>
+        </div>
+      )}
 
-              {invest && !invest.noDataYet && invest.heldUnits > 0 && (
-                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 12, cursor: 'pointer', background: sellForm.isFullSale ? 'rgba(255,148,102,0.12)' : 'transparent', padding: 8, borderRadius: 8, border: `1px solid ${sellForm.isFullSale ? '#FF9466' : 'var(--border)'}` }}>
-                  <input type="checkbox" checked={sellForm.isFullSale}
-                    onChange={(e) => setSellForm((f) => ({ ...f, isFullSale: e.target.checked, amount: e.target.checked ? String(Math.round(invest.currentValue)) : '' }))}
-                    style={{ marginTop: 2 }} />
-                  <span style={{ fontSize: 12, color: 'var(--text-primary)' }}>
-                    <b>Ini penjualan SELURUH aset saya</b> (habis, sisa jadi 0 gram/unit).
-                    <br /><span style={{ color: 'var(--text-secondary)', fontSize: 11 }}>Nominal otomatis diisi sesuai nilai sekarang, tidak perlu diketik manual.</span>
-                  </span>
-                </label>
-              )}
+      {/* Modal Kelola Kategori */}
+      {showCategoryModal && (
+        <div style={styles.modalOverlay} onClick={() => setShowCategoryModal(false)}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <span style={styles.modalTitle}>Kelola Kategori</span>
+              <button onClick={() => setShowCategoryModal(false)} style={styles.iconBtn}><X size={18} color="var(--text-muted)" /></button>
+            </div>
 
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Nominal hasil jual (Rupiah diterima)</label>
-              <input type="number" inputMode="numeric" placeholder="Contoh: 500000" value={sellForm.amount} disabled={sellForm.isFullSale}
-                onChange={(e) => setSellForm((f) => ({ ...f, amount: e.target.value }))} style={{ ...styles.input, opacity: sellForm.isFullSale ? 0.6 : 1 }} />
-              {sellForm.isFullSale && (
-                <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: -6, marginBottom: 10 }}>
-                  Nominal dikunci otomatis karena ini penjualan seluruh aset — kalau ternyata di aplikasi investasi Anda hasil jualnya beda (misal kena potongan/biaya admin), batalkan centang di atas dan isi manual nominal yang benar-benar diterima.
-                </div>
-              )}
+            <div style={styles.typeSwitcher}>
+              <button onClick={() => setCatEditType('expense')} style={{ ...styles.typeBtn, ...(catEditType === 'expense' ? styles.typeBtnActiveExpense : {}) }}>Expense</button>
+              <button onClick={() => setCatEditType('saving')} style={{ ...styles.typeBtn, ...(catEditType === 'saving' ? styles.typeBtnActiveSaving : {}) }}>Saving</button>
+            </div>
 
-              {!sellForm.isFullSale && cat.asset_type && (
-                <>
-                  <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>
-                    {cat.asset_type === 'gold' ? 'Jumlah gram terjual (opsional, kalau tau persis dari platform investasi Anda)' : 'Jumlah unit terjual (opsional, kalau tau persis dari platform investasi Anda)'}
-                  </label>
-                  <input type="number" inputMode="decimal" placeholder={cat.asset_type === 'gold' ? 'Contoh: 0.343380' : 'Contoh: 56.789'} value={sellForm.unitsOverride}
-                    onChange={(e) => setSellForm((f) => ({ ...f, unitsOverride: e.target.value }))} style={styles.input} />
-                  <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: -6, marginBottom: 10 }}>
-                    Kalau diisi, ini dipakai langsung sebagai {cat.asset_type === 'gold' ? 'gram' : 'unit'} yang terjual (lebih presisi dari histori platform investasi Anda). Kalau dikosongkan, dihitung otomatis dari nominal ÷ {cat.asset_type === 'gold' ? 'harga emas' : 'NAV reksadana'} saat ini.
-                  </div>
-                </>
-              )}
-
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Tanggal jual</label>
-              <input type="date" value={sellForm.date}
-                onChange={(e) => setSellForm((f) => ({ ...f, date: e.target.value }))} style={styles.input} />
-
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Catatan (opsional)</label>
-              <input type="text" placeholder="Contoh: Jual sebagian buat dana darurat" value={sellForm.note}
-                onChange={(e) => setSellForm((f) => ({ ...f, note: e.target.value }))} style={styles.input} />
-
-              <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: -6, marginBottom: 12 }}>
-                {cat?.asset_type === 'gold'
-                  ? 'Untung/rugi dihitung otomatis pakai harga rata-rata beli (weighted average cost) dibandingkan harga emas terkini saat ini.'
-                  : 'Untung/rugi dihitung otomatis berdasarkan estimasi pertumbuhan reksadana sejak tiap transaksi nabung dilakukan.'}
+            {/* Form Tambah Kategori Baru */}
+            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="text"
+                  placeholder="Nama kategori baru..."
+                  value={newCatLabel}
+                  onChange={(e) => setNewCatLabel(e.target.value)}
+                  style={{ ...styles.input, flex: 1 }}
+                />
+                <button onClick={addCategory} style={styles.primaryBtnSquare}><Plus size={18} /></button>
               </div>
-
-              <button onClick={sellAsset} disabled={savingSell} style={{ ...styles.submitBtn, background: '#FF9466', opacity: savingSell ? 0.6 : 1 }}>
-                <TrendingDown size={16} color="#0F1410" />{savingSell ? 'Menyimpan...' : 'Catat Penjualan'}
-              </button>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Modal: kelola transaksi berulang */}
-      {showExportChoice && (
-        <div style={styles.modalOverlay} onClick={() => setShowExportChoice(false)}>
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <span style={styles.modalTitle}>Export Excel</span>
-              <button onClick={() => setShowExportChoice(false)} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
             </div>
 
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.6 }}>
-              Pilih transaksi mana yang mau di-export ke Excel.
-            </div>
-
-            <button
-              onClick={() => exportTransactionsExcel('filtered')}
-              style={{ ...styles.submitBtn, marginBottom: 10, background: 'var(--accent)' }}
-            >
-              Sesuai tampilan sekarang ({filteredMonthTx.length} transaksi)
-            </button>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 14, marginTop: -4 }}>
-              {monthLabel(activeMonth)}{txTypeFilter !== 'all' ? ` · tipe ${txTypeFilter}` : ''}{txSearch.trim() ? ` · cari "${txSearch.trim()}"` : ''}
-            </div>
-
-            <button
-              onClick={() => exportTransactionsExcel('all')}
-              style={{ ...styles.submitBtn, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-            >
-              Semua transaksi ({transactions.length} transaksi, sejak awal)
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showFeedbackModal && (
-        <div style={styles.modalOverlay} onClick={() => setShowFeedbackModal(false)}>
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <span style={styles.modalTitle}>Kasih masukan</span>
-              <button onClick={() => setShowFeedbackModal(false)} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
-            </div>
-
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.6 }}>
-              Nemu bug, punya ide fitur, atau cuma mau cerita pengalaman pakai Dompet App? Tulis di sini, langsung masuk ke saya.
-            </div>
-
-            <label style={styles.formLabel}>Kategori</label>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-              {[['bug', Bug, 'Bug'], ['saran', Lightbulb, 'Saran'], ['lainnya', MessageSquare, 'Lainnya']].map(([val, Icon, label]) => (
-                <button key={val} onClick={() => setFeedbackForm((f) => ({ ...f, category: val }))}
-                  style={{
-                    flex: 1, padding: '8px 0', borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                    border: `1px solid ${feedbackForm.category === val ? '#7FE8A4' : 'var(--border)'}`,
-                    background: feedbackForm.category === val ? '#7FE8A422' : 'transparent',
-                    color: feedbackForm.category === val ? '#7FE8A4' : 'var(--text-secondary)',
-                  }}><Icon size={13} style={{ display: 'inline', verticalAlign: -2, marginRight: 4 }} />{label}</button>
-              ))}
-            </div>
-
-            <label style={styles.formLabel}>Rating pengalaman pakai app (opsional)</label>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-              {[1, 2, 3, 4, 5].map((n) => (
-                <button key={n} onClick={() => setFeedbackForm((f) => ({ ...f, rating: f.rating === n ? 0 : n }))}
-                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 22, padding: 0, opacity: feedbackForm.rating >= n ? 1 : 0.3 }}>
-                  <Star size={20} fill={feedbackForm.rating >= n ? 'currentColor' : 'none'} />
-                </button>
-              ))}
-            </div>
-
-            <label style={styles.formLabel}>Pesan</label>
-            <textarea
-              placeholder="Ceritain di sini..."
-              value={feedbackForm.message}
-              onChange={(e) => setFeedbackForm((f) => ({ ...f, message: e.target.value }))}
-              rows={4}
-              style={{ ...styles.input, resize: 'vertical', fontFamily: 'inherit' }}
-            />
-
-            <button onClick={sendFeedback} disabled={savingFeedback || !feedbackForm.message.trim()} style={{ ...styles.submitBtn, opacity: (savingFeedback || !feedbackForm.message.trim()) ? 0.6 : 1, marginTop: 4 }}>
-              {savingFeedback ? 'Mengirim...' : 'Kirim masukan'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {feedbackSentMsg && (
-        <div style={{
-          position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)',
-          background: 'var(--bg-card)', border: '1px solid #7FE8A4', borderRadius: 12,
-          padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 10,
-          boxShadow: '0 8px 24px rgba(0,0,0,0.35)', zIndex: 60, maxWidth: 'calc(100vw - 32px)',
-        }}>
-          <Check size={18} color="#7FE8A4" />
-          <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>Makasih! Masukan kamu sudah terkirim.</span>
-        </div>
-      )}
-
-      {showRecurringModal && (
-        <div style={styles.modalOverlay} onClick={() => setShowRecurringModal(false)}>
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <span style={styles.modalTitle}>Transaksi berulang</span>
-              <button onClick={() => setShowRecurringModal(false)} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
-            </div>
-
-            <div style={{ maxHeight: 420, overflowY: 'auto', paddingRight: 4 }}>
-              {/* Daftar aturan yang sudah ada */}
-              {recurringList.length === 0 && <div style={styles.emptyHint}>Belum ada transaksi berulang.</div>}
-              {recurringList.map((r) => {
-                const cat = r.category_id ? catLookup(r.category_id) : null;
+            {/* List Kategori Eksisting */}
+            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 300, overflowY: 'auto' }}>
+              {activeCatList.map((c) => {
+                const CatIcon = getIconComponent(c.icon);
+                const isEditing = editingCatId === c.id;
                 return (
-                  <div key={r.id} style={{ ...styles.budgetInputRow, opacity: r.is_active ? 1 : 0.5, flexWrap: 'wrap' }}>
-                    <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-                      <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {r.note || cat?.label || (r.type === 'income' ? 'Income' : '-')}
-                      </span>
-                      <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                        {r.type === 'income' ? 'Income' : `${r.type === 'expense' ? 'Expense' : 'Saving'} · ${cat?.label || '-'}`} · Tgl {r.day_of_month} · {formatRupiah(r.amount)}
-                      </span>
-                    </span>
-                    <button onClick={() => toggleRecurringNotify(r.id, r.notify_enabled, r.notify_days_before)} style={{ ...styles.linkBtn, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4, color: r.notify_enabled ? '#7FE8A4' : 'var(--text-muted)' }} title={r.notify_enabled ? 'Pengingat aktif — klik untuk matikan' : 'Aktifkan pengingat sebelum jatuh tempo'}>
-                      {r.notify_enabled ? <Bell size={13} /> : <BellOff size={13} />}
-                    </button>
-                    <button onClick={() => toggleRecurringActive(r.id, r.is_active)} style={{ ...styles.linkBtn, whiteSpace: 'nowrap' }}>
-                      {r.is_active ? 'Nonaktifkan' : 'Aktifkan'}
-                    </button>
-                    <button onClick={() => deleteRecurring(r.id)} style={styles.deleteBtn}><Trash2 size={12} color="#6B7568" /></button>
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--bg-card2)', borderRadius: 8, gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 6, background: c.color + '25', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <CatIcon size={14} color={c.color} />
+                      </div>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editingCatLabel}
+                          onChange={(e) => setEditingCatLabel(e.target.value)}
+                          style={{ ...styles.input, padding: '4px 8px', fontSize: 12 }}
+                        />
+                      ) : (
+                        <span style={{ fontSize: 13, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.label}</span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      {isEditing ? (
+                        <button onClick={saveEditCategory} style={styles.iconBtn}><Check size={16} color="#7FE8A4" /></button>
+                      ) : (
+                        <button onClick={() => startEditCategory(c)} style={styles.iconBtn}><Pencil size={14} color="var(--text-muted)" /></button>
+                      )}
+                      <button onClick={() => deleteCategory(c.id)} style={styles.iconBtn}><Trash2 size={14} color="#FF9466" /></button>
+                    </div>
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
 
-              {/* Form tambah aturan baru */}
-              <div style={{ ...styles.budgetGroupLabel, marginTop: 16 }}>Tambah transaksi berulang</div>
-              <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-                {['expense', 'income', 'saving'].map((t) => (
-                  <button key={t} onClick={() => setRecurringForm((f) => ({ ...f, type: t, categoryId: null }))}
-                    style={{
-                      flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 12, cursor: 'pointer',
-                      border: `1px solid ${recurringForm.type === t ? 'var(--accent)' : 'var(--border)'}`,
-                      background: recurringForm.type === t ? 'var(--accent)' : 'transparent',
-                      color: recurringForm.type === t ? 'var(--accent-text)' : 'var(--text-secondary)',
-                      fontWeight: recurringForm.type === t ? 700 : 500,
-                    }}>
-                    {t === 'expense' ? 'Expense' : t === 'income' ? 'Income' : 'Saving'}
-                  </button>
-                ))}
+      {/* Modal Atur Budget Expense / Saving */}
+      {showBudgetModal && (
+        <div style={styles.modalOverlay} onClick={() => setShowBudgetModal(null)}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <span style={styles.modalTitle}>Atur Budget Expense</span>
+              <button onClick={() => setShowBudgetModal(null)} style={styles.iconBtn}><X size={18} color="var(--text-muted)" /></button>
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, marginBottom: 16 }}>
+              Tentukan batas maksimal pengeluaran bulanan per kategori.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 350, overflowY: 'auto' }}>
+              {expenseCategories.map((c) => (
+                <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-primary)', flex: 1 }}>{c.label}</span>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={getExpenseBudget(c.id) || ''}
+                    onChange={(e) => setExpenseBudget(c.id, e.target.value)}
+                    style={{ ...styles.input, width: 140, textAlign: 'right' }}
+                  />
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setShowBudgetModal(null)} style={{ ...styles.primaryBtn, marginTop: 16 }}>Selesai</button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Kelola Transaksi Berulang */}
+      {showRecurringModal && (
+        <div style={styles.modalOverlay} onClick={() => setShowRecurringModal(false)}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <span style={styles.modalTitle}>Transaksi Berulang</span>
+              <button onClick={() => setShowRecurringModal(false)} style={styles.iconBtn}><X size={18} color="var(--text-muted)" /></button>
+            </div>
+
+            {/* Form Tambah Baru */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12, background: 'var(--bg-card2)', padding: 12, borderRadius: 10 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>+ Tambah Jadwal Rutin</span>
+              <div style={styles.typeSwitcher}>
+                <button onClick={() => setRecurringForm({ ...recurringForm, type: 'expense' })} style={{ ...styles.typeBtn, ...(recurringForm.type === 'expense' ? styles.typeBtnActiveExpense : {}) }}>Expense</button>
+                <button onClick={() => setRecurringForm({ ...recurringForm, type: 'income' })} style={{ ...styles.typeBtn, ...(recurringForm.type === 'income' ? styles.typeBtnActiveIncome : {}) }}>Income</button>
               </div>
-
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <input
+                  type="number"
+                  placeholder="Nominal (Rp)"
+                  value={recurringForm.amount}
+                  onChange={(e) => setRecurringForm({ ...recurringForm, amount: e.target.value })}
+                  style={styles.input}
+                />
+                <input
+                  type="number"
+                  min="1"
+                  max="31"
+                  placeholder="Tgl (1-31)"
+                  value={recurringForm.dayOfMonth}
+                  onChange={(e) => setRecurringForm({ ...recurringForm, dayOfMonth: e.target.value })}
+                  style={styles.input}
+                />
+              </div>
               {recurringForm.type !== 'income' && (
                 <select
                   value={recurringForm.categoryId || ''}
-                  onChange={(e) => setRecurringForm((f) => ({ ...f, categoryId: e.target.value }))}
-                  style={{ ...styles.input }}
+                  onChange={(e) => setRecurringForm({ ...recurringForm, categoryId: e.target.value || null })}
+                  style={styles.select}
                 >
-                  <option value="">Pilih kategori...</option>
-                  {(recurringForm.type === 'saving' ? savingCategories : expenseCategories).map((c) => (
-                    <option key={c.id} value={c.id}>{c.label}</option>
-                  ))}
+                  <option value="">-- Pilih Kategori --</option>
+                  {expenseCategories.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
                 </select>
               )}
-
-              <input type="text" placeholder="Catatan (mis. Gaji Bulanan, Tagihan Wifi)" value={recurringForm.note}
-                onChange={(e) => setRecurringForm((f) => ({ ...f, note: e.target.value }))} style={styles.input} />
-
-              <div style={{ display: 'flex', gap: 10 }}>
-                <input type="number" inputMode="numeric" placeholder="Nominal" value={recurringForm.amount}
-                  onChange={(e) => setRecurringForm((f) => ({ ...f, amount: e.target.value }))} style={{ ...styles.input, flex: 1 }} />
-                <input type="number" inputMode="numeric" min="1" max="31" placeholder="Tgl (1-31)" value={recurringForm.dayOfMonth}
-                  onChange={(e) => setRecurringForm((f) => ({ ...f, dayOfMonth: e.target.value }))} style={{ ...styles.input, width: 110 }} />
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: -6, marginBottom: 12 }}>
-                Kalau bulan tidak punya tanggal itu (mis. tanggal 31 di bulan 30 hari), otomatis dipakai tanggal terakhir bulan itu.
-              </div>
-
-              <div
-                onClick={() => setRecurringForm((f) => ({ ...f, notifyEnabled: !f.notifyEnabled }))}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: recurringForm.notifyEnabled ? 8 : 12 }}
-              >
-                {recurringForm.notifyEnabled ? <Bell size={15} color="#7FE8A4" /> : <BellOff size={15} color="#9CA89F" />}
-                <span style={{ fontSize: 12.5, color: recurringForm.notifyEnabled ? '#7FE8A4' : 'var(--text-secondary)', fontWeight: 600 }}>
-                  Ingatkan lewat notifikasi sebelum jatuh tempo
-                </span>
-              </div>
-
-              {recurringForm.notifyEnabled && (
-                <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
-                  {[{ v: 7, l: 'H-7' }, { v: 3, l: 'H-3' }, { v: 1, l: 'H-1' }, { v: 0, l: 'Hari-H' }].map((opt) => {
-                    const active = recurringForm.notifyDaysBefore.includes(opt.v);
-                    return (
-                      <button
-                        key={opt.v}
-                        onClick={() => setRecurringForm((f) => ({
-                          ...f,
-                          notifyDaysBefore: active ? f.notifyDaysBefore.filter((d) => d !== opt.v) : [...f.notifyDaysBefore, opt.v],
-                        }))}
-                        style={{
-                          padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                          border: `1px solid ${active ? '#7FE8A4' : 'var(--border)'}`,
-                          background: active ? '#7FE8A422' : 'transparent',
-                          color: active ? '#7FE8A4' : 'var(--text-secondary)',
-                        }}
-                      >{opt.l}</button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {recurringForm.notifyEnabled && !pushEnabled && (
-                <div style={{ fontSize: 10.5, color: '#F5C95D', marginTop: -6, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <AlertTriangle size={11} />Nyalakan dulu ikon bel di header supaya notifikasi bisa terkirim ke browser ini.
-                </div>
-              )}
-
-              <button onClick={addRecurring} disabled={savingRecurring} style={{ ...styles.submitBtn, opacity: savingRecurring ? 0.6 : 1 }}>
-                <Check size={16} color="#0F1410" />{savingRecurring ? 'Menyimpan...' : 'Tambah'}
+              <input
+                type="text"
+                placeholder="Catatan (misal: Wifi, Gaji, Cicilan)"
+                value={recurringForm.note}
+                onChange={(e) => setRecurringForm({ ...recurringForm, note: e.target.value })}
+                style={styles.input}
+              />
+              <button onClick={addRecurring} disabled={savingRecurring} style={styles.primaryBtn}>
+                {savingRecurring ? 'Menyimpan...' : 'Simpan Jadwal'}
               </button>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* Modal: kelola kategori */}
-      {showCategoryModal && (
-        <div style={styles.modalOverlay} onClick={() => { setShowCategoryModal(false); setEditingCatId(null); setNewCatLabel(''); setShowIconPicker(false); setShowEditIconPicker(false); }}>
-          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <span style={styles.modalTitle}>Kelola kategori</span>
-              <button onClick={() => { setShowCategoryModal(false); setEditingCatId(null); setNewCatLabel(''); setShowIconPicker(false); setShowEditIconPicker(false); }} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
-            </div>
-            <div style={styles.typeToggle}>
-              <button onClick={() => { setCatEditType('expense'); setEditingCatId(null); }} style={{ ...styles.typeBtn, ...(catEditType === 'expense' ? styles.typeBtnExpenseActive : {}) }}>Expense</button>
-              <button onClick={() => { setCatEditType('saving'); setEditingCatId(null); }} style={{ ...styles.typeBtn, ...(catEditType === 'saving' ? styles.typeBtnSavingActive : {}) }}>Saving</button>
-            </div>
-
-            {/* Daftar kategori */}
-            <div style={{ maxHeight: 300, overflowY: 'auto', paddingRight: 4, marginBottom: 16 }}>
-              {activeCatList.length === 0 && <div style={styles.emptyHint}>Belum ada kategori. Tambahkan di bawah.</div>}
-              {activeCatList.map((c) => {
-                const CatIcon = getIconComponent(c.icon);
+            {/* List Transaksi Berulang */}
+            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 250, overflowY: 'auto' }}>
+              {recurringList.map((r) => {
+                const cat = r.category_id ? catLookup(r.category_id) : null;
                 return (
-                  <div key={c.id} style={{ ...styles.categoryRow, flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
-                    {editingCatId === c.id ? (
-                      <>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <button onClick={() => setShowEditIconPicker(!showEditIconPicker)} style={{ width: 34, height: 34, borderRadius: 8, background: c.color + '25', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
-                            {React.createElement(getIconComponent(editingCatIcon), { size: 16, color: c.color })}
-                          </button>
-                          <span style={styles.iconNameTag}>{ICON_LIST.find((i) => i.id === editingCatIcon)?.label || 'Ikon'}</span>
-                          <input type="text" value={editingCatLabel} onChange={(e) => setEditingCatLabel(e.target.value)} style={{ ...styles.input, marginBottom: 0, flex: 1 }} autoFocus />
-                          <button onClick={saveEditCategory} style={styles.smallIconBtn}><Check size={15} color="#7FE8A4" /></button>
-                          <button onClick={() => { setEditingCatId(null); setShowEditIconPicker(false); }} style={styles.smallIconBtn}><X size={15} color="#9CA89F" /></button>
-                        </div>
-                        {/* Toggle "tandai sebagai Emas/Reksadana Syariah" SUDAH DICOPOT (Task 4.5).
-                            Sejak modul Aset (Task 3.x), cara resmi kelola investasi adalah lewat
-                            halaman Aset (asset_accounts), bukan lewat kategori lagi -- toggle ini
-                            kalau dibiarkan aktif bisa bikin data baru "nyasar" ke tabel categories
-                            lama yang sudah ditinggalkan. Nilai asset_type kategori LAMA (mis. kategori
-                            "Invest Emas digital di Peluang") tetap dipertahankan apa adanya (tidak
-                            di-null-kan) kalau kategori itu di-edit untuk keperluan lain (ganti nama/ikon). */}
-                        {showEditIconPicker && (
-                          <>
-                            <div style={styles.iconPreviewBar}>{previewIconLabel || 'Sentuh ikon untuk lihat namanya'}</div>
-                            <div style={styles.iconGrid}>
-                              {ICON_LIST.map((ic) => (
-                                <button key={ic.id}
-                                  onClick={() => { setEditingCatIcon(ic.id); setShowEditIconPicker(false); setPreviewIconLabel(null); }}
-                                  onMouseEnter={() => setPreviewIconLabel(ic.label)}
-                                  onMouseLeave={() => setPreviewIconLabel(null)}
-                                  onTouchStart={() => setPreviewIconLabel(ic.label)}
-                                  style={{ ...styles.iconChip, borderColor: editingCatIcon === ic.id ? '#7FE8A4' : '#2A332C', background: editingCatIcon === ic.id ? '#7FE8A422' : 'transparent' }}
-                                  title={ic.label}>
-                                  <ic.Icon size={16} color={editingCatIcon === ic.id ? '#7FE8A4' : 'var(--text-muted)'} />
-                                </button>
-                              ))}
-                            </div>
-                          </>
-                        )}
-                      </>
-                    ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ width: 30, height: 30, borderRadius: 8, background: c.color + '25', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <CatIcon size={14} color={c.color} />
-                        </div>
-                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', maxWidth: 88 }}>
-                          {COLOR_PALETTE.map((col) => (
-                            <button key={col} onClick={() => setCategoryColor(c.id, col)} style={{ width: 14, height: 14, borderRadius: '50%', background: col, border: c.color === col ? '2px solid #EAF0EA' : '2px solid transparent', cursor: 'pointer', padding: 0, flexShrink: 0 }} />
-                          ))}
-                        </div>
-                        <span style={{ flex: 1, fontSize: 13, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.label}</span>
-                        <button onClick={() => startEditCategory(c)} style={styles.smallIconBtn}><Pencil size={14} color="#9CA89F" /></button>
-                        <button onClick={() => deleteCategory(c.id)} style={styles.smallIconBtn}><Trash2 size={14} color="#FF9466" /></button>
-                      </div>
-                    )}
+                  <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--bg-card2)', borderRadius: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{r.note || cat?.label || 'Rutin'}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Tiap tgl {r.day_of_month} · {formatRupiah(r.amount)}</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <button onClick={() => toggleRecurringActive(r.id, r.is_active)} style={{ ...styles.linkBtn, fontSize: 11, color: r.is_active ? '#7FE8A4' : 'var(--text-muted)' }}>
+                        {r.is_active ? 'Aktif' : 'Mati'}
+                      </button>
+                      <button onClick={() => deleteRecurring(r.id)} style={styles.iconBtn}><Trash2 size={14} color="#FF9466" /></button>
+                    </div>
                   </div>
                 );
               })}
             </div>
-
-            {/* Tambah kategori baru */}
-            <label style={styles.formLabel}>Tambah kategori baru</label>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-              <button onClick={() => setShowIconPicker(!showIconPicker)}
-                style={{ width: 38, height: 38, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-base)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
-                title="Pilih ikon">
-                {React.createElement(getIconComponent(newCatIcon), { size: 18, color: 'var(--text-secondary)' })}
-              </button>
-              <span style={styles.iconNameTag}>{ICON_LIST.find((i) => i.id === newCatIcon)?.label || 'Pilih ikon'}</span>
-              <input type="text" placeholder={catEditType === 'saving' ? 'Contoh: Emergency Fund' : 'Contoh: Belanja Bulanan'} value={newCatLabel} onChange={(e) => setNewCatLabel(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addCategory(); }} style={{ ...styles.input, marginBottom: 0, flex: 1 }} />
-              <button onClick={addCategory} style={{ ...styles.smallIconBtn, width: 38, height: 38, background: '#7FE8A4', flexShrink: 0 }}><Plus size={18} color="#0F1410" /></button>
-            </div>
-            {/* Toggle "tandai sebagai Emas/Reksadana Syariah" SUDAH DICOPOT (Task 4.5) --
-                sama seperti di modal edit, supaya kategori BARU tidak bisa lagi ditandai
-                sebagai aset lewat jalur lama. newCatAssetType tetap null selamanya sekarang,
-                jadi kategori baru selalu asset_type: null (sesuai desain baru). */}
-            {showIconPicker && (
-              <>
-                <div style={styles.iconPreviewBar}>{previewIconLabel || 'Sentuh ikon untuk lihat namanya'}</div>
-                <div style={styles.iconGrid}>
-                  {ICON_LIST.map((ic) => (
-                    <button key={ic.id}
-                      onClick={() => { setNewCatIcon(ic.id); setShowIconPicker(false); setPreviewIconLabel(null); }}
-                      onMouseEnter={() => setPreviewIconLabel(ic.label)}
-                      onMouseLeave={() => setPreviewIconLabel(null)}
-                      onTouchStart={() => setPreviewIconLabel(ic.label)}
-                      style={{ ...styles.iconChip, borderColor: newCatIcon === ic.id ? '#7FE8A4' : '#2A332C', background: newCatIcon === ic.id ? '#7FE8A422' : 'transparent' }}
-                      title={ic.label}>
-                      <ic.Icon size={16} color={newCatIcon === ic.id ? '#7FE8A4' : 'var(--text-muted)'} />
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-
-            <button onClick={() => { setShowCategoryModal(false); setEditingCatId(null); setNewCatLabel(''); setShowIconPicker(false); setShowEditIconPicker(false); }} style={styles.submitBtn}><Check size={16} color="#0F1410" />Selesai</button>
           </div>
         </div>
       )}
-    </div>
-  );
-}
 
-function TxRow({ t, onDelete, catLookup, onSelect }) {
-  const isIncome = t.type === 'income';
-  const isSaving = t.type === 'saving';
-  const cat = isIncome ? null : catLookup(t.category);
-  const CatIcon = cat ? getIconComponent(cat.icon) : null;
-  let iconEl = <TrendingDown size={15} color={cat ? cat.color : '#A8A89C'} />;
-  let iconBg = cat ? cat.color + '22' : '#A8A89C22';
-  let amountColor = '#FF9466'; let sign = '-';
-  if (isIncome) { iconEl = <TrendingUp size={15} color="#7FE8A4" />; iconBg = '#7FE8A422'; amountColor = '#7FE8A4'; sign = '+'; }
-  else if (isSaving) {
-    iconEl = <PiggyBank size={15} color={cat ? cat.color : '#6FB7E8'} />;
-    if (t.assetAction === 'sell') {
-      // Jual aset = uang MASUK (dari investasi kembali ke saldo utama), bukan keluar
-      amountColor = '#7FE8A4'; sign = '+';
-    } else {
-      amountColor = '#6FB7E8';
-    }
-  }
-  if (cat && CatIcon) iconEl = <CatIcon size={15} color={cat.color} />;
-  return (
-    <div style={{ ...styles.txRow, cursor: 'pointer' }} onClick={() => onSelect && onSelect(t)}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-        <div style={{ width: 32, height: 32, borderRadius: 8, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{iconEl}</div>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.note || (isIncome ? 'Income' : cat ? cat.label : 'Lainnya')}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{new Date(t.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</div>
+      {/* Modal Detail Transaksi */}
+      {selectedTxDetail && (
+        <div style={styles.modalOverlay} onClick={() => setSelectedTxDetail(null)}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <span style={styles.modalTitle}>Detail Transaksi</span>
+              <button onClick={() => setSelectedTxDetail(null)} style={styles.iconBtn}><X size={18} color="var(--text-muted)" /></button>
+            </div>
+            <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div><b>Nominal:</b> {formatRupiah(selectedTxDetail.amount)}</div>
+              <div><b>Tipe:</b> {selectedTxDetail.type}</div>
+              <div><b>Tanggal:</b> {selectedTxDetail.date}</div>
+              <div><b>Catatan:</b> {selectedTxDetail.note || '-'}</div>
+            </div>
+            <button onClick={() => setSelectedTxDetail(null)} style={{ ...styles.primaryBtn, marginTop: 16 }}>Tutup</button>
+          </div>
         </div>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        <span style={{ fontSize: 13, fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif", color: amountColor }}>{sign}{formatRupiah(t.amount)}</span>
-        <button onClick={(e) => { e.stopPropagation(); onDelete(t.id); }} style={styles.deleteBtn}><Trash2 size={14} color="#6B7568" /></button>
-      </div>
+      )}
+
+      {/* Modal Feedback */}
+      {showFeedbackModal && (
+        <div style={styles.modalOverlay} onClick={() => setShowFeedbackModal(false)}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <span style={styles.modalTitle}>Kirim Masukan</span>
+              <button onClick={() => setShowFeedbackModal(false)} style={styles.iconBtn}><X size={18} color="var(--text-muted)" /></button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
+              <select
+                value={feedbackForm.category}
+                onChange={(e) => setFeedbackForm({ ...feedbackForm, category: e.target.value })}
+                style={styles.select}
+              >
+                <option value="saran">Saran Fitur Baru</option>
+                <option value="bug">Lapor Bug/Eror</option>
+                <option value="lainnya">Lainnya</option>
+              </select>
+              <textarea
+                placeholder="Tuliskan masukan kamu di sini..."
+                value={feedbackForm.message}
+                onChange={(e) => setFeedbackForm({ ...feedbackForm, message: e.target.value })}
+                style={{ ...styles.input, height: 100, resize: 'none' }}
+              />
+              <button onClick={sendFeedback} disabled={savingFeedback} style={styles.primaryBtn}>
+                {savingFeedback ? 'Mengirim...' : 'Kirim Masukan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Pilihan Scope Export Excel */}
+      {showExportChoice && (
+        <div style={styles.modalOverlay} onClick={() => setShowExportChoice(false)}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <span style={styles.modalTitle}>Export Transaksi Excel</span>
+              <button onClick={() => setShowExportChoice(false)} style={styles.iconBtn}><X size={18} color="var(--text-muted)" /></button>
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, marginBottom: 16 }}>
+              Pilih porsi data yang ingin diunduh ke file Excel.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button onClick={() => exportTransactionsExcel('filtered')} style={styles.primaryBtn}>
+                Cuma yang Tampil di Layar ({filteredMonthTx.length} transaksi)
+              </button>
+              <button onClick={() => exportTransactionsExcel('all')} style={{ ...styles.primaryBtn, background: 'var(--bg-card2)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
+                Semua Transaksi dari Awal ({transactions.length} transaksi)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pop-up Onboarding / Panduan */}
+      {showOnboarding && (
+        <>
+          {spotlightRect && (
+            <div
+              style={{
+                position: 'fixed',
+                top: spotlightRect.top - 4,
+                left: spotlightRect.left - 4,
+                width: spotlightRect.width + 8,
+                height: spotlightRect.height + 8,
+                borderRadius: 12,
+                border: '2px solid #7FE8A4',
+                boxShadow: '0 0 0 9999px rgba(0,0,0,0.65)',
+                pointerEvents: 'none',
+                zIndex: 99,
+              }}
+            />
+          )}
+          <div style={styles.onboardingCard}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              {React.createElement(ONBOARDING_STEPS[onboardingStep].icon, { size: 20, color: ONBOARDING_STEPS[onboardingStep].color })}
+              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>{ONBOARDING_STEPS[onboardingStep].title}</span>
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 16 }}>
+              {ONBOARDING_STEPS[onboardingStep].desc}
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <button onClick={finishOnboarding} style={styles.linkBtn}>Lewati Tour</button>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {onboardingStep > 0 && <button onClick={prevStep} style={{ ...styles.primaryBtn, padding: '6px 12px', fontSize: 12 }}>Kembali</button>}
+                <button onClick={nextStep} style={{ ...styles.primaryBtn, padding: '6px 12px', fontSize: 12 }}>
+                  {onboardingStep === ONBOARDING_STEPS.length - 1 ? 'Selesai' : 'Lanjut'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
     </div>
   );
 }
 
 const styles = {
-  errorBanner: { background: '#3A1A18', color: '#FF9466', fontSize: 12, padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 6 },
-  errorBox: { display: 'flex', gap: 8, fontSize: 12.5, padding: '10px 12px', borderRadius: 8 },
-  csvBtn: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
-  logoMark: { width: 30, height: 30, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  logoText: { fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 17, letterSpacing: '-0.02em', color: 'var(--text-primary)' },
-  monthBtn: { width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  monthSelect: { background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 7, padding: '5px 8px', fontSize: 12, cursor: 'pointer' },
-  tabBtn: { background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: 13, padding: '8px 12px', borderRadius: 8, cursor: 'pointer', fontWeight: 500 },
-  tabBtnActive: { background: 'var(--bg-card)', color: 'var(--text-primary)' },
-  settingsBtn: { marginLeft: 'auto', background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
-  summaryGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 8 },
-  summaryCard: { background: 'var(--bg-card)', borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 6 },
-  summaryLabel: { fontSize: 12, color: 'var(--text-secondary)' },
-  summaryIconRow: { display: 'flex', alignItems: 'center', gap: 6 },
-  balanceNumber: { fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 28, letterSpacing: '-0.02em' },
-  summaryNumber: { fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 18 },
-  sectionHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, marginTop: 4 },
-  sectionTitle: { fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' },
-  linkBtn: { background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: 12, cursor: 'pointer', fontWeight: 500 },
-  budgetCard: { background: 'var(--bg-card)', borderRadius: 14, padding: '14px 16px' },
-  emptyCard: { background: 'var(--bg-card)', borderRadius: 14, padding: '20px 16px', textAlign: 'center' },
-  barTrack: { height: 5, borderRadius: 3, background: 'var(--bg-card2)', overflow: 'hidden', marginBottom: 2 },
-  barFill: { height: '100%', borderRadius: 3, transition: 'width 0.4s ease' },
-  txList: { display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 20 },
-  txRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)' },
-  deleteBtn: { background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, display: 'flex' },
-  emptyHint: { fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' },
-  legendWrap: { display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10, marginBottom: 24 },
-  legendItem: { display: 'flex', alignItems: 'center', gap: 8 },
-  legendItem2: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-secondary)' },
-  modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 50 },
-  modalCard: { background: 'var(--bg-card)', borderRadius: '20px 20px 0 0', padding: 20, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 -8px 30px rgba(0,0,0,0.4)' },
-  modalHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  logoMark: { width: 32, height: 32, borderRadius: 10, background: '#7FE8A4', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  logoText: { fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 18, color: 'var(--text-primary)' },
+  monthBtn: { background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)', width: 28, height: 28, borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 },
+  monthSelect: { background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '4px 8px', borderRadius: 8, fontSize: 12, outline: 'none', cursor: 'pointer' },
+  tabBtn: { background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 13, fontWeight: 500, padding: '6px 12px', borderRadius: 8, cursor: 'pointer' },
+  tabBtnActive: { background: 'var(--bg-card2)', color: 'var(--text-primary)', fontWeight: 600 },
+  settingsBtn: { background: 'var(--bg-card)', border: '1px solid var(--border)', width: 32, height: 32, borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  summaryGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 },
+  summaryCard: { background: 'var(--bg-card)', border: '1px solid var(--border)', padding: 12, borderRadius: 12, display: 'flex', flexDirection: 'column', gap: 4 },
+  summaryLabel: { fontSize: 11, color: 'var(--text-muted)' },
+  summaryIconRow: { display: 'flex', alignItems: 'center', gap: 4 },
+  balanceNumber: { fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 22 },
+  summaryNumber: { fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 15 },
+  sectionHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  sectionTitle: { fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' },
+  linkBtn: { background: 'none', border: 'none', color: '#7FE8A4', fontSize: 12, cursor: 'pointer', padding: 0 },
+  emptyCard: { background: 'var(--bg-card)', border: '1px solid var(--border)', padding: 16, borderRadius: 12, textAlign: 'center' },
+  budgetCard: { background: 'var(--bg-card)', border: '1px solid var(--border)', padding: 12, borderRadius: 12 },
+  barTrack: { height: 6, background: 'var(--bg-input)', borderRadius: 3, overflow: 'hidden' },
+  barFill: { height: '100%', borderRadius: 3 },
+  txList: { display: 'flex', flexDirection: 'column', gap: 8 },
+  txRow: { background: 'var(--bg-card)', border: '1px solid var(--border)', padding: 10, borderRadius: 12, display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' },
+  deleteBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: 4 },
+  card: { background: 'var(--bg-card)', border: '1px solid var(--border)', padding: 16, borderRadius: 12 },
+  modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 },
+  modalContent: { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 20, width: '100%', maxWidth: 400, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' },
+  modalHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
   modalTitle: { fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 16, color: 'var(--text-primary)' },
-  iconBtn: { background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', padding: 4 },
-  typeToggle: { display: 'flex', gap: 6, marginBottom: 18 },
-  typeBtn: { flex: 1, padding: '10px 0', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12.5, fontWeight: 500, cursor: 'pointer' },
-  typeBtnExpenseActive: { background: '#FF946622', borderColor: '#FF9466', color: '#FF9466' },
-  typeBtnSavingActive: { background: '#6FB7E822', borderColor: '#6FB7E8', color: '#6FB7E8' },
-  typeBtnIncomeActive: { background: '#7FE8A422', borderColor: '#7FE8A4', color: '#7FE8A4' },
-  formLabel: { display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6, marginTop: 14 },
-  input: { width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', marginBottom: 4 },
-  catGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 },
-  catChip: { display: 'flex', alignItems: 'center', gap: 6, padding: '9px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-primary)', fontSize: 12, cursor: 'pointer', textAlign: 'left' },
-  submitBtn: { width: '100%', marginTop: 20, padding: '13px 0', borderRadius: 12, border: 'none', background: 'var(--accent)', color: 'var(--accent-text)', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  budgetInputRow: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 },
-  budgetGroupLabel: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 },
-  categoryRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--border)' },
-  smallIconBtn: { background: 'transparent', border: 'none', cursor: 'pointer', padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6, flexShrink: 0 },
-  iconGrid: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, padding: '10px 0', marginBottom: 8, maxHeight: 220, overflowY: 'auto' },
-  iconChip: { width: 36, height: 36, borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
-  iconNameTag: { fontSize: 11, color: 'var(--text-secondary)', flexShrink: 0, maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  iconPreviewBar: { fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center', padding: '6px 0', marginTop: 4, minHeight: 18 },
+  iconBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: 4 },
+  typeSwitcher: { display: 'flex', gap: 6, background: 'var(--bg-input)', padding: 4, borderRadius: 10, marginTop: 12 },
+  typeBtn: { flex: 1, padding: '6px 0', border: 'none', background: 'none', color: 'var(--text-muted)', fontSize: 12, fontWeight: 500, borderRadius: 8, cursor: 'pointer' },
+  typeBtnActiveExpense: { background: '#FF9466', color: '#0F1410', fontWeight: 600 },
+  typeBtnActiveIncome: { background: '#7FE8A4', color: '#0F1410', fontWeight: 600 },
+  typeBtnActiveSaving: { background: '#6FB7E8', color: '#0F1410', fontWeight: 600 },
+  label: { fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4 },
+  input: { width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', color: 'var(--text-primary)', fontSize: 13, outline: 'none' },
+  select: { width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', color: 'var(--text-primary)', fontSize: 13, outline: 'none' },
+  primaryBtn: { width: '100%', background: 'var(--accent)', border: 'none', color: 'var(--accent-text)', padding: '10px 0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' },
+  primaryBtnSquare: { background: 'var(--accent)', border: 'none', color: 'var(--accent-text)', width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
+  errorBanner: { background: '#3A1818', color: '#FF9466', padding: '8px 16px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 },
+  errorBox: { background: '#3A2418', color: '#FF9466', padding: 12, borderRadius: 8, display: 'flex', fontSize: 12 },
+  undoSnackbar: { position: 'fixed', bottom: 84, left: '50%', transform: 'translateX(-50%)', background: '#1A2238', border: '1px solid #2A3B5C', padding: '10px 16px', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 12, zIndex: 90, boxShadow: '0 4px 20px rgba(0,0,0,0.5)' },
+  undoBtn: { background: 'none', border: 'none', color: '#7FE8A4', fontWeight: 600, fontSize: 12, cursor: 'pointer' },
+  csvBtn: { background: 'var(--bg-card2)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '6px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 },
+  onboardingCard: { position: 'fixed', bottom: 24, left: 24, right: 24, maxWidth: 360, margin: '0 auto', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: 16, zIndex: 100, boxShadow: '0 8px 32px rgba(0,0,0,0.5)' },
 };
