@@ -1704,11 +1704,23 @@ export default function Dashboard({ user, onLogout }) {
               </div>
               <AssetsSummaryCard />
 
-              {/* Card khusus transaksi saving tanpa kategori (sisa data lama, kalau ada) */}
+              {/* Card khusus transaksi saving tanpa kategori (sisa data lama, kalau ada) --
+                  pola tampil 3 + expand disamakan dengan kartu kategori lain
+                  (pakai expandedCatIds yang sama, key "uncategorized-saving") */}
               {(() => {
                 const uncatTx = monthTx.filter((t) => t.type === 'saving' && !t.category).sort((a, b) => new Date(b.date) - new Date(a.date));
                 if (uncatTx.length === 0) return null;
                 const uncatTotal = uncatTx.reduce((s, t) => s + t.amount, 0);
+                const isExpanded = expandedCatIds.has('uncategorized-saving');
+                const visibleTx = isExpanded ? uncatTx : uncatTx.slice(0, 3);
+                const toggleExpand = () => {
+                  setExpandedCatIds((prev) => {
+                    const next = new Set(prev);
+                    if (next.has('uncategorized-saving')) next.delete('uncategorized-saving');
+                    else next.add('uncategorized-saving');
+                    return next;
+                  });
+                };
                 return (
                   <div style={{ ...styles.budgetCard, marginTop: 12 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
@@ -1724,7 +1736,7 @@ export default function Dashboard({ user, onLogout }) {
                       </span>
                     </div>
                     <div style={{ borderTop: '1px solid #22291F', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {uncatTx.map((t) => (
+                      {visibleTx.map((t) => (
                         <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                           <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {t.note || 'Lainnya'}
@@ -1736,6 +1748,11 @@ export default function Dashboard({ user, onLogout }) {
                           <button onClick={() => deleteTransaction(t.id)} style={styles.deleteBtn}><Trash2 size={12} color="#6B7568" /></button>
                         </div>
                       ))}
+                      {uncatTx.length > 3 && (
+                        <button onClick={toggleExpand} style={{ ...styles.linkBtn, textAlign: 'left', marginTop: 2 }}>
+                          {isExpanded ? (<><ChevronUp size={12} style={{ display: 'inline', verticalAlign: -2 }} /> Sembunyikan</>) : (<><ChevronDown size={12} style={{ display: 'inline', verticalAlign: -2 }} /> Tampilkan semua ({uncatTx.length})</>)}
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
