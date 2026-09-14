@@ -33,7 +33,7 @@ const ICON_LIST = [
   { id: 'building2', label: 'Gedung', Icon: Building2 },
   { id: 'circledollar', label: 'Tabungan', Icon: CircleDollarSign },
   { id: 'badgedollar', label: 'Nominal', Icon: BadgeDollarSign },
-  { id: 'coins', label: 'Koin', Icon: Coins },
+  { id: 'coins', label: 'Emas/Koin', Icon: Coins },
   { id: 'handcoins', label: 'Transfer', Icon: HandCoins },
   { id: 'arrowleftright', label: 'Transaksi', Icon: ArrowLeftRight },
   { id: 'receipt', label: 'Struk', Icon: Receipt },
@@ -46,6 +46,7 @@ const ICON_LIST = [
   { id: 'qrcode', label: 'QR Pay', Icon: QrCode },
   { id: 'nfc', label: 'Tap Pay', Icon: Nfc },
   { id: 'barchart2', label: 'Investasi', Icon: BarChart2 },
+  { id: 'trendingup', label: 'Reksa Dana', Icon: TrendingUp },
   // Kehidupan sehari-hari
   { id: 'utensils', label: 'Makan', Icon: Utensils },
   { id: 'coffee', label: 'Kopi', Icon: Coffee },
