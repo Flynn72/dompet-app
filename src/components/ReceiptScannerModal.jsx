@@ -104,7 +104,8 @@ function extractDateFromText(rawText) {
 }
 
 export default function ReceiptScannerModal({ onClose, onConfirm }) {
-  const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [status, setStatus] = useState('idle'); // idle | scanning | done | error
@@ -115,8 +116,12 @@ export default function ReceiptScannerModal({ onClose, onConfirm }) {
   const [date, setDate] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  function pickFile() {
-    fileInputRef.current?.click();
+  function pickFromCamera() {
+    cameraInputRef.current?.click();
+  }
+
+  function pickFromGallery() {
+    galleryInputRef.current?.click();
   }
 
   function handleFileChange(e) {
@@ -165,7 +170,8 @@ export default function ReceiptScannerModal({ onClose, onConfirm }) {
     setAmount('');
     setDate('');
     setErrorMsg('');
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+    if (galleryInputRef.current) galleryInputRef.current.value = '';
   }
 
   function handleUseResult() {
@@ -181,19 +187,32 @@ export default function ReceiptScannerModal({ onClose, onConfirm }) {
         </div>
 
         <input
-          ref={fileInputRef}
+          ref={cameraInputRef}
           type="file"
           accept="image/*"
           capture="environment"
           style={{ display: 'none' }}
           onChange={handleFileChange}
         />
+        <input
+          ref={galleryInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={handleFileChange}
+        />
 
         {!imagePreview && (
-          <button onClick={pickFile} style={styles.pickBtn}>
-            <Camera size={28} color="var(--accent)" />
-            <span>Foto atau pilih gambar struk</span>
-          </button>
+          <div style={styles.pickRow}>
+            <button onClick={pickFromCamera} style={styles.pickBtn}>
+              <Camera size={26} color="var(--accent)" />
+              <span>Ambil foto</span>
+            </button>
+            <button onClick={pickFromGallery} style={styles.pickBtn}>
+              <ImageIcon size={26} color="var(--accent)" />
+              <span>Pilih dari galeri</span>
+            </button>
+          </div>
         )}
 
         {imagePreview && (
@@ -271,10 +290,11 @@ const styles = {
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   title: { fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 16, color: 'var(--text-primary)' },
   iconBtn: { background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', padding: 4 },
+  pickRow: { display: 'flex', gap: 10 },
   pickBtn: {
-    width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-    padding: '32px 12px', borderRadius: 14, border: '1.5px dashed var(--border2)',
-    background: 'var(--bg-card2)', color: 'var(--text-secondary)', fontSize: 13, cursor: 'pointer',
+    flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+    padding: '28px 8px', borderRadius: 14, border: '1.5px dashed var(--border2)',
+    background: 'var(--bg-card2)', color: 'var(--text-secondary)', fontSize: 12.5, cursor: 'pointer',
   },
   preview: { width: '100%', maxHeight: 260, objectFit: 'contain', borderRadius: 12, background: 'var(--bg-input)', marginBottom: 12 },
   row: { display: 'flex', gap: 10, marginTop: 14 },
