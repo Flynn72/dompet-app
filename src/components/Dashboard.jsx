@@ -20,6 +20,7 @@ import {
 import { supabase } from '../lib/supabaseClient';
 import AssetsSummaryCard from './AssetsSummaryCard';
 import ReceiptScannerModal from './ReceiptScannerModal';
+import ExportReportButtons from './ExportReportButtons';
 
 const COLOR_PALETTE = ['#7FE8A4','#6FB7E8','#F5C95D','#C99FE8','#FF9466','#6FE8D4','#E89FC9','#E8846F','#A8A89C','#E8C26F'];
 const MONTHS_ID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
@@ -297,6 +298,7 @@ export default function Dashboard({ user, onLogout }) {
   const txSearchRef = useRef(null);
   const recurringKelolaRef = useRef(null);
   const asetTabRef = useRef(null); // ref tombol tab "Aset" di header, buat spotlight onboarding (Task 3.7)
+  const reportChartsRef = useRef(null); // ref area grafik (pie + tren) tab Laporan, dipakai html2canvas buat export PDF
   const targetRefs = {
     settings: settingsBtnRef, fab: fabRef, reportsTab: reportsTabRef, budgetLink: budgetLinkRef,
     expenseCard: expenseCardRef, txSearch: txSearchRef, recurringKelola: recurringKelolaRef,
@@ -1884,6 +1886,13 @@ export default function Dashboard({ user, onLogout }) {
         {/* ====== TAB LAPORAN ====== */}
         {tab === 'reports' && (
           <>
+            <ExportReportButtons
+              chartsRef={reportChartsRef}
+              monthLabel={monthLabel(activeMonth)}
+              totals={{ totalIncome, totalExpense, totalSaving, balance }}
+              transactions={monthTx}
+              categories={categories}
+            />
             {/* Ringkasan saldo */}
             <div style={{ ...styles.summaryGrid, marginBottom: 28 }}>
               <div style={{ ...styles.summaryCard, gridColumn: '1 / -1' }}>
@@ -1910,6 +1919,8 @@ export default function Dashboard({ user, onLogout }) {
               </div>
             </div>
 
+            {/* Area grafik (pie chart + tren) — dibungkus 1 ref supaya bisa di-screenshot utuh untuk export PDF */}
+            <div ref={reportChartsRef}>
             {/* 3 Pie chart — stack vertikal di HP, 3 kolom di desktop */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20, marginBottom: 32 }} className="pie-grid">
               <style>{`.pie-grid { } @media(min-width:900px){.pie-grid{grid-template-columns:1fr 1fr 1fr !important;}}`}</style>
@@ -2090,6 +2101,7 @@ export default function Dashboard({ user, onLogout }) {
                   <span key={name} style={styles.legendItem2}><span style={{ width: 9, height: 9, borderRadius: 2, background: color, display: 'inline-block' }} />{name}</span>
                 ))}
               </div>
+            </div>
             </div>
           </>
         )}
