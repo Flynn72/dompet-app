@@ -777,6 +777,23 @@ export default function Dashboard({ user, onLogout }) {
     if (error) setSaveError(true);
   }
 
+  // Budget expense PER KATEGORI bisa mode 'global' (categories.budget_amount, berlaku semua bulan) atau
+  // 'monthly' (tabel budgets, reset tiap ganti bulan — reuse tabel yang sama dengan target saving).
+  // getEffectiveExpenseBudget() dipakai di kartu ringkasan supaya otomatis baca dari sumber yang benar
+  // sesuai mode kategori tsb, tanpa peduli caller-nya tahu detail mode atau tidak.
+  function getEffectiveExpenseBudget(categoryId) {
+    const cat = categories.find((c) => c.id === categoryId);
+    if (!cat) return 0;
+    if (cat.budget_mode === 'monthly') return getBudgetAmount(categoryId, activeMonth);
+    return Number(cat.budget_amount) || 0;
+  }
+
+  async function setCategoryBudgetMode(categoryId, mode) {
+    setCategories((prev) => prev.map((c) => (c.id === categoryId ? { ...c, budget_mode: mode } : c)));
+    const { error } = await supabase.from('categories').update({ budget_mode: mode }).eq('id', categoryId);
+    if (error) setSaveError(true);
+  }
+
   async function addCategory() {
     const label = newCatLabel.trim();
     if (!label) return;
@@ -1608,11 +1625,12 @@ export default function Dashboard({ user, onLogout }) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {expenseCategories.map((c) => {
                     const spent = expenseSpend[c.id] || 0;
-                    const budget = getExpenseBudget(c.id);
+                    const budget = getEffectiveExpenseBudget(c.id);
                     const pct = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
                     const over = budget > 0 && spent > budget;
+                    const isWarning = budget > 0 && (spent / budget) * 100 >= 80;
                     let barColor = '#7FE8A4';
-                    if (pct > 70) barColor = '#F5C95D';
+                    if (pct >= 80) barColor = '#F5C95D';
                     if (pct >= 100) barColor = '#FF9466';
                     const CatIcon = getIconComponent(c.icon);
                     const subTx = txByCat(c.id);
@@ -1627,6 +1645,7 @@ export default function Dashboard({ user, onLogout }) {
                             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{c.label}</div>
                             <div style={{ fontSize: 11, color: over ? '#FF9466' : 'var(--text-muted)' }}>
                               {formatRupiah(spent)}{budget > 0 ? ` / ${formatRupiah(budget)}` : ''}
+                              {budget > 0 && c.budget_mode === 'monthly' && ' · bulan ini'}
                               {over && ' — Lewat!'}
                             </div>
                           </div>
@@ -1636,9 +1655,17 @@ export default function Dashboard({ user, onLogout }) {
                         </div>
                         {/* Progress bar */}
                         {budget > 0 && (
-                          <div style={styles.barTrack}>
-                            <div style={{ ...styles.barFill, width: pct + '%', background: barColor }} />
-                          </div>
+                          <>
+                            <div style={styles.barTrack}>
+                              <div style={{ ...styles.barFill, width: pct + '%', background: barColor }} />
+                            </div>
+                            {isWarning && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 6, fontSize: 11, fontWeight: 600, color: over ? '#FF9466' : '#F5C95D' }}>
+                                <AlertTriangle size={12} />
+                                {over ? 'Sudah melebihi budget!' : `Sudah ${Math.round((spent / budget) * 100)}% dari budget`}
+                              </div>
+                            )}
+                          </>
                         )}
                         {/* Sub-transaksi */}
                         {subTx.length > 0 && (
@@ -2600,7 +2627,7 @@ export default function Dashboard({ user, onLogout }) {
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <span style={styles.modalTitle}>
-                {showBudgetModal === 'expense' ? 'Atur budget expense (berlaku semua bulan)' : `Atur target saving — ${monthLabel(activeMonth)}`}
+                {showBudgetModal === 'expense' ? 'Atur budget expense' : `Atur target saving — ${monthLabel(activeMonth)}`}
               </span>
               <button onClick={() => setShowBudgetModal(null)} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
             </div>
@@ -2609,16 +2636,35 @@ export default function Dashboard({ user, onLogout }) {
                 <>
                   {expenseCategories.length === 0 && <div style={styles.emptyHint}>Belum ada kategori expense.</div>}
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>
-                    Budget di sini berlaku terus tiap bulan sampai Anda ubah lagi — tidak perlu diisi ulang tiap ganti bulan.
+                    Pilih "Semua bulan" kalau limit-nya tetap sama tiap bulan, atau "{monthLabel(activeMonth)}" kalau mau atur limit khusus bulan ini saja (perlu diisi ulang tiap ganti bulan).
                   </div>
                   {expenseCategories.map((c) => {
                     const CatIcon = getIconComponent(c.icon);
+                    const mode = c.budget_mode === 'monthly' ? 'monthly' : 'global';
                     return (
-                      <div key={c.id} style={styles.budgetInputRow}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-primary)', minWidth: 150 }}>
-                          <CatIcon size={14} color={c.color} />{c.label}
-                        </span>
-                        <input type="number" inputMode="numeric" placeholder="0" defaultValue={getExpenseBudget(c.id) || ''} onBlur={(e) => setExpenseBudget(c.id, e.target.value)} style={{ ...styles.input, marginBottom: 0 }} />
+                      <div key={c.id} style={styles.budgetInputRowCol}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-primary)' }}>
+                            <CatIcon size={14} color={c.color} />{c.label}
+                          </span>
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            <button
+                              onClick={() => setCategoryBudgetMode(c.id, 'global')}
+                              style={{ ...styles.modeChip, ...(mode === 'global' ? styles.modeChipActive : {}) }}
+                            >Semua bulan</button>
+                            <button
+                              onClick={() => setCategoryBudgetMode(c.id, 'monthly')}
+                              style={{ ...styles.modeChip, ...(mode === 'monthly' ? styles.modeChipActive : {}) }}
+                            >{monthLabel(activeMonth)}</button>
+                          </div>
+                        </div>
+                        <input
+                          key={`${c.id}-${mode}-${activeMonth}`}
+                          type="number" inputMode="numeric" placeholder="0"
+                          defaultValue={(mode === 'monthly' ? getBudgetAmount(c.id, activeMonth) : getExpenseBudget(c.id)) || ''}
+                          onBlur={(e) => (mode === 'monthly' ? setBudgetAmount(c.id, e.target.value) : setExpenseBudget(c.id, e.target.value))}
+                          style={{ ...styles.input, marginBottom: 0 }}
+                        />
                       </div>
                     );
                   })}
@@ -3173,6 +3219,9 @@ const styles = {
   catChip: { display: 'flex', alignItems: 'center', gap: 6, padding: '9px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-primary)', fontSize: 12, cursor: 'pointer', textAlign: 'left' },
   submitBtn: { width: '100%', marginTop: 20, padding: '13px 0', borderRadius: 12, border: 'none', background: 'var(--accent)', color: 'var(--accent-text)', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
   budgetInputRow: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 },
+  budgetInputRowCol: { display: 'flex', flexDirection: 'column', marginBottom: 14 },
+  modeChip: { padding: '4px 9px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: 10.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' },
+  modeChipActive: { borderColor: 'var(--accent)', color: 'var(--accent)', background: 'rgba(127,232,164,0.12)' },
   budgetGroupLabel: { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 },
   categoryRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--border)' },
   smallIconBtn: { background: 'transparent', border: 'none', cursor: 'pointer', padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6, flexShrink: 0 },
