@@ -14,10 +14,12 @@ import {
   Coins, PiggyBank as PiggyBankIcon, Clock, Globe, Umbrella, Lock,
   QrCode, Nfc, BarChart2, TrendingDown as TrendingDownIcon, Package,
   Download, Upload, Sun, Moon, Target, HelpCircle, MessageSquare,
-  ChevronDown, ChevronUp, Hand, Search, Repeat, PartyPopper, Rocket, Bug, Lightbulb, Bell, BellOff
+  ChevronDown, ChevronUp, Hand, Search, Repeat, PartyPopper, Rocket, Bug, Lightbulb, Bell, BellOff,
+  Camera
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import AssetsSummaryCard from './AssetsSummaryCard';
+import ReceiptScannerModal from './ReceiptScannerModal';
 
 const COLOR_PALETTE = ['#7FE8A4','#6FB7E8','#F5C95D','#C99FE8','#FF9466','#6FE8D4','#E89FC9','#E8846F','#A8A89C','#E8C26F'];
 const MONTHS_ID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
@@ -209,6 +211,7 @@ export default function Dashboard({ user, onLogout }) {
   const [saveError, setSaveError] = useState(false);
   const [activeMonth, setActiveMonth] = useState(monthKey(todayStr()));
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showReceiptScanner, setShowReceiptScanner] = useState(false);
   const [showBudgetModal, setShowBudgetModal] = useState(null); // null | 'expense' | 'saving'
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showRecurringModal, setShowRecurringModal] = useState(false);
@@ -512,6 +515,15 @@ export default function Dashboard({ user, onLogout }) {
   function switchType(type) {
     const defaultCat = type === 'saving' ? savingCategories[0] : type === 'expense' ? expenseCategories[0] : null;
     setForm({ ...form, type, categoryId: defaultCat ? defaultCat.id : null });
+  }
+
+  function handleReceiptScanned({ amount, date }) {
+    setForm((f) => ({
+      ...f,
+      amount: amount || f.amount,
+      date: date || f.date,
+    }));
+    setShowReceiptScanner(false);
   }
 
   async function addTransaction() {
@@ -2360,7 +2372,16 @@ export default function Dashboard({ user, onLogout }) {
           <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <span style={styles.modalTitle}>Tambah transaksi</span>
-              <button onClick={() => setShowAddModal(false)} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <button
+                  onClick={() => setShowReceiptScanner(true)}
+                  style={styles.iconBtn}
+                  title="Scan struk otomatis"
+                >
+                  <Camera size={18} color="var(--accent)" />
+                </button>
+                <button onClick={() => setShowAddModal(false)} style={styles.iconBtn}><X size={18} color="#9CA89F" /></button>
+              </div>
             </div>
             <div style={styles.typeToggle}>
               <button onClick={() => switchType('expense')} style={{ ...styles.typeBtn, ...(form.type === 'expense' ? styles.typeBtnExpenseActive : {}) }}>Expense</button>
@@ -2431,6 +2452,13 @@ export default function Dashboard({ user, onLogout }) {
             <button onClick={addTransaction} style={styles.submitBtn}><Check size={16} color="#0F1410" />Simpan transaksi</button>
           </div>
         </div>
+      )}
+
+      {showReceiptScanner && (
+        <ReceiptScannerModal
+          onClose={() => setShowReceiptScanner(false)}
+          onConfirm={handleReceiptScanned}
+        />
       )}
 
       {/* Modal: detail transaksi (read-only) — dibuka saat history transaksi di-klik */}
