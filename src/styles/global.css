@@ -106,3 +106,9 @@ input, select { font-family: 'Inter', sans-serif; }
 @media (min-width: 1280px) {
   .dompet-columns { grid-template-columns: 1.15fr 0.85fr; }
 }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
