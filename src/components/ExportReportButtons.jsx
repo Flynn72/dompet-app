@@ -11,7 +11,7 @@ import { exportTransactionsToCsv } from '../lib/exportCsv';
  *   transactions - transaksi bulan aktif
  *   categories   - daftar kategori (untuk lookup nama)
  */
-export default function ExportReportButtons({ chartsRef, monthLabel, totals, transactions, categories }) {
+export default function ExportReportButtons({ chartsRef, monthLabel, totals, transactions, categories, children }) {
   const [loadingType, setLoadingType] = useState(null); // null | 'pdf' | 'csv'
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -50,6 +50,7 @@ export default function ExportReportButtons({ chartsRef, monthLabel, totals, tra
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {children}
         <button onClick={handleExportPdf} disabled={loadingType !== null} style={{ ...styles.btn, opacity: loadingType !== null ? 0.6 : 1 }}>
           {loadingType === 'pdf' ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <FileText size={14} />}
           Export PDF
@@ -66,9 +67,9 @@ export default function ExportReportButtons({ chartsRef, monthLabel, totals, tra
 
 const styles = {
   btn: {
-    display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10,
-    border: '1px solid var(--border)', background: 'var(--bg-card2)', color: 'var(--text-secondary)',
-    fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+    display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 8,
+    border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-secondary)',
+    fontSize: 12, fontWeight: 600, cursor: 'pointer',
   },
   error: { fontSize: 11.5, color: '#FF9466', marginTop: 6 },
 };
