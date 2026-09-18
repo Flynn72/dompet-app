@@ -1808,40 +1808,6 @@ export default function Dashboard({ user, onLogout }) {
         )}
         {tab === 'transactions' && (
           <div style={styles.txList}>
-            {/* Export & Import Excel */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-              <button onClick={() => setShowExportChoice(true)} style={styles.csvBtn}>
-                <Download size={13} /> Export Excel
-              </button>
-              <button onClick={() => importFileRef.current?.click()} disabled={importing} style={{ ...styles.csvBtn, opacity: importing ? 0.6 : 1 }}>
-                <Upload size={13} /> {importing ? 'Mengimpor...' : 'Import Excel'}
-              </button>
-              <input ref={importFileRef} type="file" accept=".xlsx,.xls" onChange={handleImportExcel} style={{ display: 'none' }} />
-            </div>
-
-            {importSummary && (
-              <div style={{
-                ...styles.errorBox, marginBottom: 12,
-                background: importSummary.failed > 0 ? '#3A2418' : '#0D2A1A',
-                color: importSummary.failed > 0 ? '#FF9466' : '#7FE8A4',
-                flexDirection: 'column', alignItems: 'flex-start', gap: 4,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
-                  <span style={{ flex: 1 }}>
-                    Import selesai: <b>{importSummary.success}</b> berhasil, <b>{importSummary.failed}</b> gagal
-                    {importSummary.skipped > 0 && <>, <b>{importSummary.skipped}</b> dilewati (sudah ada/duplikat)</>}.
-                  </span>
-                  <button onClick={() => setImportSummary(null)} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer' }}><X size={14} /></button>
-                </div>
-                {importSummary.errors.length > 0 && (
-                  <ul style={{ margin: 0, paddingLeft: 18, fontSize: 11.5 }}>
-                    {importSummary.errors.slice(0, 8).map((e, i) => <li key={i}>{e}</li>)}
-                    {importSummary.errors.length > 8 && <li>...dan {importSummary.errors.length - 8} error lainnya.</li>}
-                  </ul>
-                )}
-              </div>
-            )}
-
             {/* Search & filter tipe transaksi */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
               <input
@@ -1892,7 +1858,38 @@ export default function Dashboard({ user, onLogout }) {
               totals={{ totalIncome, totalExpense, totalSaving, balance }}
               transactions={monthTx}
               categories={categories}
-            />
+            >
+              <button onClick={() => setShowExportChoice(true)} style={styles.csvBtn}>
+                <Download size={13} /> Export Excel
+              </button>
+              <button onClick={() => importFileRef.current?.click()} disabled={importing} style={{ ...styles.csvBtn, opacity: importing ? 0.6 : 1 }}>
+                <Upload size={13} /> {importing ? 'Mengimpor...' : 'Import Excel'}
+              </button>
+              <input ref={importFileRef} type="file" accept=".xlsx,.xls" onChange={handleImportExcel} style={{ display: 'none' }} />
+            </ExportReportButtons>
+
+            {importSummary && (
+              <div style={{
+                ...styles.errorBox, marginBottom: 12,
+                background: importSummary.failed > 0 ? '#3A2418' : '#0D2A1A',
+                color: importSummary.failed > 0 ? '#FF9466' : '#7FE8A4',
+                flexDirection: 'column', alignItems: 'flex-start', gap: 4,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+                  <span style={{ flex: 1 }}>
+                    Import selesai: <b>{importSummary.success}</b> berhasil, <b>{importSummary.failed}</b> gagal
+                    {importSummary.skipped > 0 && <>, <b>{importSummary.skipped}</b> dilewati (sudah ada/duplikat)</>}.
+                  </span>
+                  <button onClick={() => setImportSummary(null)} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer' }}><X size={14} /></button>
+                </div>
+                {importSummary.errors.length > 0 && (
+                  <ul style={{ margin: 0, paddingLeft: 18, fontSize: 11.5 }}>
+                    {importSummary.errors.slice(0, 8).map((e, i) => <li key={i}>{e}</li>)}
+                    {importSummary.errors.length > 8 && <li>...dan {importSummary.errors.length - 8} error lainnya.</li>}
+                  </ul>
+                )}
+              </div>
+            )}
             {/* Ringkasan saldo */}
             <div style={{ ...styles.summaryGrid, marginBottom: 28 }}>
               <div style={{ ...styles.summaryCard, gridColumn: '1 / -1' }}>
