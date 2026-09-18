@@ -52,10 +52,23 @@ function extractAmountFromText(rawText) {
   const lines = rawText.split('\n').map((l) => l.trim()).filter(Boolean);
   const numberPattern = /\d[\d.,]*\d|\d/g;
 
+  // Sebuah angka bisa punya '.' atau ',' sebagai pemisah RIBUAN (mis. "11.000" = 11 ribu)
+  // ATAU sebagai pemisah DESIMAL/sen (mis. "150.000,00" — struk transfer bank BCA dkk sering
+  // nulis sen meski nilainya 0). Bedanya: kalau tepat 2 digit di belakang tanda baca TERAKHIR,
+  // itu desimal/sen dan harus dibuang duluan — bukan dianggap pemisah ribuan biasa (yang selalu 3 digit).
+  function parseNumberToken(token) {
+    const lastSep = Math.max(token.lastIndexOf('.'), token.lastIndexOf(','));
+    let cleaned = token;
+    if (lastSep !== -1 && token.length - lastSep - 1 === 2) {
+      cleaned = token.slice(0, lastSep); // buang bagian sen/desimalnya
+    }
+    return parseInt(cleaned.replace(/[.,]/g, ''), 10);
+  }
+
   function numbersInLine(line) {
     const matches = line.match(numberPattern) || [];
     return matches
-      .map((m) => parseInt(m.replace(/[.,]/g, ''), 10))
+      .map(parseNumberToken)
       .filter((n) => !Number.isNaN(n) && n >= 100); // buang angka receh (qty, no. struk pendek dll)
   }
 
