@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { X, Camera, Image as ImageIcon, Loader2, Check, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
+import * as Sentry from '@sentry/react';
 
 /*
  * ReceiptScannerModal
@@ -169,7 +170,8 @@ export default function ReceiptScannerModal({ onClose, onConfirm }) {
       setStatus('done');
     } catch (err) {
       console.error('OCR error:', err);
-      setErrorMsg('Gagal membaca struk. Coba foto ulang dengan pencahayaan lebih terang, atau isi manual.');
+      Sentry.captureException(err, { tags: { feature: 'receipt-scanner-ocr' } });
+      setErrorMsg('Gagal membaca struk — biasanya ini soal koneksi saat memuat komponen OCR. Coba tekan "Coba lagi" dulu; kalau masih gagal, coba foto ulang dengan pencahayaan lebih terang atau isi manual.');
       setStatus('error');
     }
   }
