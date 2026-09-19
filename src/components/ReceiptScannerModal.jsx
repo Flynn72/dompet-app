@@ -30,6 +30,7 @@ import * as Sentry from '@sentry/react';
 const TOTAL_KEYWORDS = [
   'grand total', 'total bayar', 'total belanja', 'total tagihan',
   'total transaksi', 'jumlah bayar', 'total qty', 'total item',
+  'nominal transfer', 'nominal tujuan', 'nominal kirim', 'nominal',
   'total', 'jumlah', 'jml',
 ];
 
@@ -51,7 +52,6 @@ const MONTHS_ID = {
 
 function extractAmountFromText(rawText) {
   const lines = rawText.split('\n').map((l) => l.trim()).filter(Boolean);
-  const numberPattern = /\d[\d.,]*\d|\d/g;
 
   // Sebuah angka bisa punya '.' atau ',' sebagai pemisah RIBUAN (mis. "11.000" = 11 ribu)
   // ATAU sebagai pemisah DESIMAL/sen (mis. "150.000,00" — struk transfer bank BCA dkk sering
@@ -66,11 +66,20 @@ function extractAmountFromText(rawText) {
     return parseInt(cleaned.replace(/[.,]/g, ''), 10);
   }
 
+  // PENTING: angka cuma diambil kalau satu KATA UTUH (dipisah spasi) isinya angka semua
+  // (boleh ada . atau , sebagai pemisah). Bukan angka yang nyempil di tengah kode alfanumerik
+  // kayak no. referensi/hash ("...B1ED-281871FF28A6") atau no. rekening bertitik-titik —
+  // itu sering ke-anggap "angka terbesar" padahal bukan nominal transaksi sama sekali.
+  const pureNumberWord = /^\d[\d.,]*\d$|^\d$/;
+
   function numbersInLine(line) {
-    const matches = line.match(numberPattern) || [];
-    return matches
-      .map(parseNumberToken)
-      .filter((n) => !Number.isNaN(n) && n >= 100); // buang angka receh (qty, no. struk pendek dll)
+    const words = line.split(/\s+/);
+    const nums = [];
+    for (const w of words) {
+      const cleanedWord = w.replace(/^(rp\.?|idr)/i, ''); // buang prefix mata uang yang nempel tanpa spasi
+      if (pureNumberWord.test(cleanedWord)) nums.push(parseNumberToken(cleanedWord));
+    }
+    return nums.filter((n) => !Number.isNaN(n) && n >= 100); // buang angka receh (qty, no. urut dll)
   }
 
   // 1) Cari baris yang mengandung salah satu keyword total, ambil angka TERBESAR di baris itu
