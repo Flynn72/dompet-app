@@ -67,34 +67,58 @@ function extractAmountFromText(rawText) {
   }
 
   // PENTING: angka cuma diambil kalau satu KATA UTUH (dipisah spasi) isinya angka semua
-  // (boleh ada . atau , sebagai pemisah). Bukan angka yang nyempil di tengah kode alfanumerik
-  // kayak no. referensi/hash ("...B1ED-281871FF28A6") atau no. rekening bertitik-titik —
-  // itu sering ke-anggap "angka terbesar" padahal bukan nominal transaksi sama sekali.
+  // (boleh ada . atau , sebagai pemisah, dan boleh ada prefix "Rp"/"IDR" nempel di depannya
+  // tanpa spasi, mis. "Rp30.000"). Bukan angka yang nyempil di tengah kode alfanumerik kayak
+  // no. referensi/hash ("...B1ED-281871FF28A6") atau no. rekening bertitik-titik — itu sering
+  // ke-anggap "angka terbesar" padahal bukan nominal transaksi sama sekali.
   const pureNumberWord = /^\d[\d.,]*\d$|^\d$/;
+  const currencyPrefix = /^(rp\.?|idr)/i;
 
+  // Kembalikan angka dalam 2 kelompok: yang eksplisit berlabel "Rp"/"IDR" (confidencenya tinggi,
+  // hampir pasti nominal uang), dan sisanya angka polos tanpa label mata uang (confidence lebih
+  // rendah — bisa aja itu qty, nomor urut, dll, tapi masih dipakai sebagai jaring pengaman kalau
+  // struknya nggak pernah nulis Rp/IDR sama sekali, biar tidak selalu gagal total).
   function numbersInLine(line) {
     const words = line.split(/\s+/);
-    const nums = [];
+    const currencyNums = [];
+    const plainNums = [];
     for (const w of words) {
-      const cleanedWord = w.replace(/^(rp\.?|idr)/i, ''); // buang prefix mata uang yang nempel tanpa spasi
-      if (pureNumberWord.test(cleanedWord)) nums.push(parseNumberToken(cleanedWord));
+      const hasCurrency = currencyPrefix.test(w);
+      const cleanedWord = w.replace(currencyPrefix, '');
+      if (pureNumberWord.test(cleanedWord)) {
+        const n = parseNumberToken(cleanedWord);
+        if (!Number.isNaN(n) && n >= 100) { // buang angka receh (qty, no. urut dll)
+          if (hasCurrency) currencyNums.push(n); else plainNums.push(n);
+        }
+      }
     }
-    return nums.filter((n) => !Number.isNaN(n) && n >= 100); // buang angka receh (qty, no. urut dll)
+    return { currencyNums, plainNums };
   }
 
-  // 1) Cari baris yang mengandung salah satu keyword total, ambil angka TERBESAR di baris itu
+  // Angka berlabel Rp/IDR selalu dimenangkan duluan kalau ada, tak peduli baris mana pun —
+  // baru kalau di baris itu nggak ada satupun yang berlabel, pakai angka polos di baris itu.
+  function bestInLine(line) {
+    const { currencyNums, plainNums } = numbersInLine(line);
+    if (currencyNums.length > 0) return Math.max(...currencyNums);
+    if (plainNums.length > 0) return Math.max(...plainNums);
+    return null;
+  }
+
+  // 1) Cari baris yang mengandung salah satu keyword total, ambil angka terbaik di baris itu
   for (const keyword of TOTAL_KEYWORDS) {
     const line = lines.find((l) => l.toLowerCase().includes(keyword));
     if (line) {
-      const nums = numbersInLine(line);
-      if (nums.length > 0) return String(Math.max(...nums));
+      const best = bestInLine(line);
+      if (best !== null) return String(best);
     }
   }
 
-  // 2) Fallback: ambil angka terbesar di seluruh teks (biasanya total adalah nominal
-  //    terbesar yang tercetak di struk, dibanding harga satuan/qty per item)
-  const allNums = numbersInLine(rawText.replace(/\n/g, ' '));
-  if (allNums.length > 0) return String(Math.max(...allNums));
+  // 2) Fallback: nggak ketemu baris keyword. Prioritaskan SEMUA angka berlabel Rp/IDR di
+  //    seluruh teks dulu (ambil yang terbesar) — baru kalau struknya nggak pernah nulis
+  //    Rp/IDR sama sekali, turun ke angka polos terbesar di seluruh teks sebagai jaring pengaman.
+  const whole = numbersInLine(rawText);
+  if (whole.currencyNums.length > 0) return String(Math.max(...whole.currencyNums));
+  if (whole.plainNums.length > 0) return String(Math.max(...whole.plainNums));
 
   return '';
 }
