@@ -1662,7 +1662,9 @@ export default function Dashboard({ user, onLogout }) {
                             {isWarning && (
                               <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 6, fontSize: 11, fontWeight: 600, color: over ? '#FF9466' : '#F5C95D' }}>
                                 <AlertTriangle size={12} />
-                                {over ? 'Sudah melebihi budget!' : `Sudah ${Math.round((spent / budget) * 100)}% dari budget`}
+                                {over
+                                  ? `Sudah melebihi budget ${Math.round((spent / budget) * 100)}%!`
+                                  : `Sudah ${Math.round((spent / budget) * 100)}% dari budget`}
                               </div>
                             )}
                           </>
