@@ -15,7 +15,7 @@ import {
   QrCode, Nfc, BarChart2, TrendingDown as TrendingDownIcon, Package,
   Download, Upload, Sun, Moon, Target, HelpCircle, MessageSquare,
   ChevronDown, ChevronUp, Hand, Search, Repeat, PartyPopper, Rocket, Bug, Lightbulb, Bell, BellOff,
-  Camera
+  Camera, ChevronRight
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import AssetsSummaryCard from './AssetsSummaryCard';
@@ -904,6 +904,31 @@ export default function Dashboard({ user, onLogout }) {
     }
     return list;
   }, [monthTx, txTypeFilter, txSearch, categories]);
+
+  // List gabungan KHUSUS buat ditampilkan di tab Transaksi — menyatukan filteredMonthTx (tabel
+  // `transactions`) dengan aktivitas dari modul Aset (`asset_transactions`, sumber yang sama dipakai
+  // kartu Saving/tren di Laporan). SENGAJA dipisah dari filteredMonthTx (bukan mengubahnya langsung)
+  // supaya semua kalkulasi lain yang masih pakai monthTx/filteredMonthTx — total Income/Expense,
+  // budget per kategori, "N transaksi" di modal Export Excel — tidak ikut kebawa data Aset yang
+  // strukturnya beda (tidak ada kategori, tidak bisa dihapus dari sini).
+  const displayedTxList = useMemo(() => {
+    if (txTypeFilter === 'income' || txTypeFilter === 'expense') return filteredMonthTx;
+    const q = txSearch.trim().toLowerCase();
+    let assetRows = monthAssetTx.map((t) => ({
+      id: `asset-${t.id}`,
+      type: 'saving',
+      amount: t.amount,
+      category: null,
+      note: t.accountName,
+      date: t.date,
+      assetAction: (t.action === 'sell' || t.action === 'withdraw') ? 'sell' : 'buy',
+      isAssetOrigin: true,
+    }));
+    if (q) assetRows = assetRows.filter((r) => r.note.toLowerCase().includes(q) || 'saving'.includes(q));
+    const base = txTypeFilter === 'saving' ? [] : filteredMonthTx;
+    return [...base, ...assetRows].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  }, [filteredMonthTx, monthAssetTx, txTypeFilter, txSearch]);
+
   const totalIncome = useMemo(() => monthTx.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0), [monthTx]);
   const totalExpense = useMemo(() => monthTx.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0), [monthTx]);
   // Transaksi "jual aset" (assetAction='sell') MENGURANGI total saving (uang keluar dari tabungan/investasi),
@@ -1869,12 +1894,12 @@ export default function Dashboard({ user, onLogout }) {
               </div>
             </div>
 
-            {filteredMonthTx.length === 0 && (
+            {displayedTxList.length === 0 && (
               <div style={styles.emptyHint}>
-                {monthTx.length === 0 ? 'Belum ada transaksi bulan ini.' : 'Tidak ada transaksi yang cocok dengan pencarian.'}
+                {monthTx.length === 0 && monthAssetTx.length === 0 ? 'Belum ada transaksi bulan ini.' : 'Tidak ada transaksi yang cocok dengan pencarian.'}
               </div>
             )}
-            {filteredMonthTx.map((t) => (<TxRow key={t.id} t={t} onDelete={deleteTransaction} catLookup={catLookup} onSelect={openTxDetail} />))}
+            {displayedTxList.map((t) => (<TxRow key={t.id} t={t} onDelete={deleteTransaction} catLookup={catLookup} onSelect={openTxDetail} />))}
           </div>
         )}
 
@@ -3139,6 +3164,7 @@ export default function Dashboard({ user, onLogout }) {
 }
 
 function TxRow({ t, onDelete, catLookup, onSelect }) {
+  const navigate = useNavigate();
   const isIncome = t.type === 'income';
   const isSaving = t.type === 'saving';
   const cat = isIncome ? null : catLookup(t.category);
@@ -3157,18 +3183,28 @@ function TxRow({ t, onDelete, catLookup, onSelect }) {
     }
   }
   if (cat && CatIcon) iconEl = <CatIcon size={15} color={cat.color} />;
+  // Baris hasil gabungan dari modul Aset (asset_transactions) — bukan dari tabel transactions,
+  // jadi tidak bisa dihapus/dibuka detailnya dari sini. Klik & kelola aset lewat tab Aset.
+  const isAssetOrigin = !!t.isAssetOrigin;
   return (
-    <div style={{ ...styles.txRow, cursor: 'pointer' }} onClick={() => onSelect && onSelect(t)}>
+    <div style={{ ...styles.txRow, cursor: 'pointer' }} onClick={() => (isAssetOrigin ? navigate('/aset') : (onSelect && onSelect(t)))}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
         <div style={{ width: 32, height: 32, borderRadius: 8, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{iconEl}</div>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 13, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.note || (isIncome ? 'Income' : cat ? cat.label : 'Lainnya')}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{new Date(t.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+            {new Date(t.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+            {isAssetOrigin && ' · Aset'}
+          </div>
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <span style={{ fontSize: 13, fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif", color: amountColor }}>{sign}{formatRupiah(t.amount)}</span>
-        <button onClick={(e) => { e.stopPropagation(); onDelete(t.id); }} style={styles.deleteBtn}><Trash2 size={14} color="#6B7568" /></button>
+        {isAssetOrigin ? (
+          <ChevronRight size={16} color="#6B7568" />
+        ) : (
+          <button onClick={(e) => { e.stopPropagation(); onDelete(t.id); }} style={styles.deleteBtn}><Trash2 size={14} color="#6B7568" /></button>
+        )}
       </div>
     </div>
   );
