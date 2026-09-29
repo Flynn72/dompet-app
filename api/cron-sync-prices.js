@@ -48,8 +48,18 @@ export default async function handler(req, res) {
 
   // ===== Harga Emas — scrape langsung dari halaman resmi Pluang =====
   try {
+    // User-Agent sebelumnya ('DompetAppCron/1.0') eksplisit ngaku sebagai bot dan mulai
+    // di-block Pluang (HTTP 403) per [tanggal ditemukan: lihat log Vercel Cron]. Diganti
+    // menyamai header request Bareksa di bawah (browser Chrome asli beneran) yang terbukti
+    // masih lolos. Kalau suatu saat 403 muncul lagi meski sudah begini, kemungkinan besar
+    // itu bukan lagi soal User-Agent tapi blokir di level IP/ASN Vercel oleh Cloudflare —
+    // butuh solusi lain (proxy pihak ketiga, atau ganti sumber harga).
     const goldRes = await fetch('https://pluang.com/en/asset/gold', {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DompetAppCron/1.0)' },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9,id;q=0.8',
+      },
     });
     if (!goldRes.ok) throw new Error(`HTTP ${goldRes.status} dari halaman Pluang`);
     const html = await goldRes.text();
