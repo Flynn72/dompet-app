@@ -905,6 +905,15 @@ export default function Dashboard({ user, onLogout }) {
     return list;
   }, [monthTx, txTypeFilter, txSearch, categories]);
 
+  const totalIncome = useMemo(() => monthTx.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0), [monthTx]);
+  const totalExpense = useMemo(() => monthTx.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0), [monthTx]);
+  // Transaksi "jual aset" (assetAction='sell') MENGURANGI total saving (uang keluar dari tabungan/investasi),
+  // bukan menambah — beda dari transaksi saving biasa (beli/nabung) yang menambah.
+  // ---- Kartu Saving di Laporan: sumber data DIGANTI ke asset_transactions
+  // (bukan lagi transactions lama) -- supaya ikut aktivitas terbaru yang
+  // dicatat lewat halaman Aset, bukan cuma data historis sebelum migrasi. ----
+  const monthAssetTx = useMemo(() => assetTransactions.filter((t) => monthKey(t.date) === activeMonth), [assetTransactions, activeMonth]);
+
   // List gabungan KHUSUS buat ditampilkan di tab Transaksi — menyatukan filteredMonthTx (tabel
   // `transactions`) dengan aktivitas dari modul Aset (`asset_transactions`, sumber yang sama dipakai
   // kartu Saving/tren di Laporan). SENGAJA dipisah dari filteredMonthTx (bukan mengubahnya langsung)
@@ -928,15 +937,6 @@ export default function Dashboard({ user, onLogout }) {
     const base = txTypeFilter === 'saving' ? [] : filteredMonthTx;
     return [...base, ...assetRows].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   }, [filteredMonthTx, monthAssetTx, txTypeFilter, txSearch]);
-
-  const totalIncome = useMemo(() => monthTx.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0), [monthTx]);
-  const totalExpense = useMemo(() => monthTx.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0), [monthTx]);
-  // Transaksi "jual aset" (assetAction='sell') MENGURANGI total saving (uang keluar dari tabungan/investasi),
-  // bukan menambah — beda dari transaksi saving biasa (beli/nabung) yang menambah.
-  // ---- Kartu Saving di Laporan: sumber data DIGANTI ke asset_transactions
-  // (bukan lagi transactions lama) -- supaya ikut aktivitas terbaru yang
-  // dicatat lewat halaman Aset, bukan cuma data historis sebelum migrasi. ----
-  const monthAssetTx = useMemo(() => assetTransactions.filter((t) => monthKey(t.date) === activeMonth), [assetTransactions, activeMonth]);
   const isOutflowAction = (action) => action === 'sell' || action === 'withdraw';
   const totalSaving = useMemo(() => monthAssetTx.reduce((s, t) => s + t.amount * (isOutflowAction(t.action) ? -1 : 1), 0), [monthAssetTx]);
   // Breakdown kotor (gross) beli/setor vs jual/tarik saving bulan ini — dipakai buat nampilin ringkasan yang jelas
