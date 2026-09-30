@@ -34,13 +34,13 @@ export default function AssetsGold({ user }) {
         let totalModalJual = 0;
         
         rawTxs.forEach(tx => {
-          // Sesuaikan 'tx.type' dan 'tx.amount' dengan nama kolom di tabel database Anda
-          const tipe = tx.type ? tx.type.toLowerCase() : '';
-          const nominal = Number(tx.amount || tx.total_amount || 0);
+          // PERBAIKAN UTAMA: Menggunakan tx.action dan tx.amount sesuai struktur database Anda
+          const tipe = tx.action ? String(tx.action).toLowerCase() : '';
+          const nominal = Number(tx.amount || 0);
 
-          if (tipe === 'buy' || tipe === 'beli') {
+          if (tipe === 'buy') {
             totalModalBeli += nominal;
-          } else if (tipe === 'sell' || tipe === 'jual') {
+          } else if (tipe === 'sell') {
             totalModalJual += nominal;
           }
         });
@@ -48,7 +48,6 @@ export default function AssetsGold({ user }) {
         const modalBersih = totalModalBeli - totalModalJual;
 
         // Kita timpa 'current_value' (Nilai Pasar) menjadi Modal Bersih
-        // Dan kita simpan nilai pasar asli ke 'market_value' agar tidak hilang
         stats[acc.id] = {
           ...rawStats,
           market_value: rawStats.current_value, 
