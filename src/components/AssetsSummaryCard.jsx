@@ -14,37 +14,66 @@ const TYPE_META = {
   deposit: { label: 'Deposito', icon: Landmark, color: '#C99FE8', to: '/aset/deposito' },
 };
 
-// Kartu "Assets Summary" untuk Dashboard (Task 3.4) -- menggantikan kartu
-// pointer sederhana dari Task 3.3. Narik data asli dari get_portfolio_summary()
-// (RPC Phase 2), breakdown per jenis aset + total, tiap baris bisa diklik
-// langsung ke halaman detailnya.
 export default function AssetsSummaryCard() {
   const navigate = useNavigate();
-  const [rows, setRows] = useState([]);
+  const [valueByType, setValueByType] = useState({});
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const { data, error } = await supabase.rpc('get_portfolio_summary');
+      // Mengambil data akun dan transaksi untuk menghitung Modal Bersih secara manual
+      const { data: accounts } = await supabase.from('asset_accounts').select('id, asset_type, is_active');
+      const { data: txs } = await supabase.from('asset_transactions').select('asset_account_id, amount, action');
+
       if (!mounted) return;
-      if (!error && data) {
-        setRows(data);
-        setTotal(data.reduce((s, r) => s + (r.total_current_value || 0), 0));
+
+      let summary = { saving: 0, gold: 0, mutual_fund: 0, deposit: 0 };
+      let grandTotal = 0;
+
+      if (accounts && txs) {
+        // Mapping ID akun ke jenis asetnya agar tidak tertukar
+        const typeMap = {};
+        accounts.forEach(acc => {
+          // Hanya hitung akun yang tidak dihapus/dinonaktifkan
+          if (acc.is_active !== false) {
+             typeMap[acc.id] = acc.asset_type;
+          }
+        });
+
+        // Kalkulasi Beli/Setor dikurangi Jual/Tarik
+        txs.forEach(tx => {
+          const assetType = typeMap[tx.asset_account_id];
+          if (assetType) {
+            const action = String(tx.action).toLowerCase();
+            const amt = Number(tx.amount || 0);
+
+            if (action === 'buy' || action === 'deposit') {
+              summary[assetType] += amt;
+            } else if (action === 'sell' || action === 'withdraw') {
+              summary[assetType] -= amt;
+            }
+          }
+        });
+
+        // Menjumlahkan total semua kategori aset
+        grandTotal = Object.values(summary).reduce((a, b) => a + b, 0);
       }
+
+      setValueByType(summary);
+      setTotal(grandTotal);
       setLoading(false);
     })();
+    
     return () => { mounted = false; };
   }, []);
-
-  const valueByType = Object.fromEntries(rows.map((r) => [r.asset_type, r.total_current_value]));
 
   return (
     <div style={styles.card}>
       <button onClick={() => navigate('/aset')} style={styles.headerBtn}>
         <div>
-          <div style={styles.headerLabel}>Total Aset</div>
+          <div style={styles.headerLabel}>Total Modal Keseluruhan</div>
           <div style={styles.headerValue}>{loading ? '...' : formatRupiah(total)}</div>
         </div>
         <ChevronRight size={18} color="var(--text-muted)" />
