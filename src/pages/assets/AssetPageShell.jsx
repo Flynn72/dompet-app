@@ -4,7 +4,7 @@ import { ChevronLeft } from 'lucide-react';
 
 // Layout bersama untuk semua halaman di bawah /aset/*, supaya konsisten
 // dan tidak duplikasi kode header/back-button di tiap file.
-export default function AssetPageShell({ title, children }) {
+export default function AssetPageShell({ title, children, rightAction }) {
   const navigate = useNavigate();
   return (
     <div className="dompet-page" style={{ paddingBottom: 90 }}>
@@ -14,7 +14,7 @@ export default function AssetPageShell({ title, children }) {
             <ChevronLeft size={22} />
           </button>
           <h1 style={styles.title}>{title}</h1>
-          <div style={{ width: 36 }} />
+          {rightAction || <div style={{ width: 36 }} />}
         </div>
       </div>
       <div style={{ padding: '4px 20px 20px' }}>{children}</div>
