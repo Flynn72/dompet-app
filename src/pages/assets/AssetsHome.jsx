@@ -18,28 +18,75 @@ const TYPE_META = {
 
 export default function AssetsHome({ user }) {
   const navigate = useNavigate();
-  const [rows, setRows] = useState([]);
+  const [valueByType, setValueByType] = useState({});
+  const [totalModal, setTotalModal] = useState(0);
+  const [totalMarket, setTotalMarket] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
-    supabase.rpc('get_portfolio_summary').then(({ data, error }) => {
+    (async () => {
+      // 1. Ambil harga pasar dari RPC untuk menghitung Return/Gain
+      const { data: rpcData } = await supabase.rpc('get_portfolio_summary');
+      
+      // 2. Ambil raw data akun dan transaksi untuk menghitung Modal Bersih
+      const { data: accounts } = await supabase.from('asset_accounts').select('id, asset_type, is_active');
+      const { data: txs } = await supabase.from('asset_transactions').select('asset_account_id, amount, action');
+
       if (!mounted) return;
-      if (!error && data) setRows(data);
+
+      let modalSummary = { saving: 0, gold: 0, mutual_fund: 0, deposit: 0 };
+      let marketSummary = { saving: 0, gold: 0, mutual_fund: 0, deposit: 0 };
+      let calcTotalModal = 0;
+      let calcTotalMarket = 0;
+
+      // Hitung Modal Bersih dari Transaksi
+      if (accounts && txs) {
+        const typeMap = {};
+        accounts.forEach(acc => {
+          if (acc.is_active !== false) typeMap[acc.id] = acc.asset_type;
+        });
+
+        txs.forEach(tx => {
+          const assetType = typeMap[tx.asset_account_id];
+          if (assetType) {
+            const action = String(tx.action).toLowerCase();
+            const amt = Number(tx.amount || 0);
+
+            if (action === 'buy' || action === 'deposit') {
+              modalSummary[assetType] += amt;
+            } else if (action === 'sell' || action === 'withdraw') {
+              modalSummary[assetType] -= amt;
+            }
+          }
+        });
+        calcTotalModal = Object.values(modalSummary).reduce((a, b) => a + b, 0);
+      }
+
+      // Hitung Nilai Pasar dari RPC (untuk membandingkan untung/rugi)
+      if (rpcData) {
+        rpcData.forEach(r => {
+          if (r.asset_type) {
+            marketSummary[r.asset_type] = r.total_current_value || 0;
+          }
+        });
+        calcTotalMarket = Object.values(marketSummary).reduce((a, b) => a + b, 0);
+      }
+
+      setValueByType(modalSummary);
+      setTotalModal(calcTotalModal);
+      setTotalMarket(calcTotalMarket);
       setLoading(false);
-    });
+    })();
     return () => { mounted = false; };
   }, []);
 
-  const total = rows.reduce((s, r) => s + (r.total_current_value || 0), 0);
-  const totalInvested = rows.reduce((s, r) => s + (r.total_invested || 0), 0);
-  const totalFloatingGain = rows.reduce((s, r) => s + (r.total_floating_gain || 0), 0);
-  const totalRealizedGain = rows.reduce((s, r) => s + (r.total_realized_gain || 0), 0);
-  const totalGain = totalFloatingGain + totalRealizedGain;
-  const gainPct = totalInvested > 0 ? (totalFloatingGain / totalInvested) * 100 : 0;
+  // Kalkulasi Return Keseluruhan (Pasar vs Modal)
+  const totalGain = totalMarket - totalModal;
+  const gainPct = totalModal > 0 ? (totalGain / totalModal) * 100 : 0;
   const gainPositive = totalGain >= 0;
 
-  const valueByType = Object.fromEntries(rows.map((r) => [r.asset_type, r.total_current_value]));
+  // Persiapkan Data untuk Diagram Donat berdasarkan Modal
   const pieData = Object.entries(TYPE_META)
     .map(([type, meta]) => ({ type, name: meta.label, value: valueByType[type] || 0, color: meta.color }))
     .filter((d) => d.value > 0);
@@ -47,19 +94,19 @@ export default function AssetsHome({ user }) {
   return (
     <AssetPageShell title="Aset">
       <div style={styles.summaryCard}>
-        <div style={styles.summaryLabel}>Total Aset</div>
-        <div style={styles.summaryValue}>{loading ? '...' : formatRupiah(total)}</div>
-        {!loading && totalInvested > 0 && (
+        <div style={styles.summaryLabel}>Total Modal Keseluruhan</div>
+        <div style={styles.summaryValue}>{loading ? '...' : formatRupiah(totalModal)}</div>
+        {!loading && totalModal > 0 && (
           <div style={{ ...styles.gainRow, color: gainPositive ? '#7FE8A4' : '#FF9466' }}>
             {gainPositive ? <GainIcon size={13} /> : <LossIcon size={13} />}
-            {gainPositive ? '+' : ''}{formatRupiah(totalGain)} ({gainPositive ? '+' : ''}{gainPct.toFixed(2)}% belum direalisasi)
+            {gainPositive ? '+' : ''}{formatRupiah(totalGain)} ({gainPositive ? '+' : ''}{gainPct.toFixed(2)}% estimasi return pasar)
           </div>
         )}
       </div>
 
       {!loading && pieData.length > 0 && (
         <div style={styles.allocationCard}>
-          <div style={styles.allocationHeader}>Alokasi Aset</div>
+          <div style={styles.allocationHeader}>Alokasi Modal Aset</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <div style={{ width: 96, height: 96, flexShrink: 0 }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -81,7 +128,7 @@ export default function AssetsHome({ user }) {
                 <div key={d.type} style={styles.legendRow}>
                   <span style={{ width: 8, height: 8, borderRadius: 4, background: d.color, flexShrink: 0 }} />
                   <span style={styles.legendLabel}>{d.name}</span>
-                  <span style={styles.legendPct}>{total > 0 ? ((d.value / total) * 100).toFixed(0) : 0}%</span>
+                  <span style={styles.legendPct}>{totalModal > 0 ? ((d.value / totalModal) * 100).toFixed(0) : 0}%</span>
                 </div>
               ))}
             </div>
@@ -97,6 +144,7 @@ export default function AssetsHome({ user }) {
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={styles.rowLabel}>{meta.label}</div>
+              {/* Menampilkan Modal Bersih pada list */}
               {!loading && <div style={styles.rowValue}>{formatRupiah(valueByType[type] || 0)}</div>}
             </div>
             <ChevronRight size={18} color="var(--text-muted)" />
