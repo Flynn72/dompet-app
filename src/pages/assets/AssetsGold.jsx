@@ -21,12 +21,44 @@ export default function AssetsGold({ user }) {
     try {
       const accs = await fetchAssetAccounts('gold');
       setAccounts(accs);
+      
       const stats = {};
       const txs = {};
+      
       for (const acc of accs) {
-        stats[acc.id] = await fetchAccountStats(acc.id);
-        txs[acc.id] = await fetchAccountTransactions(acc.id);
+        const rawStats = await fetchAccountStats(acc.id);
+        const rawTxs = await fetchAccountTransactions(acc.id);
+        
+        // --- MODIFIKASI MULAI: Kalkulasi Modal Bersih dari Transaksi ---
+        let totalModalBeli = 0;
+        let totalModalJual = 0;
+        
+        rawTxs.forEach(tx => {
+          // Sesuaikan 'tx.type' dan 'tx.amount' dengan nama kolom di tabel database Anda
+          const tipe = tx.type ? tx.type.toLowerCase() : '';
+          const nominal = Number(tx.amount || tx.total_amount || 0);
+
+          if (tipe === 'buy' || tipe === 'beli') {
+            totalModalBeli += nominal;
+          } else if (tipe === 'sell' || tipe === 'jual') {
+            totalModalJual += nominal;
+          }
+        });
+
+        const modalBersih = totalModalBeli - totalModalJual;
+
+        // Kita timpa 'current_value' (Nilai Pasar) menjadi Modal Bersih
+        // Dan kita simpan nilai pasar asli ke 'market_value' agar tidak hilang
+        stats[acc.id] = {
+          ...rawStats,
+          market_value: rawStats.current_value, 
+          current_value: modalBersih > 0 ? modalBersih : rawStats.current_value 
+        };
+        // --- MODIFIKASI SELESAI ---
+
+        txs[acc.id] = rawTxs;
       }
+      
       setStatsMap(stats);
       setTxMap(txs);
     } catch (e) {
