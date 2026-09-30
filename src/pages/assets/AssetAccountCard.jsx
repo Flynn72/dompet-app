@@ -142,9 +142,7 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
     }
   };
 
-  // ---- Perhitungan Target/Goal (berlaku untuk SEMUA jenis aset yang
-  // punya goal_amount, bukan cuma saving -- dulu di Dashboard lama ini
-  // juga ada untuk kategori Emas/Reksadana) ----
+  // ---- Perhitungan Target/Goal ----
   const hasGoal = account.goal_amount > 0;
   let goalProgressPct = 0, goalSisa = 0, goalEstimasiTercapai = null, goalPerluPerBulan = null;
   if (hasGoal) {
@@ -268,11 +266,6 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
             return (
               <ResponsiveContainer width="100%" height={90}>
                 <LineChart data={priceHistory}>
-                  {/* XAxis WAJIB ada (walau disembunyikan) supaya tooltip baca
-                      field "date" yang benar sebagai label -- tanpa ini,
-                      recharts pakai INDEX baris sebagai label, bukan tanggal
-                      asli, makanya kemarin muncul "1 Jan" (index kekonversi
-                      jadi tanggal epoch, bukan bug data). */}
                   <XAxis dataKey="date" hide />
                   <YAxis hide domain={['dataMin', 'dataMax']} />
                   <Tooltip
@@ -290,9 +283,20 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
         </div>
       )}
 
+      {/* --- MODIFIKASI: TAMPILAN NILAI & MODAL --- */}
       <div style={styles.valueRow}>
-        <div style={styles.valueLabel}>Nilai Sekarang</div>
+        <div style={styles.valueLabel}>
+          {unitBased ? 'Total Modal Bersih' : 'Nilai Sekarang'}
+        </div>
         <div style={styles.value}>{formatRupiah(stats.current_value)}</div>
+        
+        {/* Tambahan Info Pencairan (hanya muncul jika ada market_value dari hasil modifikasi sebelumnya) */}
+        {unitBased && stats.market_value !== undefined && (
+          <div style={styles.marketValueBox}>
+            Estimasi Pencairan Pasar: <b>{formatRupiah(stats.market_value)}</b>
+          </div>
+        )}
+
         {account.asset_type === 'deposit' && (
           <div style={styles.disclaimerText}>*Pokok saja — lihat "Bunga berjalan" & "Estimasi Total" di bawah untuk perkiraan dengan bunga</div>
         )}
@@ -459,6 +463,7 @@ const styles = {
   valueRow: { marginBottom: 10 },
   valueLabel: { fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 },
   value: { fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', fontFamily: "'Space Grotesk', sans-serif" },
+  marketValueBox: { fontSize: 11.5, color: '#F5C95D', marginTop: 6, background: '#F5C95D15', padding: '6px 10px', borderRadius: 8, display: 'inline-block', border: '1px solid #F5C95D30' },
   disclaimerText: { fontSize: 10, color: 'var(--text-muted)', marginTop: 4, fontStyle: 'italic' },
   metaGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12, paddingTop: 10, borderTop: '1px solid #22291F' },
   metaLabel: { fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 2 },
@@ -480,4 +485,6 @@ const styles = {
   historyAmount: { fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)' },
   historyUnits: { fontSize: 10.5, color: 'var(--text-muted)' },
   deleteBtn: { background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0 },
+  dateLabel: { fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 4 },
+  subFormTitle: { fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }
 };
