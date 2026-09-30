@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import AssetPageShell from './AssetPageShell';
 import AssetAccountCard from './AssetAccountCard';
+import RefreshPricesButton from './RefreshPricesButton';
 import { fetchAssetAccounts, fetchAccountStats, fetchAccountTransactions, addAssetAccount } from '../../lib/assetsApi';
 
 export default function AssetsGold({ user }) {
@@ -59,7 +60,7 @@ export default function AssetsGold({ user }) {
   };
 
   return (
-    <AssetPageShell title="Emas">
+    <AssetPageShell title="Emas" rightAction={<RefreshPricesButton onRefreshed={load} />}>
       {loading && <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 0' }}>Memuat...</div>}
       {error && <div style={{ color: '#FF9466', fontSize: 13, marginBottom: 12 }}>{error}</div>}
 
