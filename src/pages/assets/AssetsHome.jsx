@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { PiggyBank, Coins, TrendingUp, Landmark, ChevronRight, TrendingUp as GainIcon, TrendingDown as LossIcon } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import AssetPageShell from './AssetPageShell';
+import RefreshPricesButton from './RefreshPricesButton';
 import { supabase } from '../../lib/supabaseClient';
 
 function formatRupiah(n) {
@@ -23,56 +24,76 @@ export default function AssetsHome({ user }) {
   const [totalMarket, setTotalMarket] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  // Logika fetch diekstrak jadi fungsi biasa (dipakai bareng oleh fetch awal & tombol
+  // "Refresh harga") supaya tidak duplikasi perhitungan modal/market di 2 tempat.
+  async function fetchSummary() {
+    // 1. Ambil harga pasar dari RPC untuk menghitung Return/Gain
+    const { data: rpcData } = await supabase.rpc('get_portfolio_summary');
+
+    // 2. Ambil raw data akun dan transaksi untuk menghitung Modal Bersih
+    const { data: accounts } = await supabase.from('asset_accounts').select('id, asset_type, is_active');
+    const { data: txs } = await supabase.from('asset_transactions').select('asset_account_id, amount, action');
+
+    let modalSummary = { saving: 0, gold: 0, mutual_fund: 0, deposit: 0 };
+    let marketSummary = { saving: 0, gold: 0, mutual_fund: 0, deposit: 0 };
+    let calcTotalModal = 0;
+    let calcTotalMarket = 0;
+
+    // Hitung Modal Bersih dari Transaksi
+    if (accounts && txs) {
+      const typeMap = {};
+      accounts.forEach(acc => {
+        if (acc.is_active !== false) typeMap[acc.id] = acc.asset_type;
+      });
+
+      txs.forEach(tx => {
+        const assetType = typeMap[tx.asset_account_id];
+        if (assetType) {
+          const action = String(tx.action).toLowerCase();
+          const amt = Number(tx.amount || 0);
+
+          if (action === 'buy' || action === 'deposit') {
+            modalSummary[assetType] += amt;
+          } else if (action === 'sell' || action === 'withdraw') {
+            modalSummary[assetType] -= amt;
+          }
+        }
+      });
+      calcTotalModal = Object.values(modalSummary).reduce((a, b) => a + b, 0);
+    }
+
+    // Hitung Nilai Pasar dari RPC (untuk membandingkan untung/rugi)
+    if (rpcData) {
+      rpcData.forEach(r => {
+        if (r.asset_type) {
+          marketSummary[r.asset_type] = r.total_current_value || 0;
+        }
+      });
+      calcTotalMarket = Object.values(marketSummary).reduce((a, b) => a + b, 0);
+    }
+
+    return { modalSummary, calcTotalModal, calcTotalMarket };
+  }
+
+  // Dipakai tombol "Refresh harga" -- selalu update state (aman, komponen pasti masih
+  // mounted karena dipicu klik user, bukan efek awal yang bisa ke-interupsi navigasi).
+  const load = React.useCallback(async () => {
+    setLoading(true);
+    const { modalSummary, calcTotalModal, calcTotalMarket } = await fetchSummary();
+    setValueByType(modalSummary);
+    setTotalModal(calcTotalModal);
+    setTotalMarket(calcTotalMarket);
+    setLoading(false);
+  }, []);
+
+  // Fetch awal saat halaman dibuka -- pakai guard `mounted` sendiri, beda dari load()
+  // di atas, supaya tidak setState kalau user keburu pindah halaman sebelum query selesai.
   useEffect(() => {
     let mounted = true;
     (async () => {
-      // 1. Ambil harga pasar dari RPC untuk menghitung Return/Gain
-      const { data: rpcData } = await supabase.rpc('get_portfolio_summary');
-      
-      // 2. Ambil raw data akun dan transaksi untuk menghitung Modal Bersih
-      const { data: accounts } = await supabase.from('asset_accounts').select('id, asset_type, is_active');
-      const { data: txs } = await supabase.from('asset_transactions').select('asset_account_id, amount, action');
-
+      setLoading(true);
+      const { modalSummary, calcTotalModal, calcTotalMarket } = await fetchSummary();
       if (!mounted) return;
-
-      let modalSummary = { saving: 0, gold: 0, mutual_fund: 0, deposit: 0 };
-      let marketSummary = { saving: 0, gold: 0, mutual_fund: 0, deposit: 0 };
-      let calcTotalModal = 0;
-      let calcTotalMarket = 0;
-
-      // Hitung Modal Bersih dari Transaksi
-      if (accounts && txs) {
-        const typeMap = {};
-        accounts.forEach(acc => {
-          if (acc.is_active !== false) typeMap[acc.id] = acc.asset_type;
-        });
-
-        txs.forEach(tx => {
-          const assetType = typeMap[tx.asset_account_id];
-          if (assetType) {
-            const action = String(tx.action).toLowerCase();
-            const amt = Number(tx.amount || 0);
-
-            if (action === 'buy' || action === 'deposit') {
-              modalSummary[assetType] += amt;
-            } else if (action === 'sell' || action === 'withdraw') {
-              modalSummary[assetType] -= amt;
-            }
-          }
-        });
-        calcTotalModal = Object.values(modalSummary).reduce((a, b) => a + b, 0);
-      }
-
-      // Hitung Nilai Pasar dari RPC (untuk membandingkan untung/rugi)
-      if (rpcData) {
-        rpcData.forEach(r => {
-          if (r.asset_type) {
-            marketSummary[r.asset_type] = r.total_current_value || 0;
-          }
-        });
-        calcTotalMarket = Object.values(marketSummary).reduce((a, b) => a + b, 0);
-      }
-
       setValueByType(modalSummary);
       setTotalModal(calcTotalModal);
       setTotalMarket(calcTotalMarket);
@@ -92,7 +113,7 @@ export default function AssetsHome({ user }) {
     .filter((d) => d.value > 0);
 
   return (
-    <AssetPageShell title="Aset">
+    <AssetPageShell title="Aset" rightAction={<RefreshPricesButton onRefreshed={load} />}>
       <div style={styles.summaryCard}>
         <div style={styles.summaryLabel}>Total Modal Keseluruhan</div>
         <div style={styles.summaryValue}>{loading ? '...' : formatRupiah(totalModal)}</div>
