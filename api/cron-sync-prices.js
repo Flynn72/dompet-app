@@ -46,40 +46,44 @@ export default async function handler(req, res) {
 
   const results = { gold: null, reksadana: null, errors: [] };
 
-  // ===== Harga Emas — scrape langsung dari halaman resmi Pluang =====
+  // ===== Harga Emas — API publik logam-mulia-api (bukan lagi scrape halaman Pluang) =====
+  // RIWAYAT: sebelumnya scrape https://pluang.com/en/asset/gold langsung. Per [cek log Vercel
+  // Cron], Pluang mulai balas HTTP 403 ke request dari server Vercel — sudah dicoba ganti
+  // User-Agent jadi browser asli, tetap 403. Kesimpulannya ini blokir di level IP/ASN
+  // datacenter (Cloudflare bot protection dkk), bukan sekadar soal header, jadi TIDAK bisa
+  // diperbaiki dari sisi kita selama masih fetch langsung ke Pluang dari server Vercel.
+  //
+  // SOLUSI: pindah ke https://logam-mulia-api.iamutaki.workers.dev — proyek open-source
+  // (MIT license, github.com/iamutaki/logam-mulia-api) yang menyediakan harga logam mulia
+  // dari 18+ sumber dalam format JSON asli (bukan HTML yang perlu di-regex), di-hosting di
+  // Cloudflare Workers. Kita pakai source "logammulia" (situs resmi Logam Mulia/Antam) biar
+  // tetap merujuk ke harga emas fisik resmi, konsisten dengan semangat harga Pluang yang lama
+  // (emas Pluang memang emas fisik Antam, per FAQ resmi Pluang).
+  //
+  // asset_name TETAP 'gold_pluang' (bukan diganti 'gold_logammulia') SENGAJA, supaya tidak
+  // perlu ubah kode lain yang query berdasarkan asset_name ini (RPC get_current_price_for_account
+  // dkk) — cuma field `source`/`raw` metadata yang mencerminkan sumber sebenarnya sekarang.
   try {
-    // User-Agent sebelumnya ('DompetAppCron/1.0') eksplisit ngaku sebagai bot dan mulai
-    // di-block Pluang (HTTP 403) per [tanggal ditemukan: lihat log Vercel Cron]. Diganti
-    // menyamai header request Bareksa di bawah (browser Chrome asli beneran) yang terbukti
-    // masih lolos. Kalau suatu saat 403 muncul lagi meski sudah begini, kemungkinan besar
-    // itu bukan lagi soal User-Agent tapi blokir di level IP/ASN Vercel oleh Cloudflare —
-    // butuh solusi lain (proxy pihak ketiga, atau ganti sumber harga).
-    const goldRes = await fetch('https://pluang.com/en/asset/gold', {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9,id;q=0.8',
-      },
-    });
-    if (!goldRes.ok) throw new Error(`HTTP ${goldRes.status} dari halaman Pluang`);
-    const html = await goldRes.text();
+    const goldRes = await fetch('https://logam-mulia-api.iamutaki.workers.dev/api/prices/logammulia');
+    if (!goldRes.ok) throw new Error(`HTTP ${goldRes.status} dari logam-mulia-api`);
+    const json = await goldRes.json();
 
-    // Harga muncul di <title>/meta og:title dengan format "...Rp2,351,508/g | Pluang"
-    const match = html.match(/Rp([\d,]+)\/g/);
-    if (!match) throw new Error('Format harga di halaman Pluang tidak ditemukan (mungkin struktur halaman berubah)');
+    if (!json.success || !Array.isArray(json.data) || json.data.length === 0) {
+      throw new Error(`Response logam-mulia-api tidak sesuai format yang diharapkan: ${JSON.stringify(json).slice(0, 300)}`);
+    }
 
-    const hargaPluang = parseInt(match[1].replace(/,/g, ''), 10);
-    if (!hargaPluang || hargaPluang < 100000) throw new Error(`Harga hasil scrape tidak masuk akal: ${hargaPluang}`);
+    const hargaEmas = json.data[0].sellPrice;
+    if (!hargaEmas || hargaEmas < 100000) throw new Error(`Harga hasil API tidak masuk akal: ${hargaEmas}`);
 
     const { error } = await supabaseAdmin.from('asset_prices').insert({
       asset_name: 'gold_pluang',
-      price: hargaPluang,
-      source: 'pluang-scrape-asset-gold-page',
-      raw: { scraped_from: 'https://pluang.com/en/asset/gold' },
+      price: hargaEmas,
+      source: 'logam-mulia-api-logammulia',
+      raw: { fetched_from: 'https://logam-mulia-api.iamutaki.workers.dev/api/prices/logammulia', response: json.data[0] },
     });
     if (error) throw error;
-    console.log('[cron-sync-prices] Harga emas Pluang (scrape) berhasil disimpan:', hargaPluang);
-    results.gold = { success: true, price: hargaPluang };
+    console.log('[cron-sync-prices] Harga emas (logam-mulia-api) berhasil disimpan:', hargaEmas);
+    results.gold = { success: true, price: hargaEmas };
   } catch (err) {
     console.error('[cron-sync-prices] Emas gagal:', err.message);
     results.gold = { success: false, error: err.message };
