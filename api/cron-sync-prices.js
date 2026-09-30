@@ -30,19 +30,58 @@
 // ============================================================
 
 export default async function handler(req, res) {
-  // Pastikan request ini benar dari Vercel Cron (atau seseorang yang tahu CRON_SECRET),
-  // bukan sembarang orang yang menembak endpoint ini langsung dari browser.
-  const authHeader = req.headers.authorization;
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return res.status(500).json({ error: 'SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY belum di-set di Environment Variables Vercel.' });
   }
 
   const { createClient } = await import('@supabase/supabase-js');
   const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+  // Endpoint ini boleh dipanggil oleh 2 jalur:
+  // (1) Vercel/cron-job.org yang tahu CRON_SECRET (jalur otomatis tiap 30 menit)
+  // (2) User Dompet App yang sudah login, lewat tombol "Refresh harga" manual di UI —
+  //     diverifikasi pakai access token Supabase-nya sendiri (BUKAN CRON_SECRET, itu
+  //     rahasia server yang tidak boleh pernah dikirim ke browser).
+  const authHeader = req.headers.authorization || '';
+  const bearerToken = authHeader.replace(/^Bearer\s+/i, '');
+  const isCronRequest = process.env.CRON_SECRET && bearerToken === process.env.CRON_SECRET;
+  let isManualUserRequest = false;
+
+  if (!isCronRequest) {
+    const { data: userData, error: userError } = bearerToken
+      ? await supabaseAdmin.auth.getUser(bearerToken)
+      : { data: null, error: new Error('no token') };
+    if (userError || !userData?.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    isManualUserRequest = true;
+  }
+
+  // Cooldown KHUSUS buat trigger manual (bukan cron) — cegah spam klik tombol refresh
+  // yang bisa membebani sumber data pihak ketiga tanpa perlu. Cron tetap jalan normal
+  // tiap 30 menit terlepas dari cooldown ini.
+  if (isManualUserRequest) {
+    const COOLDOWN_MS = 3 * 60 * 1000; // 3 menit
+    const { data: lastRow } = await supabaseAdmin
+      .from('asset_prices')
+      .select('created_at, updated_at')
+      .eq('asset_name', 'gold_pluang')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const lastTs = lastRow?.created_at || lastRow?.updated_at;
+    if (lastTs) {
+      const ageMs = Date.now() - new Date(lastTs).getTime();
+      if (ageMs < COOLDOWN_MS) {
+        const waitSeconds = Math.ceil((COOLDOWN_MS - ageMs) / 1000);
+        return res.status(429).json({
+          error: 'cooldown',
+          message: `Harga baru saja di-update. Coba lagi dalam ${waitSeconds} detik.`,
+          waitSeconds,
+        });
+      }
+    }
+  }
 
   const results = { gold: null, reksadana: null, errors: [] };
 
