@@ -102,26 +102,30 @@ export default async function handler(req, res) {
   // asset_name TETAP 'gold_pluang' (bukan diganti 'gold_logammulia') SENGAJA, supaya tidak
   // perlu ubah kode lain yang query berdasarkan asset_name ini (RPC get_current_price_for_account
   // dkk) — cuma field `source`/`raw` metadata yang mencerminkan sumber sebenarnya sekarang.
-  try {
-    const goldRes = await fetch('https://logam-mulia-api.iamutaki.workers.dev/api/prices/logammulia');
-    if (!goldRes.ok) throw new Error(`HTTP ${goldRes.status} dari logam-mulia-api`);
+ try {
+    // Contoh menggunakan API harga emas global (XAU/IDR)
+    // Anda bisa mendaftar gratis di goldapi.io untuk mendapatkan key-nya
+    const goldRes = await fetch('https://www.goldapi.io/api/XAU/IDR', {
+      headers: { 'x-access-token': 'GOLDAPI_API_KEY_ANDA_DISINI' }
+    });
+    
+    if (!goldRes.ok) throw new Error(`HTTP ${goldRes.status} dari GoldAPI`);
     const json = await goldRes.json();
 
-    if (!json.success || !Array.isArray(json.data) || json.data.length === 0) {
-      throw new Error(`Response logam-mulia-api tidak sesuai format yang diharapkan: ${JSON.stringify(json).slice(0, 300)}`);
-    }
+    // GoldAPI mengembalikan harga per Troy Ounce (oz). 1 oz = 31.1034768 gram
+    const hargaPerOunce = json.price; 
+    const hargaEmas = Math.round(hargaPerOunce / 31.1034768);
 
-    const hargaEmas = json.data[0].sellPrice;
-    if (!hargaEmas || hargaEmas < 100000) throw new Error(`Harga hasil API tidak masuk akal: ${hargaEmas}`);
+    if (!hargaEmas || hargaEmas < 500000) throw new Error(`Harga hasil konversi tidak masuk akal: ${hargaEmas}`);
 
     const { error } = await supabaseAdmin.from('asset_prices').insert({
       asset_name: 'gold_pluang',
       price: hargaEmas,
-      source: 'logam-mulia-api-logammulia',
-      raw: { fetched_from: 'https://logam-mulia-api.iamutaki.workers.dev/api/prices/logammulia', response: json.data[0] },
+      source: 'goldapi-spot-idr',
+      raw: { fetched_from: 'https://www.goldapi.io/api/XAU/IDR', response: json },
     });
     if (error) throw error;
-    console.log('[cron-sync-prices] Harga emas (logam-mulia-api) berhasil disimpan:', hargaEmas);
+    console.log('[cron-sync-prices] Harga emas digital berhasil disinkronkan:', hargaEmas);
     results.gold = { success: true, price: hargaEmas };
   } catch (err) {
     console.error('[cron-sync-prices] Emas gagal:', err.message);
