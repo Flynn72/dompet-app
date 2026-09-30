@@ -101,6 +101,23 @@ export async function fetchPriceHistory(account, days = 90) {
   return [];
 }
 
+// Trigger manual sync harga emas & reksadana (endpoint yang sama dipakai cron 30 menit),
+// pakai access token user yang lagi login (BUKAN CRON_SECRET). Server yang menentukan
+// boleh/tidaknya lewat cooldown 3 menit -- lihat api/cron-sync-prices.js.
+export async function refreshPrices() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Belum login.');
+
+  const res = await fetch('/api/cron-sync-prices', {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
+  const json = await res.json().catch(() => ({}));
+
+  if (res.status === 429) return { cooldown: true, message: json.message };
+  if (!res.ok) throw new Error(json.error || `Gagal refresh harga (HTTP ${res.status})`);
+  return json; // { gold, reksadana, errors }
+}
+
 export async function fetchDepositInterestEstimate(assetAccountId) {
   const { data, error } = await supabase
     .rpc('get_deposit_interest_estimate', { p_asset_account_id: assetAccountId })
