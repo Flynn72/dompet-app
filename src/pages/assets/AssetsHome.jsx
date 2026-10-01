@@ -19,7 +19,10 @@ const TYPE_META = {
 
 export default function AssetsHome({ user }) {
   const navigate = useNavigate();
-  const [valueByType, setValueByType] = useState({});
+  // marketByType = nilai PASAR sekarang per jenis aset (dipakai di breakdown list &
+  // pie chart di bawah). Beda dari totalModal/totalMarket yang dipakai cuma buat
+  // headline "Total Modal Keseluruhan" + untung/rugi keseluruhan di atas.
+  const [marketByType, setMarketByType] = useState({});
   const [totalModal, setTotalModal] = useState(0);
   const [totalMarket, setTotalMarket] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -72,15 +75,15 @@ export default function AssetsHome({ user }) {
       calcTotalMarket = Object.values(marketSummary).reduce((a, b) => a + b, 0);
     }
 
-    return { modalSummary, calcTotalModal, calcTotalMarket };
+    return { marketSummary, calcTotalModal, calcTotalMarket };
   }
 
   // Dipakai tombol "Refresh harga" -- selalu update state (aman, komponen pasti masih
   // mounted karena dipicu klik user, bukan efek awal yang bisa ke-interupsi navigasi).
   const load = React.useCallback(async () => {
     setLoading(true);
-    const { modalSummary, calcTotalModal, calcTotalMarket } = await fetchSummary();
-    setValueByType(modalSummary);
+    const { marketSummary, calcTotalModal, calcTotalMarket } = await fetchSummary();
+    setMarketByType(marketSummary);
     setTotalModal(calcTotalModal);
     setTotalMarket(calcTotalMarket);
     setLoading(false);
@@ -92,9 +95,9 @@ export default function AssetsHome({ user }) {
     let mounted = true;
     (async () => {
       setLoading(true);
-      const { modalSummary, calcTotalModal, calcTotalMarket } = await fetchSummary();
+      const { marketSummary, calcTotalModal, calcTotalMarket } = await fetchSummary();
       if (!mounted) return;
-      setValueByType(modalSummary);
+      setMarketByType(marketSummary);
       setTotalModal(calcTotalModal);
       setTotalMarket(calcTotalMarket);
       setLoading(false);
@@ -107,10 +110,11 @@ export default function AssetsHome({ user }) {
   const gainPct = totalModal > 0 ? (totalGain / totalModal) * 100 : 0;
   const gainPositive = totalGain >= 0;
 
-  // Persiapkan Data untuk Diagram Donat berdasarkan Modal
+  // Persiapkan Data untuk Diagram Donat berdasarkan NILAI PASAR (bukan modal lagi)
   const pieData = Object.entries(TYPE_META)
-    .map(([type, meta]) => ({ type, name: meta.label, value: valueByType[type] || 0, color: meta.color }))
+    .map(([type, meta]) => ({ type, name: meta.label, value: marketByType[type] || 0, color: meta.color }))
     .filter((d) => d.value > 0);
+  const totalMarketForPct = pieData.reduce((a, d) => a + d.value, 0);
 
   return (
     <AssetPageShell title="Aset" rightAction={<RefreshPricesButton onRefreshed={load} />}>
@@ -127,7 +131,7 @@ export default function AssetsHome({ user }) {
 
       {!loading && pieData.length > 0 && (
         <div style={styles.allocationCard}>
-          <div style={styles.allocationHeader}>Alokasi Modal Aset</div>
+          <div style={styles.allocationHeader}>Alokasi Nilai Aset</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <div style={{ width: 96, height: 96, flexShrink: 0 }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -149,7 +153,7 @@ export default function AssetsHome({ user }) {
                 <div key={d.type} style={styles.legendRow}>
                   <span style={{ width: 8, height: 8, borderRadius: 4, background: d.color, flexShrink: 0 }} />
                   <span style={styles.legendLabel}>{d.name}</span>
-                  <span style={styles.legendPct}>{totalModal > 0 ? ((d.value / totalModal) * 100).toFixed(0) : 0}%</span>
+                  <span style={styles.legendPct}>{totalMarketForPct > 0 ? ((d.value / totalMarketForPct) * 100).toFixed(0) : 0}%</span>
                 </div>
               ))}
             </div>
@@ -165,8 +169,8 @@ export default function AssetsHome({ user }) {
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={styles.rowLabel}>{meta.label}</div>
-              {/* Menampilkan Modal Bersih pada list */}
-              {!loading && <div style={styles.rowValue}>{formatRupiah(valueByType[type] || 0)}</div>}
+              {/* Menampilkan NILAI PASAR sekarang (bukan modal) pada list */}
+              {!loading && <div style={styles.rowValue}>{formatRupiah(marketByType[type] || 0)}</div>}
             </div>
             <ChevronRight size={18} color="var(--text-muted)" />
           </button>
