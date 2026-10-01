@@ -1,10 +1,18 @@
 // ============================================================
-// Serverless Function (dipicu Vercel Cron 1x sehari) untuk sinkronisasi
-// harga Emas & NAV Reksadana Syariah ke Supabase.
+// Serverless Function (dipicu Vercel/cron-job.org tiap 30 menit) untuk sinkronisasi
+// harga Emas (digital & Logam Mulia fisik) & NAV Reksadana Syariah ke Supabase.
 //
-// SUMBER HARGA EMAS: scrape langsung dari halaman publik resmi Pluang
-// (https://pluang.com/en/asset/gold) — harga yang benar-benar ditampilkan
-// Pluang ke user, bukan estimasi/turunan.
+// SUMBER HARGA EMAS -- dua-duanya lewat https://logam-mulia-api.iamutaki.workers.dev
+// (proyek open-source MIT, github.com/iamutaki/logam-mulia-api, gratis & TANPA API key):
+//   1. Emas DIGITAL (asset_name 'gold_pluang', dipakai akun emas yang sudah ada -- Pluang dkk)
+//      -> sumber "treasury" (platform emas digital, model bisnisnya sama kayak Pluang:
+//      tracking harga spot + margin, bukan harga cetak fisik). Dulu sempat coba scrape
+//      Pluang langsung (kena block 403 Cloudflare) lalu GoldAPI.io (butuh API key
+//      berbayar/signup yang belum pernah beneran diisi) -- keduanya sudah ditinggalkan.
+//   2. Logam Mulia FISIK Antam (asset_name 'gold_logam_mulia_antam', BELUM dipakai
+//      akun manapun sekarang -- disimpan buat jaga-jaga kalau user nanti beli emas
+//      batangan fisik dan bikin akun baru untuk itu)
+//      -> sumber "logammulia" (situs resmi Logam Mulia/Antam)
 //
 // SUMBER NAV REKSADANA: scrape dari https://www.bareksa.com/id/data/reksadana/2024/insight-money-syariah
 // — NAV asli reksadana Insight Money Syariah (I-Money Syariah) dari Bareksa, platform
@@ -12,13 +20,10 @@
 // update sejak 24 Mei 2026, terbukti dari label tanggal di halamannya sendiri) — Bareksa
 // terbukti lebih rutin update.
 //
-// CATATAN PENTING soal risiko kedua sumber ini: keduanya scraping HTML
-// (bukan API resmi), jadi kalau situs sumbernya berubah struktur, regex
-// pengambil harga bisa gagal (errornya kelihatan di response cron ini, harga
-// lama di Supabase TIDAK akan tertimpa data salah). Bareksa juga situs yang lebih
-// besar/komersil dibanding akufrugal, jadi ada kemungkinan (walau belum pernah terjadi
-// sejauh ini) suatu saat memblokir request otomatis seperti ini — kalau itu terjadi,
-// error-nya akan kelihatan jelas di response cron (bukan silent fail).
+// CATATAN PENTING soal risiko: NAV Reksadana masih scraping HTML (bukan API resmi),
+// jadi kalau Bareksa berubah struktur atau mulai nge-block, errornya kelihatan jelas di
+// response cron ini (harga lama di Supabase TIDAK akan tertimpa data salah). Harga emas
+// sekarang sudah lebih aman karena pakai JSON API asli, bukan scraping.
 //
 // ENV VARS yang wajib diisi di Vercel (Project Settings > Environment Variables):
 // - SUPABASE_URL                -> URL project Supabase (sama seperti di supabaseClient.js)
@@ -83,63 +88,63 @@ export default async function handler(req, res) {
     }
   }
 
-  const results = { gold: null, reksadana: null, errors: [] };
+  const results = { goldDigital: null, goldLogamMulia: null, reksadana: null, errors: [] };
 
-  // ===== Harga Emas — API publik logam-mulia-api (bukan lagi scrape halaman Pluang) =====
-  // RIWAYAT: sebelumnya scrape https://pluang.com/en/asset/gold langsung. Per [cek log Vercel
-  // Cron], Pluang mulai balas HTTP 403 ke request dari server Vercel — sudah dicoba ganti
-  // User-Agent jadi browser asli, tetap 403. Kesimpulannya ini blokir di level IP/ASN
-  // datacenter (Cloudflare bot protection dkk), bukan sekadar soal header, jadi TIDAK bisa
-  // diperbaiki dari sisi kita selama masih fetch langsung ke Pluang dari server Vercel.
-  //
-  // SOLUSI: pindah ke https://logam-mulia-api.iamutaki.workers.dev — proyek open-source
-  // (MIT license, github.com/iamutaki/logam-mulia-api) yang menyediakan harga logam mulia
-  // dari 18+ sumber dalam format JSON asli (bukan HTML yang perlu di-regex), di-hosting di
-  // Cloudflare Workers. Kita pakai source "logammulia" (situs resmi Logam Mulia/Antam) biar
-  // tetap merujuk ke harga emas fisik resmi, konsisten dengan semangat harga Pluang yang lama
-  // (emas Pluang memang emas fisik Antam, per FAQ resmi Pluang).
-  //
-  // asset_name TETAP 'gold_pluang' (bukan diganti 'gold_logammulia') SENGAJA, supaya tidak
-  // perlu ubah kode lain yang query berdasarkan asset_name ini (RPC get_current_price_for_account
-  // dkk) — cuma field `source`/`raw` metadata yang mencerminkan sumber sebenarnya sekarang.
- try {
-    // Contoh menggunakan API harga emas global (XAU/IDR)
-    // Anda bisa mendaftar gratis di goldapi.io untuk mendapatkan key-nya
-    const goldRes = await fetch('https://www.goldapi.io/api/XAU/IDR', {
-      headers: { 'x-access-token': 'GOLDAPI_API_KEY_ANDA_DISINI' }
-    });
-    
-    if (!goldRes.ok) throw new Error(`HTTP ${goldRes.status} dari GoldAPI`);
-    const json = await goldRes.json();
+  // Helper kecil dipakai 2x (emas digital & logam mulia) -- keduanya API yang sama,
+  // beda cuma nama "source"-nya di URL dan asset_name tujuan penyimpanan di Supabase.
+  async function fetchLogamMuliaApiPrice(sourceName) {
+    const res2 = await fetch(`https://logam-mulia-api.iamutaki.workers.dev/api/prices/${sourceName}`);
+    if (!res2.ok) throw new Error(`HTTP ${res2.status} dari logam-mulia-api (${sourceName})`);
+    const json = await res2.json();
+    if (!json.success || !Array.isArray(json.data) || json.data.length === 0) {
+      throw new Error(`Response logam-mulia-api (${sourceName}) tidak sesuai format: ${JSON.stringify(json).slice(0, 300)}`);
+    }
+    const harga = json.data[0].sellPrice;
+    if (!harga || harga < 100000) throw new Error(`Harga hasil API (${sourceName}) tidak masuk akal: ${harga}`);
+    return { harga, raw: json.data[0] };
+  }
 
-    // GoldAPI mengembalikan harga per Troy Ounce (oz). 1 oz = 31.1034768 gram
-    const hargaPerOunce = json.price; 
-    const hargaEmas = Math.round(hargaPerOunce / 31.1034768);
+  // ===== 1. Emas DIGITAL (dipakai akun Pluang dkk yang sudah ada) — sumber logammulia =====
+  // RIWAYAT: sempat dicoba sumber "treasury" (platform emas digital) supaya beda dari
+  // Logam Mulia fisik, tapi ternyata datanya SALAH SKALA (~Rp1,34jt, padahal harga emas
+  // asli ~Rp2,3-2,5jt/gram -- hampir setengahnya), bikin akun user kelihatan rugi -47%
+  // padahal tidak. Balik ke sumber "logammulia" yang sudah terbukti akurat, sampai ada
+  // sumber emas-digital-spesifik lain yang terverifikasi benar datanya. Sementara ini
+  // 'gold_pluang' dan 'gold_logam_mulia_antam' nyimpen angka yang SAMA PERSIS (satu kali
+  // fetch, dua kali insert) -- redundan secara nilai, tapi sengaja dipertahankan sebagai
+  // 2 baris/asset_name terpisah supaya gampang di-swap lagi nanti kalau ketemu sumber
+  // emas-digital yang akurat, tanpa perlu ubah skema atau RPC yang sudah ada.
+  try {
+    const { harga, raw } = await fetchLogamMuliaApiPrice('logammulia');
+    const rawPayload = { fetched_from: 'https://logam-mulia-api.iamutaki.workers.dev/api/prices/logammulia', response: raw };
 
-    if (!hargaEmas || hargaEmas < 500000) throw new Error(`Harga hasil konversi tidak masuk akal: ${hargaEmas}`);
-
-    const { error } = await supabaseAdmin.from('asset_prices').insert({
+    const { error: errDigital } = await supabaseAdmin.from('asset_prices').insert({
       asset_name: 'gold_pluang',
-      price: hargaEmas,
-      source: 'goldapi-spot-idr',
-      raw: { fetched_from: 'https://www.goldapi.io/api/XAU/IDR', response: json },
+      price: harga,
+      source: 'logam-mulia-api-logammulia',
+      raw: rawPayload,
     });
-    if (error) throw error;
-    console.log('[cron-sync-prices] Harga emas digital berhasil disinkronkan:', hargaEmas);
-    results.gold = { success: true, price: hargaEmas };
+    if (errDigital) throw errDigital;
+    results.goldDigital = { success: true, price: harga };
+
+    const { error: errFisik } = await supabaseAdmin.from('asset_prices').insert({
+      asset_name: 'gold_logam_mulia_antam',
+      price: harga,
+      source: 'logam-mulia-api-logammulia',
+      raw: rawPayload,
+    });
+    if (errFisik) throw errFisik;
+    results.goldLogamMulia = { success: true, price: harga };
+
+    console.log('[cron-sync-prices] Harga emas (logammulia) berhasil disimpan ke gold_pluang & gold_logam_mulia_antam:', harga);
   } catch (err) {
     console.error('[cron-sync-prices] Emas gagal:', err.message);
-    results.gold = { success: false, error: err.message };
+    if (!results.goldDigital) results.goldDigital = { success: false, error: err.message };
+    if (!results.goldLogamMulia) results.goldLogamMulia = { success: false, error: err.message };
     results.errors.push(`Emas: ${err.message}`);
   }
 
   // ===== NAV Reksadana Insight Money Syariah — scrape dari Bareksa =====
-  // Sebelumnya scrape dari akufrugal.com, tapi ternyata datanya BEKU (tidak update
-  // sejak 24 Mei 2026, terbukti dari label "Tanggal Update" di halamannya sendiri).
-  // Bareksa terbukti lebih update: return 1-bulan/YTD-nya beda & konsisten sama
-  // tanggal terkini setiap dicek, tanda datanya memang hidup — meski Bareksa
-  // sendiri tidak kasih label "terakhir update jam berapa" secara eksplisit,
-  // jadi tetap tidak ada jaminan 100% update SETIAP hari.
   try {
     const rdRes = await fetch('https://www.bareksa.com/id/data/reksadana/2024/insight-money-syariah', {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36' },
