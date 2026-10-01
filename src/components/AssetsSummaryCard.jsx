@@ -16,21 +16,29 @@ const TYPE_META = {
 
 export default function AssetsSummaryCard() {
   const navigate = useNavigate();
-  const [valueByType, setValueByType] = useState({});
+  // marketByType = nilai PASAR sekarang per jenis aset, dari RPC get_portfolio_summary
+  // (sama seperti dipakai di AssetsHome.jsx) -- dipakai buat baris list di bawah.
+  // "total" (modal) tetap dipertahankan buat headline "Total Modal Keseluruhan".
+  const [marketByType, setMarketByType] = useState({});
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      // Mengambil data akun dan transaksi untuk menghitung Modal Bersih secara manual
+      // 1. Modal Bersih (headline atas) -- dihitung manual dari akun+transaksi
       const { data: accounts } = await supabase.from('asset_accounts').select('id, asset_type, is_active');
       const { data: txs } = await supabase.from('asset_transactions').select('asset_account_id, amount, action');
+
+      // 2. Nilai Pasar sekarang (buat baris per kategori) -- dari RPC yang sama
+      //    dipakai halaman Aset, bukan dihitung manual
+      const { data: rpcData } = await supabase.rpc('get_portfolio_summary');
 
       if (!mounted) return;
 
       let summary = { saving: 0, gold: 0, mutual_fund: 0, deposit: 0 };
       let grandTotal = 0;
+      let marketSummary = { saving: 0, gold: 0, mutual_fund: 0, deposit: 0 };
 
       if (accounts && txs) {
         // Mapping ID akun ke jenis asetnya agar tidak tertukar
@@ -61,11 +69,17 @@ export default function AssetsSummaryCard() {
         grandTotal = Object.values(summary).reduce((a, b) => a + b, 0);
       }
 
-      setValueByType(summary);
+      if (rpcData) {
+        rpcData.forEach((r) => {
+          if (r.asset_type) marketSummary[r.asset_type] = r.total_current_value || 0;
+        });
+      }
+
+      setMarketByType(marketSummary);
       setTotal(grandTotal);
       setLoading(false);
     })();
-    
+
     return () => { mounted = false; };
   }, []);
 
@@ -86,7 +100,8 @@ export default function AssetsSummaryCard() {
               <meta.icon size={15} />
             </div>
             <div style={styles.rowLabel}>{meta.label}</div>
-            <div style={styles.rowValue}>{loading ? '...' : formatRupiah(valueByType[type] || 0)}</div>
+            {/* Nilai pasar sekarang (bukan modal) */}
+            <div style={styles.rowValue}>{loading ? '...' : formatRupiah(marketByType[type] || 0)}</div>
           </button>
         ))}
       </div>
