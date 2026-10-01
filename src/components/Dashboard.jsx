@@ -1908,10 +1908,11 @@ export default function Dashboard({ user, onLogout }) {
           <>
             <ExportReportButtons
               chartsRef={reportChartsRef}
-              monthLabel={monthLabel(activeMonth)}
-              totals={{ totalIncome, totalExpense, totalSaving, balance }}
-              transactions={monthTx}
+              allTransactions={transactions}
+              allAssetTransactions={assetTransactions}
               categories={categories}
+              activeMonthKey={activeMonth}
+              activeMonthLabel={monthLabel(activeMonth)}
             >
               <button onClick={() => setShowExportChoice(true)} style={styles.csvBtn}>
                 <Download size={13} /> Export Excel
