@@ -21,13 +21,17 @@ function formatRupiahPlain(n) {
 
 /**
  * @param {Object} params
- * @param {HTMLElement} params.chartsElement - elemen DOM berisi grafik yang mau di-screenshot
+ * @param {Array<HTMLElement>} params.chartElements - elemen-elemen DOM grafik yang mau
+ *   di-screenshot, ditumpuk vertikal di PDF sesuai urutan array (elemen null/undefined
+ *   di-skip). Dulu cuma 1 elemen gabungan (chartsElement) -- sekarang bisa lebih dari 1,
+ *   supaya pie chart (spesifik bulan) & tren 6 bulan (independen bulan) bisa dipilih
+ *   terpisah sesuai rentang laporan yang diminta user.
  * @param {string} params.monthLabel - contoh: "September 2026"
  * @param {Object} params.totals - { totalIncome, totalExpense, totalSaving, balance }
- * @param {Array} params.transactions - transaksi bulan aktif
+ * @param {Array} params.transactions - transaksi dalam rentang yang dipilih
  * @param {Array} params.categories - untuk lookup nama kategori
  */
-export async function exportReportToPdf({ chartsElement, monthLabel, totals, transactions, categories }) {
+export async function exportReportToPdf({ chartElements, monthLabel, totals, transactions, categories }) {
   const [{ jsPDF }, html2canvasModule, autoTableModule] = await Promise.all([
     import('jspdf'),
     import('html2canvas'),
@@ -74,24 +78,28 @@ export async function exportReportToPdf({ chartsElement, monthLabel, totals, tra
   });
   cursorY = doc.lastAutoTable.finalY + 10;
 
-  // Screenshot grafik (pie chart + tren 6 bulan)
-  if (chartsElement) {
+  // Screenshot grafik — tiap elemen di chartElements ditumpuk vertikal, sesuai urutan array
+  const validChartElements = (chartElements || []).filter(Boolean);
+  if (validChartElements.length > 0) {
     const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--bg-base').trim() || '#0B0F1A';
-    const canvas = await html2canvas(chartsElement, {
-      backgroundColor: bgColor,
-      scale: 2,
-      useCORS: true,
-    });
-    const imgData = canvas.toDataURL('image/png');
-    const imgWidth = pageWidth - marginX * 2;
-    const imgHeight = (canvas.height / canvas.width) * imgWidth;
+    for (const el of validChartElements) {
+      const canvas = await html2canvas(el, {
+        backgroundColor: bgColor,
+        scale: 2,
+        useCORS: true,
+      });
+      const imgData = canvas.toDataURL('image/png');
+      const imgWidth = pageWidth - marginX * 2;
+      const imgHeight = (canvas.height / canvas.width) * imgWidth;
 
-    if (cursorY + imgHeight > pageHeight - 15) {
-      doc.addPage();
-      cursorY = 18;
+      if (cursorY + imgHeight > pageHeight - 15) {
+        doc.addPage();
+        cursorY = 18;
+      }
+      doc.addImage(imgData, 'PNG', marginX, cursorY, imgWidth, imgHeight);
+      cursorY += imgHeight + 8;
     }
-    doc.addImage(imgData, 'PNG', marginX, cursorY, imgWidth, imgHeight);
-    cursorY += imgHeight + 10;
+    cursorY += 2;
   }
 
   // Tabel rincian transaksi
