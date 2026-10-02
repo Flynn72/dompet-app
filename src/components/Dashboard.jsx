@@ -298,7 +298,8 @@ export default function Dashboard({ user, onLogout }) {
   const txSearchRef = useRef(null);
   const recurringKelolaRef = useRef(null);
   const asetTabRef = useRef(null); // ref tombol tab "Aset" di header, buat spotlight onboarding (Task 3.7)
-  const reportChartsRef = useRef(null); // ref area grafik (pie + tren) tab Laporan, dipakai html2canvas buat export PDF
+  const reportPieChartsRef = useRef(null); // ref 3 pie chart (spesifik bulan aktif) -- cuma disertakan di PDF untuk rentang "bulan aktif"
+  const reportTrendChartRef = useRef(null); // ref grafik tren 6 bulan -- independen dari bulan aktif, selalu disertakan di PDF
   const targetRefs = {
     settings: settingsBtnRef, fab: fabRef, reportsTab: reportsTabRef, budgetLink: budgetLinkRef,
     expenseCard: expenseCardRef, txSearch: txSearchRef, recurringKelola: recurringKelolaRef,
@@ -1907,7 +1908,8 @@ export default function Dashboard({ user, onLogout }) {
         {tab === 'reports' && (
           <>
             <ExportReportButtons
-              chartsRef={reportChartsRef}
+              pieChartsRef={reportPieChartsRef}
+              trendChartRef={reportTrendChartRef}
               allTransactions={transactions}
               allAssetTransactions={assetTransactions}
               categories={categories}
@@ -1971,8 +1973,10 @@ export default function Dashboard({ user, onLogout }) {
               </div>
             </div>
 
-            {/* Area grafik (pie chart + tren) — dibungkus 1 ref supaya bisa di-screenshot utuh untuk export PDF */}
-            <div ref={reportChartsRef}>
+            {/* Area grafik — 2 ref terpisah: pie chart (spesifik bulan aktif) vs tren 6 bulan
+                (independen dari bulan aktif), supaya export PDF bisa pilih yang relevan sesuai
+                rentang yang diminta user (lihat ExportReportButtons.jsx). */}
+            <div ref={reportPieChartsRef}>
             {/* 3 Pie chart — stack vertikal di HP, 3 kolom di desktop */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20, marginBottom: 32 }} className="pie-grid">
               <style>{`.pie-grid { } @media(min-width:900px){.pie-grid{grid-template-columns:1fr 1fr 1fr !important;}}`}</style>
@@ -2056,8 +2060,10 @@ export default function Dashboard({ user, onLogout }) {
                 </div>
               );})}
             </div>
+            </div>
 
             {/* Tren 6 bulan */}
+            <div ref={reportTrendChartRef}>
             <div style={{ background: 'var(--chart-bg)', border:'1px solid var(--border)', borderRadius: 14, padding: 16, marginBottom: 32 }}>
               <div style={styles.sectionHeader}><span style={styles.sectionTitle}>Tren 6 bulan</span></div>
               {(() => {
