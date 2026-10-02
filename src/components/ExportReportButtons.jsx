@@ -25,14 +25,17 @@ const isOutflowAction = (action) => action === 'sell' || action === 'withdraw';
 
 /**
  * Props:
- *   chartsRef           - ref ke elemen DOM grafik (pie chart + tren) tab Laporan
+ *   pieChartsRef        - ref ke 3 pie chart (Income/Expense/Saving) -- spesifik bulan aktif,
+ *                         cuma disertakan di PDF kalau rentang yang dipilih = bulan aktif
+ *   trendChartRef       - ref ke grafik tren 6 bulan -- independen dari bulan aktif,
+ *                         SELALU disertakan di PDF apapun rentang yang dipilih
  *   allTransactions     - SEMUA transaksi (bukan cuma bulan aktif), dari tabel `transactions`
  *   allAssetTransactions- SEMUA transaksi modul Aset (asset_transactions)
  *   categories          - daftar kategori (buat lookup nama)
  *   activeMonthKey       - 'YYYY-MM' bulan yang lagi aktif di selector atas (default export)
  *   activeMonthLabel     - label bulan aktif, contoh "September 2026"
  */
-export default function ExportReportButtons({ chartsRef, allTransactions, allAssetTransactions, categories, activeMonthKey, activeMonthLabel, children }) {
+export default function ExportReportButtons({ pieChartsRef, trendChartRef, allTransactions, allAssetTransactions, categories, activeMonthKey, activeMonthLabel, children }) {
   const [loadingType, setLoadingType] = useState(null); // null | 'pdf' | 'csv'
   const [errorMsg, setErrorMsg] = useState('');
   const [showRangeModal, setShowRangeModal] = useState(null); // null | 'pdf' | 'csv'
@@ -48,24 +51,25 @@ export default function ExportReportButtons({ chartsRef, allTransactions, allAss
     setShowRangeModal(type);
   }
 
-  // Hitung data (transaksi gabungan + total) untuk rentang yang dipilih. includeChart
-  // cuma true untuk mode 'current' -- screenshot grafik tab Laporan cuma relevan kalau
-  // rentangnya memang bulan yang lagi ditampilkan grafiknya; bulan lain/custom di-skip
-  // (lebih jujur daripada nampilin grafik yang nggak sesuai datanya).
+  // Hitung data (transaksi gabungan + total) untuk rentang yang dipilih. includePieCharts
+  // cuma true untuk mode 'current' -- 3 pie chart itu spesifik bulan aktif, jadi cuma
+  // relevan kalau rentangnya memang bulan yang lagi ditampilkan. Grafik tren 6 bulan BEDA:
+  // itu independen dari bulan aktif (selalu nampilin 6 bulan terakhir), jadi selalu
+  // disertakan apapun rentang yang dipilih -- lihat handleConfirmExport.
   function resolveRange() {
-    let txInRange, label, includeChart;
+    let txInRange, label, includePieCharts;
     if (rangeMode === 'current') {
       txInRange = allTransactions.filter((t) => monthKeyOf(t.date) === activeMonthKey);
       label = activeMonthLabel;
-      includeChart = true;
+      includePieCharts = true;
     } else if (rangeMode === 'month') {
       txInRange = allTransactions.filter((t) => monthKeyOf(t.date) === pickedMonth);
       label = formatMonthLabel(pickedMonth);
-      includeChart = false;
+      includePieCharts = false;
     } else {
       txInRange = allTransactions.filter((t) => t.date >= dateFrom && t.date <= dateTo);
       label = `${formatDateID(dateFrom)} - ${formatDateID(dateTo)}`;
-      includeChart = false;
+      includePieCharts = false;
     }
 
     const assetTxInRange = rangeMode === 'current'
@@ -91,7 +95,7 @@ export default function ExportReportButtons({ chartsRef, allTransactions, allAss
     }));
     const mergedTransactions = [...txInRange, ...assetRows];
 
-    return { mergedTransactions, label, includeChart, totals: { totalIncome, totalExpense, totalSaving, balance } };
+    return { mergedTransactions, label, includePieCharts, totals: { totalIncome, totalExpense, totalSaving, balance } };
   }
 
   async function handleConfirmExport() {
@@ -104,10 +108,16 @@ export default function ExportReportButtons({ chartsRef, allTransactions, allAss
     setLoadingType(type);
     setErrorMsg('');
     try {
-      const { mergedTransactions, label, includeChart, totals } = resolveRange();
+      const { mergedTransactions, label, includePieCharts, totals } = resolveRange();
       if (type === 'pdf') {
+        // Tren 6 bulan SELALU disertakan (independen dari bulan aktif); pie chart
+        // cuma kalau rentangnya memang bulan aktif (lihat komentar di resolveRange).
+        const chartElements = [
+          includePieCharts ? (pieChartsRef?.current || null) : null,
+          trendChartRef?.current || null,
+        ];
         await exportReportToPdf({
-          chartsElement: includeChart ? (chartsRef?.current || null) : null,
+          chartElements,
           monthLabel: label,
           totals,
           transactions: mergedTransactions,
@@ -185,7 +195,7 @@ export default function ExportReportButtons({ chartsRef, allTransactions, allAss
             )}
 
             {rangeMode !== 'current' && (
-              <div style={styles.hint}>Grafik tidak disertakan di PDF untuk rentang selain bulan aktif (biar tidak menampilkan grafik yang tidak sesuai datanya).</div>
+              <div style={styles.hint}>Pie chart Income/Expense/Saving tidak disertakan di PDF untuk rentang selain bulan aktif (biar tidak menampilkan grafik yang tidak sesuai datanya). Grafik tren 6 bulan tetap disertakan karena sifatnya independen dari bulan yang dipilih.</div>
             )}
 
             {errorMsg && <div style={styles.error}>{errorMsg}</div>}
