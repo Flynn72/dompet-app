@@ -31,6 +31,10 @@ const TOTAL_KEYWORDS = [
   'grand total', 'total bayar', 'total belanja', 'total tagihan',
   'total transaksi', 'jumlah bayar', 'total qty', 'total item',
   'nominal transfer', 'nominal tujuan', 'nominal kirim', 'nominal',
+  // Struk mesin EDC (gesek kartu debit/kredit) kebanyakan pakai istilah Inggris,
+  // bukan "Total"/"Jumlah" -- tanpa ini, sistem jatuh ke cara cadangan (angka
+  // terbesar di teks) yang gampang ke-ambil dari no. rekening/kartu/terminal ID.
+  'total amount', 'purchase amount', 'sale amount', 'transaction amount', 'amount',
   'total', 'jumlah', 'jml',
 ];
 
@@ -87,7 +91,11 @@ function extractAmountFromText(rawText) {
       const cleanedWord = w.replace(currencyPrefix, '');
       if (pureNumberWord.test(cleanedWord)) {
         const n = parseNumberToken(cleanedWord);
-        if (!Number.isNaN(n) && n >= 100) { // buang angka receh (qty, no. urut dll)
+        // Batas bawah (100): buang angka receh (qty, no. urut dll).
+        // Batas atas (500 juta): buang angka yang kebesaran buat jadi nominal transaksi
+        // wajar -- ini biasanya no. rekening/kartu/terminal ID/approval code di struk
+        // EDC yang panjangnya 10-19 digit, jauh lebih besar dari nominal belanja normal.
+        if (!Number.isNaN(n) && n >= 100 && n <= 500_000_000) {
           if (hasCurrency) currencyNums.push(n); else plainNums.push(n);
         }
       }
