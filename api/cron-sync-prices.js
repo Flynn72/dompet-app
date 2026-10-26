@@ -2,17 +2,18 @@
 // Serverless Function (dipicu Vercel/cron-job.org tiap 30 menit) untuk sinkronisasi
 // harga Emas (digital & Logam Mulia fisik) & NAV Reksadana Syariah ke Supabase.
 //
-// SUMBER HARGA EMAS -- dua-duanya lewat https://logam-mulia-api.iamutaki.workers.dev
-// (proyek open-source MIT, github.com/iamutaki/logam-mulia-api, gratis & TANPA API key):
-//   1. Emas DIGITAL (asset_name 'gold_pluang', dipakai akun emas yang sudah ada -- Pluang dkk)
-//      -> sumber "treasury" (platform emas digital, model bisnisnya sama kayak Pluang:
-//      tracking harga spot + margin, bukan harga cetak fisik). Dulu sempat coba scrape
-//      Pluang langsung (kena block 403 Cloudflare) lalu GoldAPI.io (butuh API key
-//      berbayar/signup yang belum pernah beneran diisi) -- keduanya sudah ditinggalkan.
-//   2. Logam Mulia FISIK Antam (asset_name 'gold_logam_mulia_antam', BELUM dipakai
-//      akun manapun sekarang -- disimpan buat jaga-jaga kalau user nanti beli emas
-//      batangan fisik dan bikin akun baru untuk itu)
-//      -> sumber "logammulia" (situs resmi Logam Mulia/Antam)
+// SUMBER HARGA EMAS:
+//   1. Emas DIGITAL (asset_name 'gold_pluang', dipakai akun emas Pluang di Dompet)
+//      -> scrape halaman publik https://pluang.com/en/asset/gold LEWAT proxy ScraperAPI
+//      (butuh env var SCRAPERAPI_KEY). Request langsung dari server Vercel ke Pluang kena
+//      HTTP 403, jadi dilewatkan proxy supaya IP-nya beda. Kuota proxy terbatas, makanya
+//      di-throttle (lihat PLUANG_PROXY_INTERVAL_MIN di bawah). Kalau proxy gagal/dilewati,
+//      TIDAK ada baris baru ke gold_pluang -- harga terakhir dipertahankan (sengaja tidak
+//      diisi harga Logam Mulia supaya grafik tidak campur 2 sumber beda).
+//   2. Logam Mulia FISIK Antam (asset_name 'gold_logam_mulia_antam', BELUM dipakai akun
+//      manapun -- disimpan buat jaga-jaga kalau nanti beli emas batangan)
+//      -> https://logam-mulia-api.iamutaki.workers.dev (open-source, gratis, tanpa API key)
+//      sumber "logammulia".
 //
 // SUMBER NAV REKSADANA: scrape dari https://www.bareksa.com/id/data/reksadana/2024/insight-money-syariah
 // — NAV asli reksadana Insight Money Syariah (I-Money Syariah) dari Bareksa, platform
@@ -33,6 +34,9 @@
 // - CRON_SECRET                 -> harus Anda buat & set sendiri (string acak),
 //                                  dipakai untuk verifikasi request ini benar dari Vercel Cron.
 // ============================================================
+
+// Proxy scraping bisa butuh >10 detik (default timeout Vercel Hobby) -- naikkan batasnya.
+export const config = { maxDuration: 60 };
 
 export default async function handler(req, res) {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -70,7 +74,7 @@ export default async function handler(req, res) {
     const { data: lastRow } = await supabaseAdmin
       .from('asset_prices')
       .select('created_at, updated_at')
-      .eq('asset_name', 'gold_pluang')
+      .eq('asset_name', 'gold_logam_mulia_antam')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -90,58 +94,114 @@ export default async function handler(req, res) {
 
   const results = { goldDigital: null, goldLogamMulia: null, reksadana: null, errors: [] };
 
-  // Helper kecil dipakai 2x (emas digital & logam mulia) -- keduanya API yang sama,
-  // beda cuma nama "source"-nya di URL dan asset_name tujuan penyimpanan di Supabase.
-  async function fetchLogamMuliaApiPrice(sourceName) {
-    const res2 = await fetch(`https://logam-mulia-api.iamutaki.workers.dev/api/prices/${sourceName}`);
-    if (!res2.ok) throw new Error(`HTTP ${res2.status} dari logam-mulia-api (${sourceName})`);
-    const json = await res2.json();
-    if (!json.success || !Array.isArray(json.data) || json.data.length === 0) {
-      throw new Error(`Response logam-mulia-api (${sourceName}) tidak sesuai format: ${JSON.stringify(json).slice(0, 300)}`);
+  // ===== 1. Emas DIGITAL (gold_pluang) — scrape Pluang lewat ScraperAPI =====
+  // Throttle supaya kuota proxy tidak habis: free plan ScraperAPI cuma 1.000 credit/bulan,
+  // dan situs di balik proteksi bot (Cloudflare dkk) bisa makan ~10+ credit per request.
+  // Default 480 menit (3x sehari). Bisa diubah lewat env var PLUANG_PROXY_INTERVAL_MIN.
+  // Trigger manual (tombol Refresh) boleh lebih sering, tapi tetap dibatasi 60 menit.
+  const PLUANG_PROXY_INTERVAL_MIN = Number(process.env.PLUANG_PROXY_INTERVAL_MIN) || 480;
+  const MANUAL_MIN_INTERVAL_MIN = 60;
+  try {
+    if (!process.env.SCRAPERAPI_KEY) {
+      throw new Error('SCRAPERAPI_KEY belum di-set di Environment Variables Vercel (harga Pluang dilewati)');
     }
-    const harga = json.data[0].sellPrice;
-    if (!harga || harga < 100000) throw new Error(`Harga hasil API (${sourceName}) tidak masuk akal: ${harga}`);
-    return { harga, raw: json.data[0] };
+
+    const minIntervalMin = isManualUserRequest
+      ? Math.min(PLUANG_PROXY_INTERVAL_MIN, MANUAL_MIN_INTERVAL_MIN)
+      : PLUANG_PROXY_INTERVAL_MIN;
+
+    const { data: lastPluang, error: lastPluangErr } = await supabaseAdmin
+      .from('asset_prices')
+      .select('*')
+      .eq('asset_name', 'gold_pluang')
+      .eq('source', 'pluang-via-scraperapi')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (lastPluangErr) throw new Error(`Gagal cek riwayat harga Pluang: ${lastPluangErr.message}`);
+
+    const lastPluangTs = lastPluang ? (lastPluang.created_at || lastPluang.updated_at) : null;
+    if (lastPluang && !lastPluangTs) throw new Error('Tidak bisa baca timestamp baris harga Pluang terakhir (dilewati demi hemat kuota)');
+    const ageMin = lastPluangTs ? (Date.now() - new Date(lastPluangTs).getTime()) / 60000 : Infinity;
+
+    if (ageMin < minIntervalMin) {
+      const msg = `dilewati (hemat kuota proxy): harga Pluang terakhir ${Math.round(ageMin)} menit lalu, interval minimum ${minIntervalMin} menit`;
+      console.log('[cron-sync-prices] Emas Pluang', msg);
+      results.goldDigital = { success: true, skipped: true, reason: msg };
+    } else {
+      const target = 'https://pluang.com/en/asset/gold';
+      // SCRAPERAPI_EXTRA_PARAMS (opsional) buat eskalasi kalau proxy biasa masih diblok,
+      // mis. "&premium=true" -- HATI-HATI: makin mahal credit per request.
+      const proxyUrl = `https://api.scraperapi.com/?api_key=${encodeURIComponent(process.env.SCRAPERAPI_KEY)}&url=${encodeURIComponent(target)}${process.env.SCRAPERAPI_EXTRA_PARAMS || ''}`;
+
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 50000);
+      let html;
+      try {
+        const r = await fetch(proxyUrl, { signal: controller.signal });
+        if (!r.ok) throw new Error(`HTTP ${r.status} dari ScraperAPI`);
+        html = await r.text();
+      } catch (e) {
+        throw new Error(e.name === 'AbortError' ? 'ScraperAPI timeout (>50 detik)' : e.message);
+      } finally {
+        clearTimeout(timer);
+      }
+
+      // Harga ada di <title>: "...Global Gold Price: Rp2,398,445/g | Pluang". Cari di title dulu,
+      // baru di seluruh HTML sebagai cadangan. Regex longgar: titik/koma sebagai pemisah ribuan.
+      const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+      const title = titleMatch ? titleMatch[1].trim() : '';
+      const pricePattern = /Rp\s?([\d.,]+)\s?\/\s?g/i;
+      const m = title.match(pricePattern) || html.match(pricePattern);
+      if (!m) {
+        const challenge = /just a moment|attention required|cf-chl|captcha/i.test(html);
+        throw new Error(`Harga tidak ditemukan di halaman Pluang${challenge ? ' (kena halaman tantangan bot/captcha)' : ''}; title="${title.slice(0, 120)}"`);
+      }
+      const hargaPluang = parseInt(m[1].replace(/[^\d]/g, ''), 10);
+      if (!hargaPluang || hargaPluang < 500000 || hargaPluang > 20000000) {
+        throw new Error(`Harga Pluang hasil scrape tidak masuk akal: ${hargaPluang}`);
+      }
+
+      const { error } = await supabaseAdmin.from('asset_prices').insert({
+        asset_name: 'gold_pluang',
+        price: hargaPluang,
+        source: 'pluang-via-scraperapi',
+        raw: { fetched_from: target, title },
+      });
+      if (error) throw error;
+      console.log('[cron-sync-prices] Harga emas Pluang (via ScraperAPI) berhasil disimpan:', hargaPluang);
+      results.goldDigital = { success: true, price: hargaPluang };
+    }
+  } catch (err) {
+    console.error('[cron-sync-prices] Emas Pluang gagal:', err.message);
+    results.goldDigital = { success: false, error: err.message };
+    results.errors.push(`Emas Pluang: ${err.message}`);
   }
 
-  // ===== 1. Emas DIGITAL (dipakai akun Pluang dkk yang sudah ada) — sumber logammulia =====
-  // RIWAYAT: sempat dicoba sumber "treasury" (platform emas digital) supaya beda dari
-  // Logam Mulia fisik, tapi ternyata datanya SALAH SKALA (~Rp1,34jt, padahal harga emas
-  // asli ~Rp2,3-2,5jt/gram -- hampir setengahnya), bikin akun user kelihatan rugi -47%
-  // padahal tidak. Balik ke sumber "logammulia" yang sudah terbukti akurat, sampai ada
-  // sumber emas-digital-spesifik lain yang terverifikasi benar datanya. Sementara ini
-  // 'gold_pluang' dan 'gold_logam_mulia_antam' nyimpen angka yang SAMA PERSIS (satu kali
-  // fetch, dua kali insert) -- redundan secara nilai, tapi sengaja dipertahankan sebagai
-  // 2 baris/asset_name terpisah supaya gampang di-swap lagi nanti kalau ketemu sumber
-  // emas-digital yang akurat, tanpa perlu ubah skema atau RPC yang sudah ada.
+  // ===== 2. Logam Mulia FISIK Antam (jaga-jaga, belum dipakai akun manapun) =====
   try {
-    const { harga, raw } = await fetchLogamMuliaApiPrice('logammulia');
-    const rawPayload = { fetched_from: 'https://logam-mulia-api.iamutaki.workers.dev/api/prices/logammulia', response: raw };
+    const lmRes = await fetch('https://logam-mulia-api.iamutaki.workers.dev/api/prices/logammulia');
+    if (!lmRes.ok) throw new Error(`HTTP ${lmRes.status} dari logam-mulia-api`);
+    const json = await lmRes.json();
+    if (!json.success || !Array.isArray(json.data) || json.data.length === 0) {
+      throw new Error(`Response logam-mulia-api tidak sesuai format: ${JSON.stringify(json).slice(0, 300)}`);
+    }
+    const harga = json.data[0].sellPrice;
+    if (!harga || harga < 100000) throw new Error(`Harga hasil API tidak masuk akal: ${harga}`);
 
-    const { error: errDigital } = await supabaseAdmin.from('asset_prices').insert({
-      asset_name: 'gold_pluang',
-      price: harga,
-      source: 'logam-mulia-api-logammulia',
-      raw: rawPayload,
-    });
-    if (errDigital) throw errDigital;
-    results.goldDigital = { success: true, price: harga };
-
-    const { error: errFisik } = await supabaseAdmin.from('asset_prices').insert({
+    const { error } = await supabaseAdmin.from('asset_prices').insert({
       asset_name: 'gold_logam_mulia_antam',
       price: harga,
       source: 'logam-mulia-api-logammulia',
-      raw: rawPayload,
+      raw: { fetched_from: 'https://logam-mulia-api.iamutaki.workers.dev/api/prices/logammulia', response: json.data[0] },
     });
-    if (errFisik) throw errFisik;
+    if (error) throw error;
+    console.log('[cron-sync-prices] Harga Logam Mulia Antam berhasil disimpan:', harga);
     results.goldLogamMulia = { success: true, price: harga };
-
-    console.log('[cron-sync-prices] Harga emas (logammulia) berhasil disimpan ke gold_pluang & gold_logam_mulia_antam:', harga);
   } catch (err) {
-    console.error('[cron-sync-prices] Emas gagal:', err.message);
-    if (!results.goldDigital) results.goldDigital = { success: false, error: err.message };
-    if (!results.goldLogamMulia) results.goldLogamMulia = { success: false, error: err.message };
-    results.errors.push(`Emas: ${err.message}`);
+    console.error('[cron-sync-prices] Logam Mulia Antam gagal:', err.message);
+    results.goldLogamMulia = { success: false, error: err.message };
+    results.errors.push(`Logam Mulia Antam: ${err.message}`);
   }
 
   // ===== NAV Reksadana Insight Money Syariah — scrape dari Bareksa =====
