@@ -73,12 +73,12 @@ export default async function handler(req, res) {
     const COOLDOWN_MS = 3 * 60 * 1000; // 3 menit
     const { data: lastRow } = await supabaseAdmin
       .from('asset_prices')
-      .select('created_at, updated_at')
+      .select('updated_at')
       .eq('asset_name', 'gold_logam_mulia_antam')
-      .order('created_at', { ascending: false })
+      .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
-    const lastTs = lastRow?.created_at || lastRow?.updated_at;
+    const lastTs = lastRow?.updated_at;
     if (lastTs) {
       const ageMs = Date.now() - new Date(lastTs).getTime();
       if (ageMs < COOLDOWN_MS) {
@@ -115,12 +115,12 @@ export default async function handler(req, res) {
       .select('*')
       .eq('asset_name', 'gold_pluang')
       .eq('source', 'pluang-via-scraperapi')
-      .order('created_at', { ascending: false })
+      .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (lastPluangErr) throw new Error(`Gagal cek riwayat harga Pluang: ${lastPluangErr.message}`);
+    if (lastPluangErr) throw new Error(`Gagal cek riwayat harga Pluang (kolom timestamp asset_prices dipakai: updated_at): ${lastPluangErr.message}`);
 
-    const lastPluangTs = lastPluang ? (lastPluang.created_at || lastPluang.updated_at) : null;
+    const lastPluangTs = lastPluang ? lastPluang.updated_at : null;
     if (lastPluang && !lastPluangTs) throw new Error('Tidak bisa baca timestamp baris harga Pluang terakhir (dilewati demi hemat kuota)');
     const ageMin = lastPluangTs ? (Date.now() - new Date(lastPluangTs).getTime()) / 60000 : Infinity;
 
