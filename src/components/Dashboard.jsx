@@ -1969,7 +1969,13 @@ export default function Dashboard({ user, onLogout }) {
               </div>
               <div style={styles.summaryCard}>
                 <div style={styles.summaryIconRow}><PiggyBank size={14} color="#6FB7E8" /><span style={styles.summaryLabel}>Saving</span></div>
-                <span style={{ ...styles.summaryNumber, color: '#6FB7E8' }}>{formatRupiah(totalSaving)}</span>
+                {/* Angka utama = total MASUK tabungan/aset (gross setor+beli) bulan ini, tidak pernah
+                    minus. Kalau bulan ini tidak ada setoran baru, tampil 0 (bukan minus dari penarikan).
+                    Sisa saldo & Total terpakai SENGAJA tetap pakai totalSaving (netto) -- tidak diubah. */}
+                <span style={{ ...styles.summaryNumber, color: '#6FB7E8' }}>{formatRupiah(savingGrossBuy)}</span>
+                {savingGrossSell > 0 && (
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Penarikan bulan ini: {formatRupiah(savingGrossSell)}</span>
+                )}
               </div>
             </div>
 
