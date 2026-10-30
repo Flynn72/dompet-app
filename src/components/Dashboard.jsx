@@ -1239,12 +1239,14 @@ export default function Dashboard({ user, onLogout }) {
   }, [expenseSpend, expenseCategories, monthTx]);
 
   const ASSET_TYPE_COLOR = { gold: '#F5C95D', mutual_fund: '#7FE8A4', saving: '#6FB7E8', deposit: '#C99FE8' };
+  // Irisan = total SETOR/BELI (gross) per akun bulan ini -- BUKAN netto. Sengaja begitu supaya
+  // jumlah semua irisan = angka header kartu Saving (savingGrossBuy). Penarikan tidak
+  // mengurangi irisan, tapi dijelaskan lewat catatan "Penarikan bulan ini" di bawah header.
   const savingPieData = useMemo(() => {
     const byAccount = {};
-    monthAssetTx.forEach((t) => {
-      const net = t.amount * (isOutflowAction(t.action) ? -1 : 1);
+    monthAssetTx.filter((t) => !isOutflowAction(t.action)).forEach((t) => {
       if (!byAccount[t.accountName]) byAccount[t.accountName] = { name: t.accountName, value: 0, color: ASSET_TYPE_COLOR[t.accountType] || '#8A8A8A' };
-      byAccount[t.accountName].value += net;
+      byAccount[t.accountName].value += t.amount;
     });
     return Object.values(byAccount).filter((a) => a.value > 0);
   }, [monthAssetTx]);
@@ -1995,7 +1997,7 @@ export default function Dashboard({ user, onLogout }) {
                 // bukan berarti "tidak ada aktivitas". Jadi gate kosongnya beda dari Income/Expense:
                 // cek ada gross buy/sell dulu, baru dianggap benar-benar kosong.
                 const hasActivity = section.isSaving ? (savingGrossBuy > 0 || savingGrossSell > 0) : section.total > 0;
-                const canShowPie = section.isSaving ? section.total > 0 && section.data.length > 0 : section.total > 0;
+                const canShowPie = section.isSaving ? section.data.length > 0 : section.total > 0;
                 return (
                 <div key={section.label} style={{ background: chartTheme.bg, border: "1px solid var(--border)", borderRadius: 14, padding: '20px 18px' }}>
                   <div style={styles.sectionHeader}>
@@ -2050,7 +2052,7 @@ export default function Dashboard({ user, onLogout }) {
                     // nggak bisa digambar pie (nggak ada slice positif), jadi tampilkan breakdown teks.
                     <div style={{ padding: '20px 0' }}>
                       <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 10, lineHeight: 1.6 }}>
-                        Bulan ini lebih banyak dana <b>ditarik dari investasi/tabungan</b> (jual aset) daripada yang <b>ditambahkan</b> (beli/setor baru), jadi nggak bisa digambar sebagai pie chart. Rinciannya:
+                        Bulan ini tidak ada <b>setoran/pembelian baru</b>, hanya <b>penarikan dari investasi/tabungan</b> (jual aset), jadi nggak ada yang bisa digambar sebagai pie chart. Rinciannya:
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
