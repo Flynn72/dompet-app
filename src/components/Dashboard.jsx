@@ -1989,7 +1989,7 @@ export default function Dashboard({ user, onLogout }) {
               {[
                 { label: 'Income', color: '#7FE8A4', total: totalIncome, data: totalIncome > 0 ? [{ name: 'Income', value: totalIncome, color: '#7FE8A4' }] : [] },
                 { label: 'Expense', color: '#FF9466', total: totalExpense, data: pieData },
-                { label: 'Saving', color: '#6FB7E8', total: totalSaving, data: savingPieData, isSaving: true },
+                { label: 'Saving', color: '#6FB7E8', total: totalSaving, displayTotal: savingGrossBuy, data: savingPieData, isSaving: true },
               ].map((section) => {
                 // Saving netto BISA negatif (kalau jual aset lebih besar dari beli bulan ini) — itu VALID,
                 // bukan berarti "tidak ada aktivitas". Jadi gate kosongnya beda dari Income/Expense:
@@ -2000,8 +2000,13 @@ export default function Dashboard({ user, onLogout }) {
                 <div key={section.label} style={{ background: chartTheme.bg, border: "1px solid var(--border)", borderRadius: 14, padding: '20px 18px' }}>
                   <div style={styles.sectionHeader}>
                     <span style={styles.sectionTitle}>{section.label}</span>
-                    <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 15, color: section.total < 0 ? '#FF9466' : section.color }}>{formatRupiah(section.total)}</span>
+                    {/* Saving: angka header = total MASUK (gross setor/beli) bulan ini, tidak pernah minus.
+                        `total` (netto) tetap dipakai untuk logika pie/gate di bawah, tidak diubah. */}
+                    <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 15, color: section.displayTotal === undefined && section.total < 0 ? '#FF9466' : section.color }}>{formatRupiah(section.displayTotal !== undefined ? section.displayTotal : section.total)}</span>
                   </div>
+                  {section.isSaving && savingGrossSell > 0 && (
+                    <div style={{ fontSize: 10.5, color: 'var(--text-muted)', textAlign: 'right', marginTop: -8, marginBottom: 10 }}>Penarikan bulan ini: {formatRupiah(savingGrossSell)}</div>
+                  )}
                   {!hasActivity ? (
                     <div style={{ ...styles.emptyHint, padding: '40px 0' }}>Belum ada data {section.label.toLowerCase()} bulan ini.</div>
                   ) : canShowPie ? (
