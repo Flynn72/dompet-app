@@ -158,13 +158,129 @@ function extractDateFromText(rawText) {
   return '';
 }
 
+// ---------------------------------------------------------------------------
+// Persiapan gambar, retry otomatis, dan penjelasan error OCR
+// ---------------------------------------------------------------------------
+// Anggaran piksel gambar yang dikirim ke OCR. Foto kamera HP bisa 12-50 megapiksel dan
+// bikin memori browser HP habis; dibatasi ~3 MP. Sengaja pakai TOTAL PIKSEL (bukan sisi
+// terpanjang) supaya struk panjang & sempit (screenshot 1080x2400 = 2,6 MP) tidak ikut
+// diperkecil dan hurufnya tetap terbaca.
+const MAX_OCR_PIXELS = 3_000_000;
+const OCR_ATTEMPT_TIMEOUT_MS = 120_000; // unduhan komponen OCR pertama kali bisa lama di HP
+const OCR_MAX_ATTEMPTS = 2;             // 1x percobaan awal + 1x ulang otomatis
+
+async function prepareImageForOcr(file) {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const { width, height } = bitmap;
+    if (width * height <= MAX_OCR_PIXELS) {
+      bitmap.close?.();
+      return { input: file, resized: false, width, height };
+    }
+    const scale = Math.sqrt(MAX_OCR_PIXELS / (width * height));
+    const w = Math.round(width * scale);
+    const h = Math.round(height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+    bitmap.close?.();
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) return { input: file, resized: false, width, height };
+    return { input: blob, resized: true, width: w, height: h, originalWidth: width, originalHeight: height };
+  } catch (e) {
+    // Browser tidak bisa decode (mis. format tertentu) -> pakai file aslinya saja
+    return { input: file, resized: false };
+  }
+}
+
+// Satu kali percobaan OCR. `tracker` dicatat terus supaya kalau gagal ketahuan di tahap mana
+// (mengunduh komponen vs membaca gambar). loadTesseract bisa diganti saat testing.
+async function runOcrAttempt(input, onStatus, tracker, loadTesseract = () => import('tesseract.js'), timeoutMs = OCR_ATTEMPT_TIMEOUT_MS) {
+  tracker.stage = 'load';
+  tracker.lastStatus = '';
+  const mod = await loadTesseract();
+  const T = mod.createWorker ? mod : mod.default;
+
+  let worker = null;
+  let aborted = false;
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => { aborted = true; reject(new Error('OCR timeout')); }, timeoutMs);
+  });
+  const job = (async () => {
+    const w = await T.createWorker('eng', 1, {
+      logger: (m) => {
+        const st = m.status || '';
+        if (st) tracker.lastStatus = st;
+        if (st === 'recognizing text' && typeof m.progress === 'number') {
+          tracker.stage = 'recognize';
+          onStatus(`Membaca struk... ${Math.round(m.progress * 100)}%`);
+        } else if (st.startsWith('loading')) {
+          onStatus('Mengunduh komponen OCR (pertama kali bisa agak lama)...');
+        } else if (st.startsWith('initializ')) {
+          onStatus('Menyiapkan mesin OCR...');
+        }
+      },
+    });
+    worker = w;
+    if (aborted) { await w.terminate().catch(() => {}); throw new Error('OCR timeout'); }
+    tracker.stage = 'recognize';
+    const { data } = await w.recognize(input);
+    return data.text || '';
+  })();
+  job.catch(() => {}); // cegah unhandled rejection kalau timeout menang duluan
+
+  try {
+    return await Promise.race([job, timeout]);
+  } finally {
+    clearTimeout(timer);
+    if (worker) { try { await worker.terminate(); } catch (e) { /* abaikan */ } }
+  }
+}
+
+// Coba OCR sampai OCR_MAX_ATTEMPTS kali. Gangguan jaringan sesaat (penyebab paling umum)
+// jadi tidak langsung memunculkan error ke user.
+async function runOcrWithRetry(input, onStatus, tracker, { loadTesseract, timeoutMs, retryDelayMs = 1500 } = {}) {
+  let lastErr;
+  for (let attempt = 1; attempt <= OCR_MAX_ATTEMPTS; attempt++) {
+    tracker.attempt = attempt;
+    try {
+      return await runOcrAttempt(input, onStatus, tracker, loadTesseract, timeoutMs);
+    } catch (err) {
+      lastErr = err;
+      console.warn(`OCR percobaan ${attempt}/${OCR_MAX_ATTEMPTS} gagal:`, err);
+      if (attempt < OCR_MAX_ATTEMPTS) {
+        onStatus('Gagal, mencoba ulang otomatis...');
+        await new Promise((r) => setTimeout(r, retryDelayMs));
+      }
+    }
+  }
+  throw lastErr;
+}
+
+// Pesan error yang spesifik sesuai tahap & jenis kegagalan, bukan satu pesan generik.
+function describeOcrError(err, tracker) {
+  const msg = String((err && err.message) || err || '').toLowerCase();
+  if (msg.includes('timeout')) {
+    return 'Proses membaca struk terlalu lama (kemungkinan koneksi lambat). Coba tekan "Coba lagi", atau isi manual.';
+  }
+  if (/memory|allocation|rangeerror|out of/.test(msg)) {
+    return 'Memori HP tidak cukup untuk memproses gambar ini. Tutup aplikasi lain lalu tekan "Coba lagi", atau gunakan foto yang lebih kecil.';
+  }
+  if (tracker.stage === 'load' || /^(loading|initializ)/.test(tracker.lastStatus || '') || /fetch|network|importscripts|failed to load|load failed/.test(msg)) {
+    return 'Gagal mengunduh komponen OCR. Periksa koneksi internet (atau matikan ad blocker/DNS filter), lalu tekan "Coba lagi".';
+  }
+  return 'Gagal membaca gambar struk. Tekan "Coba lagi"; kalau masih gagal, foto ulang dengan pencahayaan lebih terang atau isi manual.';
+}
+
 export default function ReceiptScannerModal({ onClose, onConfirm }) {
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [status, setStatus] = useState('idle'); // idle | scanning | done | error
-  const [progress, setProgress] = useState(0);
+  const [statusText, setStatusText] = useState('');
   const [rawText, setRawText] = useState('');
   const [showRawText, setShowRawText] = useState(false);
   const [amount, setAmount] = useState('');
@@ -193,26 +309,38 @@ export default function ReceiptScannerModal({ onClose, onConfirm }) {
   async function runScan() {
     if (!imageFile) return;
     setStatus('scanning');
-    setProgress(0);
+    setStatusText('Menyiapkan gambar...');
     setErrorMsg('');
+    const tracker = { stage: 'prepare', lastStatus: '', attempt: 0 };
+    let prepared = { input: imageFile, resized: false };
     try {
-      const Tesseract = await import('tesseract.js');
-      const { data } = await Tesseract.recognize(imageFile, 'eng', {
-        logger: (m) => {
-          if (m.status === 'recognizing text' && typeof m.progress === 'number') {
-            setProgress(Math.round(m.progress * 100));
-          }
-        },
-      });
-      const text = data.text || '';
+      prepared = await prepareImageForOcr(imageFile);
+      const text = await runOcrWithRetry(prepared.input, setStatusText, tracker);
       setRawText(text);
       setAmount(extractAmountFromText(text));
       setDate(extractDateFromText(text));
       setStatus('done');
     } catch (err) {
       console.error('OCR error:', err);
-      Sentry.captureException(err, { tags: { feature: 'receipt-scanner-ocr' } });
-      setErrorMsg('Gagal membaca struk — biasanya ini soal koneksi saat memuat komponen OCR. Coba tekan "Coba lagi" dulu; kalau masih gagal, coba foto ulang dengan pencahayaan lebih terang atau isi manual.');
+      // Konteks tambahan buat diagnosis di Sentry: tahap gagal, status terakhir mesin OCR,
+      // ukuran gambar, dan kondisi jaringan HP.
+      Sentry.captureException(err, {
+        tags: { feature: 'receipt-scanner-ocr', ocr_stage: tracker.stage },
+        extra: {
+          attempts: tracker.attempt,
+          lastStatus: tracker.lastStatus,
+          resized: prepared.resized,
+          width: prepared.width,
+          height: prepared.height,
+          originalWidth: prepared.originalWidth,
+          originalHeight: prepared.originalHeight,
+          fileSizeKB: Math.round((imageFile.size || 0) / 1024),
+          fileType: imageFile.type,
+          online: typeof navigator !== 'undefined' ? navigator.onLine : undefined,
+          connection: typeof navigator !== 'undefined' && navigator.connection ? navigator.connection.effectiveType : undefined,
+        },
+      });
+      setErrorMsg(describeOcrError(err, tracker));
       setStatus('error');
     }
   }
@@ -221,7 +349,7 @@ export default function ReceiptScannerModal({ onClose, onConfirm }) {
     setImageFile(null);
     setImagePreview(null);
     setStatus('idle');
-    setProgress(0);
+    setStatusText('');
     setRawText('');
     setAmount('');
     setDate('');
@@ -285,7 +413,7 @@ export default function ReceiptScannerModal({ onClose, onConfirm }) {
             {status === 'scanning' && (
               <div style={styles.scanningBox}>
                 <Loader2 size={18} className="spin" color="var(--accent)" style={{ animation: 'spin 1s linear infinite' }} />
-                <span>Membaca struk... {progress}%</span>
+                <span>{statusText || 'Membaca struk...'}</span>
               </div>
             )}
 
