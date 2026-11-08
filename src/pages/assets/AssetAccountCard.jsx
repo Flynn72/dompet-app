@@ -11,8 +11,11 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Pajak final atas kupon obligasi (dipakai buat estimasi kupon bersih di kartu Obligasi).
+const BOND_COUPON_TAX = 0.10;
+
 // unitBased = true untuk gold/mutual_fund (punya harga per unit, weighted avg cost)
-// unitBased = false untuk saving/deposit (murni akumulasi kas)
+// unitBased = false untuk saving/deposit/bond (murni akumulasi kas)
 export default function AssetAccountCard({ account, stats, transactions, unitLabel, unitBased, onChanged }) {
   const [expanded, setExpanded] = useState(false);
   const [showForm, setShowForm] = useState(null); // null | 'buy' | 'sell'
@@ -52,6 +55,7 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
 
   const gain = unitBased ? stats.total_gain : null;
   const gainPositive = (gain ?? 0) >= 0;
+  const isBond = account.asset_type === 'bond';
 
   const removeAccount = async () => {
     const hasHistory = transactions.length > 0;
@@ -168,6 +172,33 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
       goalPerluPerBulan = goalSisa / monthsUntilTarget;
     }
   }
+
+  // ---- Estimasi kupon Obligasi (dihitung di sisi app, tanpa RPC) ----
+  // Kupon dianggap tetap dan dibayar tiap bulan dari nominal yang dimiliki. Kalau ada tanggal
+  // jatuh tempo, sisa kupon dihitung dari sisa bulan sampai tanggal itu; kalau cuma ada tenor,
+  // ditampilkan total kupon selama tenor. Sisa bulan dibulatkan ke bawah (hitungan konservatif).
+  let bondEstimate = null;
+  if (isBond && stats.current_value > 0 && account.interest_rate != null && account.interest_rate > 0) {
+    const netPerMonth = ((stats.current_value * account.interest_rate) / 100 / 12) * (1 - BOND_COUPON_TAX);
+    let monthsCount = null;
+    let tenorOnly = false;
+    if (account.maturity_date) {
+      const msLeft = new Date(account.maturity_date + 'T00:00:00').getTime() - Date.now();
+      monthsCount = Math.max(0, Math.floor(msLeft / (1000 * 60 * 60 * 24 * 30.44)));
+    } else if (account.tenor_months != null) {
+      monthsCount = account.tenor_months;
+      tenorOnly = true;
+    }
+    bondEstimate = {
+      netPerMonth,
+      netTotal: monthsCount != null ? netPerMonth * monthsCount : null,
+      monthsCount,
+      tenorOnly,
+    };
+  }
+
+  const buyLabel = unitBased || isBond ? 'Beli' : 'Setor';
+  const sellLabel = unitBased ? 'Jual' : isBond ? 'Cairkan' : 'Tarik';
 
   return (
     <div style={styles.card}>
@@ -286,7 +317,7 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
       {/* --- MODIFIKASI: TAMPILAN NILAI & MODAL --- */}
       <div style={styles.valueRow}>
         <div style={styles.valueLabel}>
-          {unitBased ? 'Total Modal Bersih' : 'Nilai Sekarang'}
+          {unitBased ? 'Total Modal Bersih' : isBond ? 'Nominal Dimiliki' : 'Nilai Sekarang'}
         </div>
         <div style={styles.value}>{formatRupiah(stats.current_value)}</div>
         
@@ -299,6 +330,10 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
 
         {account.asset_type === 'deposit' && (
           <div style={styles.disclaimerText}>*Pokok saja — lihat "Bunga berjalan" & "Estimasi Total" di bawah untuk perkiraan dengan bunga</div>
+        )}
+
+        {isBond && (
+          <div style={styles.disclaimerText}>*Estimasi kupon dihitung dari nominal dengan kupon tetap dan pajak final 10%. Kupon aktual bisa berbeda (mis. kupon mengambang).</div>
         )}
       </div>
 
@@ -358,14 +393,53 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
             </>
           )}
         </div>
+      ) : isBond ? (
+        <div style={styles.metaGrid}>
+          {account.interest_rate != null && (
+            <div>
+              <div style={styles.metaLabel}>Kupon</div>
+              <div style={styles.metaValue}>{account.interest_rate}% / tahun</div>
+            </div>
+          )}
+          {account.tenor_months != null && (
+            <div>
+              <div style={styles.metaLabel}>Tenor</div>
+              <div style={styles.metaValue}>{account.tenor_months} bulan</div>
+            </div>
+          )}
+          {account.maturity_date && (
+            <div>
+              <div style={styles.metaLabel}>Jatuh tempo</div>
+              <div style={styles.metaValue}>
+                {new Date(account.maturity_date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </div>
+            </div>
+          )}
+          {bondEstimate && (
+            <>
+              <div>
+                <div style={styles.metaLabel}>Kupon per bulan (net pajak 10%)</div>
+                <div style={{ ...styles.metaValue, color: '#7FE8A4' }}>+{formatRupiah(bondEstimate.netPerMonth)}</div>
+              </div>
+              {bondEstimate.netTotal != null && (
+                <div>
+                  <div style={styles.metaLabel}>
+                    {bondEstimate.tenorOnly ? 'Total kupon selama tenor (net)' : `Sisa kupon s.d. jatuh tempo (${bondEstimate.monthsCount} bln, net)`}
+                  </div>
+                  <div style={styles.metaValue}>{formatRupiah(bondEstimate.netTotal)}</div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       ) : null}
 
       <div style={styles.actionsRow}>
         <button onClick={() => openForm('buy')} style={{ ...styles.actionBtn, ...styles.actionBtnPrimary }}>
-          <Plus size={14} /> {unitBased ? 'Beli' : 'Setor'}
+          <Plus size={14} /> {buyLabel}
         </button>
         <button onClick={() => openForm('sell')} style={{ ...styles.actionBtn, ...styles.actionBtnSecondary }}>
-          {unitBased ? 'Jual' : 'Tarik'}
+          {sellLabel}
         </button>
       </div>
 
@@ -420,7 +494,7 @@ export default function AssetAccountCard({ account, stats, transactions, unitLab
                 <div key={t.id} style={styles.historyRow}>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={styles.historyAction}>
-                      {t.action === 'buy' ? 'Beli' : t.action === 'sell' ? 'Jual' : t.action === 'deposit' ? 'Setor' : 'Tarik'}
+                      {t.action === 'buy' ? 'Beli' : t.action === 'sell' ? 'Jual' : t.action === 'deposit' ? (isBond ? 'Beli' : 'Setor') : (isBond ? 'Cairkan' : 'Tarik')}
                       {t.note ? ` — ${t.note}` : ''}
                     </div>
                     <div style={styles.historyDate}>
