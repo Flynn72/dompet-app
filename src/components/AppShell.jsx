@@ -7,6 +7,7 @@ import AssetsSaving from '../pages/assets/AssetsSaving';
 import AssetsGold from '../pages/assets/AssetsGold';
 import AssetsMutualFund from '../pages/assets/AssetsMutualFund';
 import AssetsDeposit from '../pages/assets/AssetsDeposit';
+import AssetsBond from '../pages/assets/AssetsBond';
 
 // AppShell = pembungkus routing untuk user yang sudah login (non-admin).
 // Dashboard.jsx TIDAK diubah sama sekali di sini -- tetap dirender persis
@@ -29,6 +30,7 @@ export default function AppShell({ user, onLogout }) {
         <Route path="/aset/emas" element={<AssetsGold user={user} />} />
         <Route path="/aset/reksadana" element={<AssetsMutualFund user={user} />} />
         <Route path="/aset/deposito" element={<AssetsDeposit user={user} />} />
+        <Route path="/aset/obligasi" element={<AssetsBond user={user} />} />
         {/* Fallback: URL tidak dikenal -> balik ke Dashboard */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

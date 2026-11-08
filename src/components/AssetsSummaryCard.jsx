@@ -1,18 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PiggyBank, Coins, TrendingUp, Landmark, ChevronRight } from 'lucide-react';
+import { ChevronRight, Plus } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { INSTRUMENT_ORDER, INSTRUMENT_META, fetchInstrumentTypes } from '../lib/assetInstruments';
 
 function formatRupiah(n) {
   return 'Rp' + Math.round(n || 0).toLocaleString('id-ID');
 }
 
-const TYPE_META = {
-  saving: { label: 'Tabungan', icon: PiggyBank, color: '#6FB7E8', to: '/aset/tabungan' },
-  gold: { label: 'Emas', icon: Coins, color: '#F5C95D', to: '/aset/emas' },
-  mutual_fund: { label: 'Reksa Dana', icon: TrendingUp, color: '#7FE8A4', to: '/aset/reksadana' },
-  deposit: { label: 'Deposito', icon: Landmark, color: '#C99FE8', to: '/aset/deposito' },
-};
+// Metadata 5 instrumen dibagi dengan halaman Aset -- lihat src/lib/assetInstruments.js.
+const TYPE_META = INSTRUMENT_META;
 
 export default function AssetsSummaryCard() {
   const navigate = useNavigate();
@@ -22,6 +19,10 @@ export default function AssetsSummaryCard() {
   const [marketByType, setMarketByType] = useState({});
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  // Aturan tampil sama dengan halaman Aset: instrumen tampil kalau sudah ditambahkan user
+  // (tabel asset_instruments) ATAU sudah punya minimal 1 akun aktif.
+  const [instrumentTypes, setInstrumentTypes] = useState([]);
+  const [accountCountByType, setAccountCountByType] = useState({});
 
   useEffect(() => {
     let mounted = true;
@@ -36,9 +37,9 @@ export default function AssetsSummaryCard() {
 
       if (!mounted) return;
 
-      let summary = { saving: 0, gold: 0, mutual_fund: 0, deposit: 0 };
+      let summary = { saving: 0, gold: 0, mutual_fund: 0, deposit: 0, bond: 0 };
       let grandTotal = 0;
-      let marketSummary = { saving: 0, gold: 0, mutual_fund: 0, deposit: 0 };
+      let marketSummary = { saving: 0, gold: 0, mutual_fund: 0, deposit: 0, bond: 0 };
 
       if (accounts && txs) {
         // Mapping ID akun ke jenis asetnya agar tidak tertukar
@@ -58,9 +59,9 @@ export default function AssetsSummaryCard() {
             const amt = Number(tx.amount || 0);
 
             if (action === 'buy' || action === 'deposit') {
-              summary[assetType] += amt;
+              summary[assetType] = (summary[assetType] || 0) + amt;
             } else if (action === 'sell' || action === 'withdraw') {
-              summary[assetType] -= amt;
+              summary[assetType] = (summary[assetType] || 0) - amt;
             }
           }
         });
@@ -75,13 +76,29 @@ export default function AssetsSummaryCard() {
         });
       }
 
+      const counts = {};
+      (accounts || []).forEach((acc) => {
+        if (acc.is_active !== false) counts[acc.asset_type] = (counts[acc.asset_type] || 0) + 1;
+      });
+      let instruments = [];
+      try {
+        instruments = await fetchInstrumentTypes();
+      } catch (e) {
+        console.warn('Gagal baca asset_instruments (tabel belum dibuat?):', e);
+      }
+      if (!mounted) return;
+
       setMarketByType(marketSummary);
       setTotal(grandTotal);
+      setAccountCountByType(counts);
+      setInstrumentTypes(instruments);
       setLoading(false);
     })();
 
     return () => { mounted = false; };
   }, []);
+
+  const visibleTypes = INSTRUMENT_ORDER.filter((t) => instrumentTypes.includes(t) || (accountCountByType[t] || 0) > 0);
 
   return (
     <div style={styles.card}>
@@ -94,16 +111,26 @@ export default function AssetsSummaryCard() {
       </button>
 
       <div style={styles.list}>
-        {Object.entries(TYPE_META).map(([type, meta]) => (
-          <button key={type} onClick={() => navigate(meta.to)} style={styles.row}>
-            <div style={{ ...styles.iconWrap, background: `${meta.color}22`, color: meta.color }}>
-              <meta.icon size={15} />
-            </div>
-            <div style={styles.rowLabel}>{meta.label}</div>
-            {/* Nilai pasar sekarang (bukan modal) */}
-            <div style={styles.rowValue}>{loading ? '...' : formatRupiah(marketByType[type] || 0)}</div>
-          </button>
-        ))}
+        {!loading && visibleTypes.length === 0 && (
+          <div style={styles.emptyText}>Belum ada instrumen aset.</div>
+        )}
+        {visibleTypes.map((type) => {
+          const meta = TYPE_META[type];
+          return (
+            <button key={type} onClick={() => navigate(meta.to)} style={styles.row}>
+              <div style={{ ...styles.iconWrap, background: `${meta.color}22`, color: meta.color }}>
+                <meta.icon size={15} />
+              </div>
+              <div style={styles.rowLabel}>{meta.label}</div>
+              {/* Nilai pasar sekarang (bukan modal) */}
+              <div style={styles.rowValue}>{loading ? '...' : formatRupiah(marketByType[type] || 0)}</div>
+            </button>
+          );
+        })}
+        {/* Buka halaman Aset dengan pilihan "Tambah instrumen" langsung terbuka */}
+        <button onClick={() => navigate('/aset', { state: { openPicker: true } })} style={styles.addRow}>
+          <Plus size={14} /> Tambah instrumen
+        </button>
       </div>
     </div>
   );
@@ -125,4 +152,6 @@ const styles = {
   iconWrap: { width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   rowLabel: { flex: 1, fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)' },
   rowValue: { fontSize: 12.5, fontWeight: 600, color: 'var(--text-secondary)' },
+  emptyText: { padding: '14px 16px', fontSize: 12, color: 'var(--text-muted)', borderBottom: '1px solid #1A201B' },
+  addRow: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '11px 16px', background: 'transparent', border: 'none', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%' },
 };
